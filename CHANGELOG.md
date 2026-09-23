@@ -14,6 +14,11 @@ each change -- what was measured, and what it overturned -- is in
   The signing key is never in the repository; builds without it come out
   unsigned rather than debug-signed.
 
+### Changed
+- **Next.js 16** (from 15) and **React 19.3**, with the other minor and patch
+  updates Dependabot grouped. Nothing visible changes; after pulling, run
+  `npm install` and rebuild.
+
 ### Fixed
 - **The daily trend line** is one continuous line again: a day with no
   recording dips to zero instead of breaking the line. The tooltip still

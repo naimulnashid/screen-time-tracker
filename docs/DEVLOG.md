@@ -6,6 +6,30 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Next.js 16 and React 19.3, from the first Dependabot PRs
+
+- **Three PRs arrived with the first Dependabot run.** The minor/patch group
+  (React 19.3, tsx 4.23, type packages) and Next 16 passed CI and are
+  applied. TypeScript 7 failed CI and is declined, with its major versions
+  now ignored in `dependabot.yml`.
+- **Applied as commits authored here, not merged**, so master keeps one
+  author. Next resolved to 16.3.6, a patch newer than the PR's 16.3.5.
+- **Next 16 was A/B tested against Next 15** before it landed: both builds of
+  the same commit served the synthetic demo on scratch ports. All eight
+  device pages, the legacy redirects (keeping `?days=7`), sign-in, the
+  cross-origin refusal, the security headers and the logo sandbox matched.
+- **Two things differ, both handled.** The build rewrites `tsconfig.json`
+  (`jsx: react-jsx`, plus `.next/dev/types`), so both values are now
+  committed. And it warns that the `middleware` file convention is
+  deprecated for `proxy`. The gate still runs; the rename is left for later.
+- **Found while testing, and older than this change:** on a fresh production
+  build, the login form rewritten in place over a dashboard URL is sent with
+  `cache-control: s-maxage=31536000`, not the middleware's `no-store`.
+  Because `/login` is prerendered as static, Next's own header replaces the
+  middleware's. Next 15 does the same, and the long-running live server
+  happened to send `no-store`, which is how this went unseen. A wrong device
+  slug also renders the not-found page with status 200 on both versions.
+
 ### A signed release APK, published on GitHub Releases
 
 - **The phone app now has a real release signing key**, and the APK is

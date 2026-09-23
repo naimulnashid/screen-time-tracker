@@ -552,7 +552,21 @@ resolve it in the body.**
 
 Matches the sibling deliberately, so the two projects stay legible together.
 
-- **Next.js 15** (App Router) + **React 19** + **TypeScript**
+- **Next.js 16** (App Router, Turbopack builds) + **React 19** + **TypeScript 5**
+  - Moved from 15 on 2026-09-23, A/B tested against a Next 15 build of the
+    same commit: every page, the auth rewrite, the headers and the redirects
+    behaved identically. `src/middleware.ts` keeps its name and still works;
+    Next 16 calls that convention deprecated in favour of `proxy.ts`, and the
+    build says so. Renaming it is a separate change.
+  - **`next build` rewrites `tsconfig.json`** if `jsx` is not `react-jsx` or
+    `.next/dev/types/**/*.ts` is missing from `include`, and reformats every
+    array while it is there. Both values are now in the file, so it is left
+    alone.
+  - **TypeScript stays on 5.** Dependabot ignores its major versions:
+    TypeScript 7 failed CI on 2026-09-23 (it rejects the untyped
+    `import './globals.css'`), and `next build` type-checks through the
+    compiler's JS API, which 7 may not provide yet. Move by hand, together
+    with Next.
 - **Recharts** for charts, **Geist** for type
 - **`node:sqlite`** — Node's *built-in* SQLite. **Not `better-sqlite3`.** A
   native module with a node-gyp build step is the most likely thing to break on

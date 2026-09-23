@@ -648,3 +648,12 @@ phone app now has a release key, kept with the other secrets and covered by
 the kit and the drill, and the signed APK is attached to a v1.0.0 Release.
 Phones running the old debug build must uninstall it before installing the
 release, because the signatures differ.
+
+### 2026-09-23 - Next.js 16, from the first Dependabot run
+
+Dependabot opened three PRs. The minor/patch group and Next 16 are applied,
+after Next 16 matched a Next 15 build of the same commit page for page on
+scratch servers. TypeScript 7 failed CI and is declined; its major versions
+are now ignored until Next supports it. The testing found that the login form
+served over a dashboard URL is not reliably `no-store`, an older bug on both
+versions. That is left as a separate fix.
