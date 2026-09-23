@@ -653,12 +653,31 @@ other local dashboards (7843 is the sibling Data Usage Tracker, 7845 is the
 Internet Speed Meter). The demo went to 7849 after 7845 turned out to be
 taken. Check with `Get-NetTCPConnection -State Listen` before picking a port.
 
-**The README's screenshots are of the DEMO**, never of real data. To redo
-them: seed, build and serve a scratch copy (never build over the live
+**The README's screenshots are of the DEMO**, never of real data: "My
+Laptop" and "My Phone", generic apps, and brand colours from the demo's own
+`app-colours.json` (bars are coloured by name even with no logo files). To
+redo them: seed, build and serve a scratch copy (never build over the live
 `.next`), mint a session cookie with `issueSession()` and the scratch
 server's throwaway password, and capture with headless Edge over the
-DevTools protocol, with reduced motion emulated so the count-ups render
-their final values.
+DevTools protocol. `docs/screenshots/` holds three one-screen hero shots, and
+`tour/` holds a full-page shot of every page, taken by growing the viewport to
+`scrollHeight`, not by stitching. Three traps, all hit on 2026-09-23:
+
+- **A fixed sleep is not a wait.** On a slow render the old document was still
+  up, so three different pages came out the same height, measured from the
+  previous page. Wait for the target URL and `readyState`, then for the height
+  to stop changing.
+- **Cards fade in on a staggered DELAY that reduced motion does not remove**,
+  and a headless or background tab throttles animations. So shots caught cards
+  at opacity 0. Inject `animation: none` for the capture, and bring the page to
+  the front with focus emulated. The site itself is fine.
+- **The demo must look like a real phone.** Packing app sessions edge to edge
+  made the Overview say apps covered 0.97x of screen-on, contradicting the
+  measured 0.76x the README quotes. The seeder now leaves lock-screen and
+  between-app time unclaimed (~0.75x). The Sync page needs a heartbeat under
+  a minute old to read "Running", so the capture writes one just before that
+  shot. `npm run demo:seed` refuses, with nothing deleted, while `npm run
+  demo` holds the folder.
 
 The Windows probe, from an **Administrator** shell. Absolute path on purpose:
 the relative form only works from the repo root, and running it from inside

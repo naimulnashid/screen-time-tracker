@@ -76,6 +76,7 @@ android-capture/
 
 # npm run demo:seed -- synthetic data, rebuilt on demand
 demo/
+demo.old-*/
 
 # scratch space used by the collector between snapshot and ingest
 temp/

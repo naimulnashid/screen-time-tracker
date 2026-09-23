@@ -22,7 +22,65 @@ reset.**
 
 | By App | A phone |
 |---|---|
-| ![Top apps ranked by time, as horizontal bars](docs/screenshots/laptop-by-app.png) | ![A phone's Overview: screen time and unlocks, with a daily trend](docs/screenshots/phone-overview.png) |
+| ![Top apps ranked by time, as horizontal bars in each app's brand colour](docs/screenshots/laptop-by-app.png) | ![A phone's Overview: screen time and unlocks, with a daily trend](docs/screenshots/phone-overview.png) |
+
+## A tour of every page
+
+Full-page screenshots, top to bottom. Click a page to open it.
+
+**The laptop**
+
+<details><summary>Overview: today, the daily trend, a six-month heat map, the shape of the day, and where every minute went</summary>
+
+![The laptop's Overview, full page](docs/screenshots/tour/laptop-1-overview.png)
+</details>
+
+<details><summary>By App: ranked by time and by opens, in each app's brand colour, above the full app table</summary>
+
+![The laptop's By App page, full page](docs/screenshots/tour/laptop-2-by-app.png)
+</details>
+
+<details><summary>App detail: one app's total, opens, typical session and longest session, per day and per hour</summary>
+
+![An app's detail page on the laptop, full page](docs/screenshots/tour/laptop-3-app-detail.png)
+</details>
+
+<details><summary>Activity: the heat map, expanded to every recorded day</summary>
+
+![The laptop's Activity page](docs/screenshots/tour/laptop-4-activity.png)
+</details>
+
+<details><summary>Sync Status: whether the sampler is running, what is stored, and every ingest run</summary>
+
+![The laptop's Sync Status page, full page](docs/screenshots/tour/laptop-5-sync.png)
+</details>
+
+**A phone**
+
+<details><summary>Overview: screen-on time and unlocks, the trend, the heat map, and how much of it any app accounts for</summary>
+
+![The phone's Overview, full page](docs/screenshots/tour/phone-1-overview.png)
+</details>
+
+<details><summary>By App: ranked by time and by opens, above every app the phone reported</summary>
+
+![The phone's By App page, full page](docs/screenshots/tour/phone-2-by-app.png)
+</details>
+
+<details><summary>App detail: one app, per day and per hour</summary>
+
+![An app's detail page on the phone, full page](docs/screenshots/tour/phone-3-app-detail.png)
+</details>
+
+<details><summary>Activity: the phone's heat map, expanded</summary>
+
+![The phone's Activity page](docs/screenshots/tour/phone-4-activity.png)
+</details>
+
+<details><summary>Sync Status: how far back Android's history reaches, and every push from the phone</summary>
+
+![The phone's Sync Status page, full page](docs/screenshots/tour/phone-5-sync.png)
+</details>
 
 ## How it works
 

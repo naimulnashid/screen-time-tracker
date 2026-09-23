@@ -30,7 +30,7 @@ than shared when two devices show the same app:
 ```
 apps_logo/
   My Laptop/        the Windows machine, named as the sidebar shows it
-  pixel-8/          a phone, by its label or slug
+  my-phone/         a phone, by its label or slug
   another-phone/
 ```
 

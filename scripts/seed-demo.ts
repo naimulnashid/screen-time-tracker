@@ -17,7 +17,7 @@
  * throwaway data, and the guard exists to protect history that is not.
  */
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { openDatabase, startSyncRun, finishSyncRun } from '../src/lib/db';
 import { SEGMENT_INSERT_SQL, segmentRows, type Span } from '../src/lib/windows-ingest';
@@ -114,8 +114,8 @@ const PHONE_APPS: [string, string, number][] = [
   ['com.google.android.gm', 'Gmail', 6],
   ['com.duolingo', 'Duolingo', 4],
   ['com.google.android.calendar', 'Calendar', 3],
-  ['com.google.android.GoogleCamera', 'Camera', 3],
-  ['com.google.android.apps.nexuslauncher', 'Pixel Launcher', 5],
+  ['com.android.camera2', 'Camera', 3],
+  ['com.android.launcher3', 'Launcher', 5],
 ];
 
 function phoneDay(start: number, sessions: AndroidPayload['sessions'], screen: AndroidPayload['screen']) {
@@ -133,20 +133,56 @@ function phoneDay(start: number, sessions: AndroidPayload['sessions'], screen: A
     free = on + length + 8_000;
     screen!.push({ kind: 'screen_on', start: Math.round(on), end: Math.round(on + length + 8_000) });
     screen!.push({ kind: 'unlocked', start: Math.round(on + 3_000), end: Math.round(on + length + 8_000) });
-    let t = on + 3_000;
-    const end = on + length;
+    // Apps do NOT fill a pick-up. The lock screen, the gaps between apps and
+    // the last moments before the screen goes off belong to no app -- measured
+    // on a real phone, apps account for about 0.76x of screen-on time -- so the
+    // demo leaves that time unclaimed rather than packing sessions edge to edge.
+    let t = on + between(4, 20) * 1000;
+    const end = on + length * between(0.72, 0.9);
     while (t < end) {
       const pkg = pick(PHONE_APPS.map(([p, , w]) => [p, w] as [string, number]));
       const next = Math.min(end, t + between(0.2, 12) * MIN);
       sessions!.push({ packageName: pkg, start: Math.round(t), end: Math.round(next) });
-      t = next + between(1, 6) * 1000;
+      t = next + between(4, 25) * 1000;
     }
   }
 }
 
+/* ------------------------------------------------------ brand colours */
+
+// The demo's own config/app-colours.json, so its ranked charts draw brand
+// colours the way a real installation's do. Keyed by the app's display name:
+// with no logo file, `logoIdentity()` falls back to `logoKey(name)`. Camera and
+// Launcher are left out on purpose -- they show the device-accent fallback.
+const DEMO_COLOURS: Record<string, string> = {
+  // laptop
+  vscode: '#0065a9', googlechrome: '#fcd209', windowsterminal: '#ececf1',
+  spotify: '#1ed760', fileexplorer: '#ffc928', discord: '#5865f2',
+  word: '#1146ac', firefox: '#ff7139', notepad: '#43afcf', vlc: '#f48200',
+  // phone
+  youtube: '#ff0033', whatsapp: '#23b33a', chrome: '#fcd209', telegram: '#1d93d2',
+  maps: '#34a853', gmail: '#ea4335', duolingo: '#58cc02', calendar: '#4797ff',
+};
+
 /* -------------------------------------------------------------- write */
 
-rmSync(OUT, { recursive: true, force: true });
+// Rename first, then delete. Windows will not remove a folder a running
+// process is using -- and `npm run demo` runs with demo/ as its working
+// directory -- but rmSync deletes the files INSIDE before failing on the
+// folder itself, which would take the running demo's database with it. A
+// rename of a busy folder fails with nothing touched.
+const doomed = `${OUT}.old-${process.pid}`;
+try {
+  renameSync(OUT, doomed);
+} catch (err) {
+  const code = (err as { code?: string }).code;
+  if (code === 'EPERM' || code === 'EBUSY') {
+    console.error(`${OUT} is in use -- stop \`npm run demo\` first, then seed again.`);
+    process.exit(1);
+  }
+  if (code !== 'ENOENT') throw err;
+}
+rmSync(doomed, { recursive: true, force: true });
 mkdirSync(join(OUT, 'config'), { recursive: true });
 mkdirSync(join(OUT, 'sampler'), { recursive: true });
 const dbPath = join(OUT, 'demo.db');
@@ -159,6 +195,11 @@ writeFileSync(join(OUT, 'config', 'collector.json'), JSON.stringify({
   scratchDir: join(OUT, 'scratch'),
   samplerLogDir: join(OUT, 'sampler'),
   backupEnabled: false,
+}, null, 2));
+
+writeFileSync(join(OUT, 'config', 'app-colours.json'), JSON.stringify({
+  $schema_note: 'DEMO -- brand colours for the demo apps. See config/app-colours.example.json.',
+  colours: DEMO_COLOURS,
 }, null, 2));
 
 const db = openDatabase(dbPath, { allowSystemDrive: true });
@@ -191,7 +232,8 @@ try {
   const past = <T extends { end: number }>(rows: T[]) => rows.filter((r) => r.end <= now);
   const result = ingestAndroid(db, {
     device: {
-      deviceId: 'demo-pixel-8', label: 'Pixel 8', brand: 'Google', model: 'Pixel 8',
+      // Generic on purpose, like "My Laptop": the demo names no real device.
+      deviceId: 'demo-phone', label: 'My Phone',
       androidRelease: '15', sdkInt: 35, eventsReachUtc: new Date(now - 10 * 24 * HOUR).toISOString(),
     },
     tzOffsetMinutes: -new Date().getTimezoneOffset(),
@@ -201,15 +243,24 @@ try {
     apps: PHONE_APPS.map(([packageName, label]) => ({ packageName, label, isSystem: false })),
   });
 
-  // A few collection runs, so the Sync pages have a history to show.
-  for (const [device, source] of [['zephyrus', 'win-sampler'], ['demo-pixel-8', 'android-events']] as const) {
-    for (let i = 0; i < 6; i++) {
+  // A run history on each collector's real cadence -- the laptop's ingest
+  // hourly, the phone every six hours -- so the Sync pages read like a live
+  // installation rather than twelve runs stamped the same minute.
+  // startSyncRun() stamps "now", so each run is backdated afterwards.
+  const backdate = db.prepare('UPDATE sync_log SET started_at = ?, finished_at = ? WHERE id = ?');
+  const cadence = [['zephyrus', 'win-sampler', 1, 10], ['demo-phone', 'android-events', 6, 8]] as const;
+  for (const [device, source, everyHours, runs] of cadence) {
+    for (let i = runs - 1; i >= 0; i--) {
+      const at = now - (i * everyHours + between(0.05, 0.3)) * HOUR;
+      const took = Math.round(between(120, 900));
+      const stored = Math.round(source === 'win-sampler' ? between(20, 90) : between(300, 900));
       const id = startSyncRun(db, device, source);
       finishSyncRun(db, id, {
-        status: 'success', rowsRead: 40 + i, rowsInserted: 40 + i, rowsSkipped: 0,
-        sourceOldestUtc: null, sourceNewestUtc: new Date(now - i * 6 * HOUR).toISOString(),
-        backupStatus: null, durationMs: 180 + i * 20, error: null,
+        status: 'success', rowsRead: stored, rowsInserted: stored, rowsSkipped: 0,
+        sourceOldestUtc: null, sourceNewestUtc: new Date(at).toISOString(),
+        backupStatus: 'ok', durationMs: took, error: null,
       });
+      backdate.run(new Date(at).toISOString(), new Date(at + took).toISOString(), id);
     }
   }
 

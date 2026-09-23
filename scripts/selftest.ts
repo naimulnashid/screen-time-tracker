@@ -1181,7 +1181,7 @@ check('protocol-relative is refused', safeNextPath('//evil.example'), null);
 check('absolute URL is refused', safeNextPath('https://evil.example/'), null);
 check('javascript: is refused', safeNextPath('javascript:alert(1)'), null);
 check('empty is refused', safeNextPath(''), null);
-check('a real page passes, query intact', safeNextPath('/android/pixel-8/apps?days=7'), '/android/pixel-8/apps?days=7');
+check('a real page passes, query intact', safeNextPath('/android/my-phone/apps?days=7'), '/android/my-phone/apps?days=7');
 check('an encoded app key survives', safeNextPath('/windows/x/apps/exe%3Avlc'), '/windows/x/apps/exe%3Avlc');
 
 /* ------------------------------------------------------------------ */
@@ -1254,7 +1254,7 @@ section('session cookie');
 /* ------------------------------------------------------------------ */
 section('phone payload limits');
 {
-  const ok = { device: { deviceId: 'abc', label: 'Pixel 8' }, tzOffsetMinutes: 360 };
+  const ok = { device: { deviceId: 'abc', label: 'My Phone' }, tzOffsetMinutes: 360 };
   check('a minimal payload is fine', payloadProblem(ok), null);
   check('the reachability probe is a 400', payloadProblem({})?.status, 400);
   check('a non-object is a 400', payloadProblem('x')?.status, 400);

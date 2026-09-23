@@ -6,6 +6,27 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Screenshots: every page, full length, in brand colours, with no device names
+
+- **The demo phone is "My Phone"**, like "My Laptop". Its Pixel-specific apps
+  became generic ones (Launcher, Camera).
+- **Bars are in brand colours.** The seeder writes the demo's own
+  config/app-colours.json. With no logo files, colours are keyed by app
+  name, and Camera and Launcher are left out to show the accent fallback.
+- **A tour of every page**, full length, in collapsible sections in the README:
+  Overview, By App, app detail, Activity and Sync Status for both devices.
+- **The demo now looks like a real installation.** Apps cover 0.75x of
+  screen-on time (it was 0.97x, contradicting the 0.76x the README quotes).
+  Sync runs are backdated onto the real cadence, not all stamped one minute.
+  The capture writes a fresh heartbeat so the Sync page shows a running
+  sampler.
+- **npm run demo:seed renames before deleting**, so seeding while the demo
+  runs fails cleanly with a message. rmSync would have deleted the running
+  demo's database before failing on the busy folder.
+- The capture waits for real readiness and disables animations. A fixed sleep
+  plus throttled fade-in delays had produced half-empty pages. The social
+  preview was re-rendered from the new shots.
+
 ### A social preview image
 
 `docs/social-preview.png` (1280x640, 149 KB) is the card GitHub shows when the
