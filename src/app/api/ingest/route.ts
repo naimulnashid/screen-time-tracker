@@ -5,7 +5,7 @@
  * appends a `sync_log` row, so it must not be reachable by a link, a prefetch
  * or a browser that decided to warm a URL.
  *
- * Auth comes from the middleware, which covers everything except `/login` and
+ * Auth comes from the proxy, which covers everything except `/login` and
  * the phone's own bearer-token route. There is no extra check here on purpose:
  * a second, different rule is a second thing to get wrong.
  *

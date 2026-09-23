@@ -169,7 +169,7 @@ if ($needsBuild) {
 
 # --- Serve -------------------------------------------------------------
 # `next start` binds every interface, which is deliberate: the phone posts to
-# this machine's LAN address. The password gate in middleware.ts is what makes
+# this machine's LAN address. The password gate in proxy.ts is what makes
 # that acceptable, and it fails closed.
 Write-Log "serving on port $Port"
 $prev = $ErrorActionPreference

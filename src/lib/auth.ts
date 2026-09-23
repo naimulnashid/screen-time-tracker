@@ -6,9 +6,11 @@
  * person looked at and when. That is worth a lock, and arguably a stronger one
  * than the sibling project's, which only knows how many bytes moved.
  *
- * Deliberately Web Crypto only, no `node:crypto` import: this module is pulled
- * into `middleware.ts`, which Next runs on the Edge runtime where the Node
- * built-ins do not exist. Adding a `node:` import here breaks the build.
+ * Deliberately Web Crypto only, no `node:crypto` import. It was written for
+ * `middleware.ts` on the Edge runtime, where the Node built-ins do not exist.
+ * Since Next 16 the gate is `proxy.ts`, which runs on Node, so a `node:`
+ * import would no longer break the build -- but Web Crypto is available in
+ * both, and staying on it keeps the module portable at no cost.
  *
  * The session cookie is `<expiry-ms>.<HMAC-SHA256(expiry-ms)>`, keyed by a
  * PBKDF2 derivation of the password (see `sessionKey`). Keying off the

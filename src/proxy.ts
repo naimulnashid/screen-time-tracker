@@ -8,6 +8,11 @@ import { safeNextPath } from '@/lib/safe-next';
  * One gate in front of everything. Enforcing this here rather than per-page is
  * the whole point: a new route cannot forget to protect itself.
  *
+ * This was `middleware.ts` until Next 16, which renamed the convention to
+ * `proxy.ts` (and the export to `proxy`) and runs it on Node rather than Edge.
+ * A file still named middleware.ts keeps working with a deprecation warning,
+ * so the rename is housekeeping, not a behaviour change.
+ *
  * The matcher lets Next's own static assets and the favicon through. Browsers
  * fetch `icon.svg` before any session exists, and gating it only makes the
  * login page render with a broken image -- it is a logo, it leaks nothing.
@@ -58,7 +63,7 @@ function isCrossOriginWrite(request: NextRequest): boolean {
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isCrossOriginWrite(request)) {
@@ -70,7 +75,7 @@ export async function middleware(request: NextRequest) {
   // The phone has no browser session and never will. `/api/android/ingest`
   // authenticates with its own bearer token, which is STRICTER than this gate,
   // not exempt from it: the route fails closed on an unset token exactly as
-  // this middleware does on an unset password. Kept to that one exact path so
+  // this gate does on an unset password. Kept to that one exact path so
   // adding a route under /api/android/ cannot accidentally inherit the bypass.
   if (pathname === '/api/android/ingest') return NextResponse.next();
 

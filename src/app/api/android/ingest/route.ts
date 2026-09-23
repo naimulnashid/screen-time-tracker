@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Where the phone pushes.
  *
- * `middleware.ts` lets this exact path through its session gate. That is not
+ * `proxy.ts` lets this exact path through its session gate. That is not
  * an exemption -- the check below is STRICTER, since the phone has no browser
  * session and never will -- and it is scoped to this one path so a future
  * route under /api/android/ cannot inherit the bypass.

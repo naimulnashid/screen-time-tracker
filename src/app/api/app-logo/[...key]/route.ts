@@ -17,7 +17,7 @@
  * there are two independent reasons a `../` cannot get through -- but the
  * lookup is the one being relied on.
  *
- * The auth middleware covers this path like everything else; only
+ * The auth proxy covers this path like everything else; only
  * `/api/android/ingest` and the login pair are exempt.
  */
 

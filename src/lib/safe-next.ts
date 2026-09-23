@@ -14,7 +14,7 @@
  * origin and accept the result only if it is still on that origin. Backslashes
  * are refused outright as well, since no path this dashboard generates has one.
  *
- * Pure and dependency-free: it runs in the Edge middleware, in the browser on
+ * Pure and dependency-free: it runs in the proxy (the auth gate), in the browser on
  * the login page, and in the self-test.
  */
 export function safeNextPath(next: string | null | undefined): string | null {
