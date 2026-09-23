@@ -485,7 +485,10 @@ export function getAndroidDevices(): { slug: string; label: string }[] {
   try {
     return withDb((db) => {
       const rows = db
-        .prepare('SELECT slug, label FROM android_devices ORDER BY label')
+        // In the order the phones first reported, so a new phone joins the
+        // END of the sidebar instead of shuffling the others. Alphabetical
+        // put "Redmi 5 Plus" above "Redmi Note 9 Pro", which was added first.
+        .prepare('SELECT slug, label FROM android_devices ORDER BY first_seen_utc, label')
         .all() as { slug: string; label: string }[];
       return rows.map((r) => ({ slug: String(r.slug), label: String(r.label) }));
     });
