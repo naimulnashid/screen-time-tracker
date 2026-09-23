@@ -3,6 +3,7 @@ package com.naimul.screentime
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
@@ -273,7 +274,8 @@ class MainActivity : Activity() {
     private fun heading(text: String) = TextView(this).apply {
         this.text = text
         // Announced as a heading, so TalkBack's heading navigation finds it.
-        isAccessibilityHeading = true
+        // API 28; on 8.x the text is simply read as text.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isAccessibilityHeading = true
         textSize = 22f
         setTextColor(Color.WHITE)
         setPadding(0, 0, 0, 8)

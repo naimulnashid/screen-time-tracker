@@ -1,10 +1,12 @@
 package com.naimul.screentime
 
+import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.os.Build
 
 /**
  * Reading screen time out of Android.
@@ -141,10 +143,18 @@ class UsageReader(private val context: Context) {
      * present, so a session can otherwise stay open across a power cycle and
      * be clipped to `now` hours later -- inventing screen time that looks
      * entirely plausible.
+     *
+     * Below API 29 there is no DEVICE_SHUTDOWN at all, so that guard is gone
+     * too. But below 29 only ONE activity can be resumed at a time -- multi-
+     * resume arrived with 29 -- so a package coming to the foreground means
+     * every other one has left it, and closing them there bounds a missed
+     * close at the next app switch instead of at `now`. Not applied on 29+,
+     * where split-screen apps are genuinely resumed together.
      */
     private fun buildSessions(events: List<Ev>, now: Long): List<Session> {
         val open = HashMap<String, Long>()
         val out = ArrayList<Session>()
+        val singleResume = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
 
         fun close(pkg: String, at: Long) {
             val start = open.remove(pkg) ?: return
@@ -153,7 +163,11 @@ class UsageReader(private val context: Context) {
 
         for (ev in events) {
             when (ev.type) {
-                UsageEvents.Event.ACTIVITY_RESUMED -> ev.pkg?.let { open[it] = ev.time }
+                // MOVE_TO_FOREGROUND below 29: the same constant, renamed.
+                UsageEvents.Event.ACTIVITY_RESUMED -> ev.pkg?.let { pkg ->
+                    if (singleResume) for (other in open.keys.toList()) if (other != pkg) close(other, ev.time)
+                    open[pkg] = ev.time
+                }
                 UsageEvents.Event.ACTIVITY_PAUSED,
                 UsageEvents.Event.ACTIVITY_STOPPED -> ev.pkg?.let { close(it, ev.time) }
                 UsageEvents.Event.DEVICE_SHUTDOWN ->
@@ -168,12 +182,17 @@ class UsageReader(private val context: Context) {
     /**
      * Screen-on and unlocked spans.
      *
+     * EMPTY below API 28, which added all four event types. That is a fact
+     * about the phone, not a failure; the dashboard reads the device's
+     * sdkInt and takes its headline from app time instead.
+     *
      * Kept apart from sessions and from each other because they OVERLAP: an app
      * session happens during screen-on, and unlocked time is a subset of
      * screen-on time (measured at 0.96x of it). Summing across them counts
      * the same minutes twice, which is why the server stores them in their own
      * table with a kind column that every query must filter.
      */
+    @SuppressLint("InlinedApi") // intended: the constants just never match below 28
     private fun buildScreenSpans(events: List<Ev>, now: Long): List<ScreenSpan> {
         val out = ArrayList<ScreenSpan>()
 

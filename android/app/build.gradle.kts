@@ -11,16 +11,22 @@ android {
 
     defaultConfig {
         applicationId = "com.naimul.screentime"
-        // API 29. UsageStats.getTotalTimeVisible() and
-        // getTotalTimeForegroundServiceUsed() were both added in 29, and this
-        // project needs them to keep foreground time separable from
-        // foreground-SERVICE time -- which measured 2.07x screen-on and is the
-        // single easiest way to report nonsense. Verified present in
-        // android-37.0/android.jar rather than assumed.
-        minSdk = 29
+        // API 27, for the Redmi 5 Plus (Android 8.1). It was 29, justified
+        // by getTotalTimeVisible() and getTotalTimeForegroundServiceUsed() --
+        // but the app reads EVENTS only and calls neither, so that reason
+        // went when the daily rollup did.
+        //
+        // What 27 loses is not an API call but DATA: SCREEN_INTERACTIVE /
+        // NON_INTERACTIVE and KEYGUARD_SHOWN / HIDDEN were added in 28, so an
+        // 8.x phone sends app sessions and no screen spans at all. Measured
+        // 2026-09-23 on the Redmi: MOVE_TO_FOREGROUND / MOVE_TO_BACKGROUND
+        // only -- the same constants (1, 2) that 29 renamed ACTIVITY_RESUMED
+        // / PAUSED. The dashboard switches that device's headline to app time.
+        // Lint's NewApi check (run by assembleRelease) guards the rest.
+        minSdk = 27
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     // BuildConfig is off by default from AGP 8; Uploader reports the app
