@@ -630,3 +630,13 @@ it. A labelled band over the hole was tried first and rejected as clutter.
 What shipped is the owner's preference: one continuous line, drawing a
 missing day at zero. The tooltip still tells a missing day apart from a
 quiet one, since the null survives in the data.
+
+### 2026-09-23 - the sampler repairs a logoff at its next start
+
+The hole in the trend line had a cause worth fixing. A logoff kills the
+sampler without its cleanup, and the next one started blind. Now the
+heartbeat says whether its run closed, and a sampler that finds it did not
+writes the lost span and a gap before it begins. That work happens at
+startup, so shutdown time is unaffected. A mutex keeps it to one sampler per
+folder. Tested with a real kill, a second copy, and a heartbeat 40 days old,
+which also exposed an Int32 overflow in span lengths that is now fixed.

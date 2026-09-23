@@ -753,6 +753,31 @@ kill -9 loses at most the one in flight.
   kill an old build that predates the stop file, read the in-flight span out of
   `sampler-status.json` and append it to the day's JSONL first; that is how
   29.7 minutes were saved on 2026-08-31.)
+- **A LOGOFF is a kill, and the next start repairs it.** Windows can sign the
+  session out before it hibernates (Winlogon 7002), which kills the sampler
+  without `finally`. That once left a day and more with no row at all, and
+  lost the span in flight. Now the heartbeat carries `closed`, which only
+  `finally` sets, after the span is flushed. A sampler that starts and finds
+  an UNCLOSED heartbeat writes the dead run's in-flight span up to its last
+  sample, and a `gap` from there to its own start. So a kill loses at most
+  one interval (~2s), and every shutdown is now a recorded `gap`. It all
+  happens at STARTUP: sign-out and shutdown do no extra work. Measured
+  2026-09-23 with a real kill: recovered span, gap and new run meet to the
+  millisecond. A heartbeat with no `closed` field at all is from the old
+  code, and counts as unclosed.
+- **One sampler per output folder, by named mutex.** A second copy exits at
+  once. Without that, it would double-count every span, and now it would also
+  "recover" the span the first copy is still recording. The mutex is named
+  from a hash of the folder, so a test run with its own `-OutDir` works
+  beside the real one. A killed owner's mutex comes back ABANDONED, which
+  still grants it to the next sampler.
+- **Span lengths are `[long]`.** An `[int]` of milliseconds overflows at 24.8
+  days, so a laptop left off for a month would have crashed the sampler at
+  startup, on the gap it was trying to write.
+- **A day holding only `gap` is not a day with data.** `latestDate()`, the
+  day count behind the averages, and `getDaily()` all ignore `gap` rows.
+  Without that, three days switched off would divide the average by three
+  more days and chart as recorded quiet days.
 - **The task reports `Ready`, not `Running`, and that is correct.** The VBS
   launcher does not wait, so the task completes in milliseconds while the
   sampler carries on detached. Check the PROCESS, or the heartbeat file.
@@ -783,14 +808,6 @@ kill -9 loses at most the one in flight.
   `idle_ms_at_end` is the raw material for fixing that without re-collecting.
   The honest fix is `RegisterPowerSettingNotification` for
   `GUID_MONITOR_POWER_ON`, which needs a message loop.
-
-- **A LOGOFF leaves no `gap`, and loses the in-flight span.** Windows can log
-  the session off before hibernating (Winlogon 7002). That
-  kills the sampler without running `finally`, and the next logon's sampler
-  starts with no memory of the last one. So a day and more had no row at
-  all, and the seconds in flight were lost. The raw material for a fix is already there:
-  on startup, the previous `sampler-status.json` holds both the last sample
-  time and the unflushed span.
 
 - **Data recorded before 2026-08-31 03:00 over-reports `unattributed`.** Those
   spans were written before lock detection existed and cannot be

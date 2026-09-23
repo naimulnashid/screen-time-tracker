@@ -94,10 +94,19 @@ export interface Scope {
   days: number;
 }
 
-/** The newest local_date present, which anchors every range. */
+/**
+ * The newest local_date with a RECORDING, which anchors every range.
+ *
+ * 'gap' rows are left out here, in the day count and in the daily series. A
+ * gap is the absence of a measurement: the sampler writes one across a sleep
+ * and, since it learned to recover after a logoff, across a shutdown too. A
+ * laptop left off for three days therefore leaves three days holding nothing
+ * BUT gap -- and counting those as "days with data" would divide the average
+ * by days nobody used the machine and draw them as recorded quiet days.
+ */
 function latestDate(db: DatabaseSync): string | null {
   const r = db
-    .prepare('SELECT MAX(local_date) AS d FROM windows_segments WHERE device_id = ?')
+    .prepare(`SELECT MAX(local_date) AS d FROM windows_segments WHERE device_id = ? AND kind <> 'gap'`)
     .get(WINDOWS_DEVICE_ID) as { d: string | null };
   return r.d;
 }
@@ -183,7 +192,7 @@ export function getOverview(scope: Scope): Overview {
       .prepare(
         `SELECT COUNT(DISTINCT local_date) AS n
            FROM windows_segments
-          WHERE device_id = ? AND local_date >= ? AND local_date <= ?`,
+          WHERE device_id = ? AND kind <> 'gap' AND local_date >= ? AND local_date <= ?`,
       )
       .get(WINDOWS_DEVICE_ID, from, latest) as { n: number };
 
@@ -307,7 +316,7 @@ export function getDaily(scope: Scope): DayPoint[] {
       .prepare(
         `SELECT local_date, kind, SUM(duration_ms) AS ms
            FROM windows_segments
-          WHERE device_id = ? AND local_date >= ? AND local_date <= ?
+          WHERE device_id = ? AND kind <> 'gap' AND local_date >= ? AND local_date <= ?
           GROUP BY local_date, kind
           ORDER BY local_date`,
       )
@@ -322,9 +331,9 @@ export function getDaily(scope: Scope): DayPoint[] {
       if (r.kind === 'app') e.active += r.ms;
       else if (r.kind === 'locked') e.locked += r.ms;
       else if (r.kind === 'unknown') e.unknown += r.ms;
-      // 'gap' is deliberately not charted: it is the absence of a measurement,
-      // not a quantity, and drawing it invites reading a sleeping laptop as
-      // usage.
+      // 'gap' is deliberately not charted, and filtered out above so that a
+      // day holding nothing but gap is NOT a point: it is the absence of a
+      // measurement, not a quantity, and becomes a "Not recorded" day.
       byDate.set(r.local_date, e);
     }
     return [...byDate.values()];

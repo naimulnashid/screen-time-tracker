@@ -33,7 +33,7 @@
       unknown  a foreground window we could not attribute
 
     ------------------------------------------------------------------------
-    FOUR THINGS THAT ARE EASY TO GET WRONG
+    FIVE THINGS THAT ARE EASY TO GET WRONG
 
     1. SLEEP MAKES THE CLOCK JUMP. When the machine suspends, this process is
        frozen mid-Start-Sleep and resumes minutes or hours later. Extending
@@ -62,6 +62,16 @@
        This project records which app and for how long, which is a different
        and far smaller disclosure. Do not add titles "just for the detail
        page" -- and note the dashboard is reachable over the LAN.
+
+    5. A LOGOFF KILLS THIS PROCESS WITHOUT RUNNING `finally`. Windows can sign
+       the session out before it hibernates, and then the in-flight span is
+       never flushed and nothing records that the sampler stopped -- a day and
+       more once went by with no row at all. So the heartbeat carries a
+       `closed` flag that only `finally` sets, and a sampler that starts and
+       finds an UNCLOSED heartbeat writes what the last one could not: its
+       in-flight span up to the last sample, and a `gap` from there to now.
+       This all happens at STARTUP, so it costs nothing at sign-out or
+       shutdown.
 
     Keep this file pure ASCII. See CLAUDE.md.
 #>
@@ -216,6 +226,29 @@ function Resolve-OutDir {
 
 $outDir = Resolve-OutDir -Explicit $OutDir
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
+$outDir = [System.IO.Path]::GetFullPath($outDir)
+
+# --- One sampler per output folder --------------------------------------
+# A second copy would double-count every span -- and, since startup recovers
+# an unclosed run (note 5), it would "recover" the span the first copy is
+# still recording. A named mutex settles it: whoever holds it samples, anyone
+# else exits. Windows releases a mutex when its owner dies, however it dies,
+# so a killed sampler never blocks the next one; WaitOne then throws
+# AbandonedMutexException, which still grants ownership.
+#
+# Named from a hash of the folder, so a test run with its own -OutDir can
+# work beside the real sampler. The Local\ prefix scopes it to this logon
+# session.
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$dirKey = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($outDir.TrimEnd('\').ToLowerInvariant())) |
+    Select-Object -First 8 | ForEach-Object { $_.ToString('x2') })
+$mutex = New-Object System.Threading.Mutex($false, "Local\ScreenTimeSampler-$dirKey")
+$owned = $false
+try { $owned = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $owned = $true }
+if (-not $owned) {
+    Write-Host "another sampler is already recording to $outDir -- exiting"
+    exit 0
+}
 
 $heartbeatPath = Join-Path $outDir 'sampler-status.json'
 
@@ -330,7 +363,10 @@ function Write-Span {
     param([datetime]$Start, [datetime]$End, [string]$Kind, [string]$App, [int]$IdleMsAtEnd,
           [bool]$Unresolved = $false)
 
-    $ms = [int][math]::Round(($End - $Start).TotalMilliseconds)
+    # [long], not [int]: Int32 milliseconds overflow at 24.8 days, and a gap
+    # over a laptop left off for a month would throw here and stop the
+    # sampler at startup.
+    $ms = [long][math]::Round(($End - $Start).TotalMilliseconds)
     if ($ms -le 0) { return }
 
     $row = [ordered]@{
@@ -364,23 +400,80 @@ function Write-Span {
 }
 
 function Write-Heartbeat {
-    param([datetime]$Now, $Current, [datetime]$CurrentStart)
+    param([datetime]$Now, $Current, [datetime]$CurrentStart, [switch]$Closed)
 
     # Carries the IN-FLIGHT span so the dashboard can add it without waiting
     # for a focus change. See note 3 at the top of this file.
+    #
+    # It is also what the NEXT sampler recovers from if this one is killed
+    # (note 5), which is why it holds everything Write-Span needs.
     $hb = [ordered]@{
         updated          = Stamp $Now
         interval_seconds = $IntervalSeconds
+        # Set only by `finally`, AFTER the in-flight span is on disk. Anything
+        # else -- a logoff, a kill, a crash -- leaves it false, and false is
+        # what tells the next sampler there is something to recover.
+        closed           = [bool]$Closed
         in_flight = [ordered]@{
-            start = Stamp $CurrentStart
-            kind  = $Current.kind
-            app   = $Current.app
-            ms    = [int][math]::Round(($Now - $CurrentStart).TotalMilliseconds)
+            start      = Stamp $CurrentStart
+            kind       = $Current.kind
+            app        = $Current.app
+            unresolved = [bool]$Current.unresolved
+            ms         = [long][math]::Round(($Now - $CurrentStart).TotalMilliseconds)
         }
     }
     $tmp = "$heartbeatPath.tmp"
     [System.IO.File]::WriteAllText($tmp, ($hb | ConvertTo-Json -Compress -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
     Move-Item -Path $tmp -Destination $heartbeatPath -Force
+}
+
+# --- Recovering a run that never closed --------------------------------
+function ConvertTo-LocalTime {
+    param($Value)
+    # Windows PowerShell 5.1's ConvertFrom-Json leaves an ISO timestamp as a
+    # string; PowerShell 7 turns it into a DateTime. Accept both. Local time
+    # matters: subtracting two DateTimes ignores their Kind, so a UTC value
+    # minus a local one is off by the UTC offset.
+    if ($Value -is [datetime]) { return $Value.ToLocalTime() }
+    return ([datetime]::Parse([string]$Value,
+        [System.Globalization.CultureInfo]::InvariantCulture,
+        [System.Globalization.DateTimeStyles]::RoundtripKind)).ToLocalTime()
+}
+
+function Restore-UnclosedRun {
+    param([datetime]$Now)
+
+    # See note 5. The previous heartbeat is at most one interval old when its
+    # sampler died, so the in-flight span is recovered to within a couple of
+    # seconds, and the gap runs from its last sample to this start -- the
+    # same two spans the in-loop sleep check writes, for the same reason.
+    #
+    # Re-running this is harmless: the recovered spans have the same starts,
+    # kinds and apps every time, so ingest's INSERT OR IGNORE drops repeats.
+    # A failure here must never stop sampling, so it is caught and reported.
+    try {
+        if (-not (Test-Path $heartbeatPath)) { return }
+        $raw = [System.IO.File]::ReadAllText($heartbeatPath)
+        if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 65279) { $raw = $raw.Substring(1) }
+        $hb = $raw | ConvertFrom-Json
+        if ($hb.closed -eq $true -or -not $hb.updated) { return }
+
+        $last = ConvertTo-LocalTime $hb.updated
+        if ($last -gt $Now) {
+            Write-Host "  recovery : previous heartbeat is in the future (clock moved back); skipped"
+            return
+        }
+        $f = $hb.in_flight
+        if ($f -and $f.start) {
+            Write-Span -Start (ConvertTo-LocalTime $f.start) -End $last -Kind ([string]$f.kind) `
+                -App ([string]$f.app) -IdleMsAtEnd 0 -Unresolved ([bool]$f.unresolved)
+        }
+        Write-Span -Start $last -End $Now -Kind 'gap' -App '' -IdleMsAtEnd 0
+        Write-Host ("  recovery : last run stopped without closing at {0}; wrote its last span and a {1:N0}s gap" -f
+            (Stamp $last), ($Now - $last).TotalSeconds)
+    } catch {
+        Write-Host "  recovery : skipped -- $($_.Exception.Message)"
+    }
 }
 
 # --- Main loop ----------------------------------------------------------
@@ -395,6 +488,12 @@ $currentStart = Get-Date
 $lastSample   = $currentStart
 $started      = $currentStart
 $spans        = 0
+
+# Before the first tick, so the gap ends exactly where this run's first span
+# begins. The heartbeat is rewritten straight after, so a sampler that dies
+# in its first two seconds does not leave the OLD run to be recovered twice.
+Restore-UnclosedRun -Now $currentStart
+Write-Heartbeat -Now $currentStart -Current $current -CurrentStart $currentStart
 
 try {
     while ($true) {
@@ -437,12 +536,15 @@ try {
         }
     }
 } finally {
-    # Flush the in-flight span on any exit -- Ctrl-C, task stop, logoff.
-    # Without this the last span of every session is lost, which on a machine
-    # that is shut down each evening is the whole evening.
+    # Flush the in-flight span on any exit that REACHES here -- Ctrl-C, the
+    # stop file, -RunSeconds. A logoff does not: it kills the process outright,
+    # which is what Restore-UnclosedRun at the next start is for (note 5).
     $now = Get-Date
     Write-Span -Start $currentStart -End $now -Kind $current.kind -App $current.app -IdleMsAtEnd ([int][ScreenTime.Win32]::IdleMs()) -Unresolved ([bool]$current.unresolved)
     $spans++
+    # Only now, with the span on disk, may the heartbeat say "closed".
+    Write-Heartbeat -Now $now -Current $current -CurrentStart $currentStart -Closed
+    $mutex.ReleaseMutex()
     Write-Host ""
     Write-Host "  spans written: $spans"
     Write-Host "  log          : $(Get-LogPath)"

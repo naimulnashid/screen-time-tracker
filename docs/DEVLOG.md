@@ -6,6 +6,29 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### The sampler survives a logoff: startup recovers what the kill lost
+
+- **The heartbeat now says whether its run closed cleanly.** `closed` is set
+  only in `finally`, after the in-flight span is on disk. A logoff, a kill or
+  a crash leaves it false.
+- **A sampler that starts and finds an unclosed heartbeat repairs the
+  record.** It writes the dead run's in-flight span up to that run's last
+  sample, then a `gap` from there to its own start. A kill now loses at most
+  one 2-second interval instead of the whole span, and time with the sampler
+  down becomes an explicit `gap` rather than no rows at all. Tested with a
+  real kill under Windows PowerShell 5.1: the recovered span, the gap and the
+  new run meet to the millisecond. This adds no work at sign-out or shutdown;
+  the repair happens at the next start.
+- **Only one sampler per output folder**, by a named mutex. A second copy
+  exits. Without that, it would double-count and "recover" live spans.
+- **Span lengths are `[long]`, not `[int]`.** Int32 milliseconds overflow at
+  24.8 days, so a month switched off would have crashed the sampler at
+  startup. Tested with a 40-day heartbeat.
+- **Gap-only days are not days with data.** The Windows day count, the range
+  anchor and the daily series ignore `gap` rows. Otherwise a recovered gap
+  across a switched-off day would lower the daily average and chart as a
+  recorded zero rather than "Not recorded".
+
 ### The trend line is one continuous line; a missing day dips to zero
 
 - **Reported: the laptop's Daily trend "looks broken" around one day.**
@@ -23,7 +46,7 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
   hibernating (Winlogon 7002), which kills the sampler without its `finally`.
   The sampler started at the next logon has no memory of the last one, so
   nothing spans the hole. The few seconds in flight at the kill were lost too.
-  Recorded under *Still open* in `CLAUDE.md`.
+  Fixed in the entry above.
 
 ### Screenshots: every page, full length, in brand colours, with no device names
 
