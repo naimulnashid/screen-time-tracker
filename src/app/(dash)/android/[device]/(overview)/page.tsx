@@ -121,6 +121,13 @@ export default async function AndroidOverviewPage({
     ? (data.rangeApps / data.rangeScreenOn) * 100
     : 0;
 
+  // A phone below Android 9 records no screen or unlock events, so its
+  // headline is app time -- and every word on this page has to say so. See
+  // lib/android-source.ts.
+  const screen = data.source === 'screen';
+  const measure = screen ? 'screen on' : 'in apps';
+  const perDay = screen ? 'Screen-on per day' : 'Time in apps per day';
+
   return (
     <>
       <div className="page-head">
@@ -153,7 +160,7 @@ export default async function AndroidOverviewPage({
           label={isToday ? 'Today' : 'Latest day'}
           ms={data.today}
           accent
-          sub={isToday ? 'screen on, so far' : 'screen on'}
+          sub={isToday ? `${measure}, so far` : measure}
           delay={0}
         />
         <StatCard
@@ -163,13 +170,14 @@ export default async function AndroidOverviewPage({
           delay={60}
         />
         <StatCard
-          label="Total screen time"
+          label={screen ? 'Total screen time' : 'Total app time'}
           ms={data.rangeScreenOn}
           sub={`${data.appCount} app${data.appCount === 1 ? '' : 's'}`}
           delay={120}
         />
       </div>
 
+      {screen && (
       <div className="grid grid--3">
         <CountCard
           label={isToday ? 'Unlocks today' : 'Unlocks, latest day'}
@@ -190,13 +198,14 @@ export default async function AndroidOverviewPage({
           delay={300}
         />
       </div>
+      )}
 
       {/* One chart per row. See the note on the Windows overview: side by side
           these are too narrow for 24 hourly bars or a month of days. Top apps
           and Most opened moved to By App, as they did on the laptop. */}
       <Card delay={360}>
         <CardTitle
-          sub={`Screen-on per day across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} of data.`}
+          sub={`${perDay} across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} of data.`}
           aside={
             heaviest && (
               <div className="callout">
@@ -219,24 +228,46 @@ export default async function AndroidOverviewPage({
       </Card>
 
       <Card delay={420}>
-        <CardTitle sub="Screen-on per day, whatever the range above. Outlined days were never recorded - before the phone first synced, or evicted before it did - which is not the same as a quiet day.">
+        <CardTitle sub={`${perDay}, whatever the range above. Outlined days were never recorded - before the phone first synced, or evicted before it did - which is not the same as a quiet day.`}>
           Activity
         </CardTitle>
         <ActivityHeatmap
           daily={history}
-          label="Daily screen-on time"
+          label={screen ? 'Daily screen-on time' : 'Daily time in apps'}
           expandHref={`/android/${slug}/activity${queryString(sp)}`}
         />
       </Card>
 
       <Card delay={480}>
-        <CardTitle sub="When the screen is actually on.">Shape of the day</CardTitle>
+        <CardTitle sub={screen ? 'When the screen is actually on.' : 'When an app is actually in front.'}>
+          Shape of the day
+        </CardTitle>
         <HourlyChart data={hourly} />
       </Card>
 
       {/* Last, the laptop's "Where the time went" counterpart: how far the
           per-app figures can be trusted to add up, rather than how the day
-          was spent. */}
+          was spent. A pre-9 phone has nothing to compare against, and says
+          why instead of drawing apps against themselves. */}
+      {!screen && (
+        <Card delay={540}>
+          <CardTitle sub="Why this phone's figures are app time, and why there are no unlocks.">
+            No screen events on Android {device.androidRelease}
+          </CardTitle>
+          <p className="prose-note">
+            Android only started recording when the screen turns on and off,
+            and when the phone is unlocked, in version 9. This phone runs{' '}
+            {device.androidRelease}, so it reports which app was in front and
+            for how long, and nothing more. The figures above are the time any
+            app, the home screen included, was in the foreground, with
+            overlaps counted once. They leave out the lock screen and system
+            screens, so they read lower than screen-on time would: about a
+            quarter lower on a phone that records both. Unlocks are not
+            recorded at all, so they are left out rather than shown as zero.
+          </p>
+        </Card>
+      )}
+      {screen && (
       <Card delay={540}>
         <CardTitle sub="Screen-on time, and how much of it any app accounts for.">
           Attributed vs unaccounted
@@ -288,6 +319,7 @@ export default async function AndroidOverviewPage({
           summing the apps below.
         </p>
       </Card>
+      )}
 
     </>
   );

@@ -22,6 +22,11 @@ import 'server-only';
  *    INSIDE android_screen. An app session happens during screen-on, and
  *    unlocked time is a subset of screen-on time. Never sum across the two
  *    tables, and always filter `kind`.
+ *
+ * AND ONE EXCEPTION TO RULE 2, chosen per device: a phone below Android 9
+ * (API 28) records no screen events at all, so its headline is the UNION of
+ * its app sessions instead -- see android-source.ts. `sourceOf()` decides;
+ * every function that reads the headline asks it rather than assuming.
  * ===========================================================================
  */
 
@@ -31,6 +36,9 @@ import {
   stitchVisits, visitStats, visitCounts, openBuckets,
   type RawSession, type SessionBucket,
 } from './visits';
+import {
+  headlineSource, unionByHour, type HeadlineSource, type HourBucket,
+} from './android-source';
 
 function open(): DatabaseSync {
   const p = dbPath();
@@ -95,14 +103,24 @@ export function busiestAndroidSlug(): string | null {
     return withDb((db) => {
       const r = db
         .prepare(
-          `SELECT d.slug AS slug, COALESCE(SUM(s.duration_ms), 0) AS ms
-             FROM android_devices d
-             LEFT JOIN android_screen s
-               ON s.device_id = d.device_id AND s.kind = 'screen_on'
-            GROUP BY d.slug ORDER BY ms DESC LIMIT 1`,
+          `SELECT d.slug AS slug, d.sdk_int AS sdk,
+                  (SELECT COALESCE(SUM(duration_ms), 0) FROM android_screen s
+                    WHERE s.device_id = d.device_id AND s.kind = 'screen_on') AS on_ms,
+                  (SELECT COALESCE(SUM(duration_ms), 0) FROM android_segments g
+                    WHERE g.device_id = d.device_id) AS app_ms
+             FROM android_devices d`,
         )
-        .get() as { slug: string } | undefined;
-      return r?.slug ?? null;
+        .all() as { slug: string; sdk: number; on_ms: number; app_ms: number }[];
+      // Each phone by its OWN headline: a pre-9 phone has no screen rows, and
+      // ranking it on them would always put it last. The app figure is a plain
+      // sum here rather than the union -- close enough to rank, and a ranking
+      // is all this is.
+      let best: { slug: string; ms: number } | null = null;
+      for (const d of r) {
+        const ms = headlineSource(Number(d.sdk)) === 'screen' ? d.on_ms : d.app_ms;
+        if (!best || ms > best.ms) best = { slug: d.slug, ms };
+      }
+      return best?.slug ?? null;
     });
   } catch {
     return null;
@@ -113,16 +131,45 @@ export interface AndroidScope {
   days: number;
 }
 
+/** Which headline this phone gets. See android-source.ts. */
+function sourceOf(db: DatabaseSync, deviceId: string): HeadlineSource {
+  const r = db
+    .prepare('SELECT sdk_int FROM android_devices WHERE device_id = ?')
+    .get(deviceId) as { sdk_int: number } | undefined;
+  return headlineSource(Number(r?.sdk_int ?? 0));
+}
+
 /**
- * The newest local_date with SCREEN data, which anchors every range.
+ * The app-time headline, per local date and hour: the UNION of every
+ * session, launcher included. Only for a phone whose source is 'apps'.
+ */
+function appBuckets(
+  db: DatabaseSync, deviceId: string, from: string, to: string,
+): HourBucket[] {
+  const rows = db
+    .prepare(
+      `SELECT local_date AS d, local_hour AS h, start_utc AS s, end_utc AS e
+         FROM android_segments
+        WHERE device_id = ? AND local_date >= ? AND local_date <= ?`,
+    )
+    .all(deviceId, from, to) as { d: string; h: number; s: string; e: string }[];
+  return unionByHour(
+    rows.map((r) => ({ date: r.d, hour: r.h, start: Date.parse(r.s), end: Date.parse(r.e) })),
+  );
+}
+
+/**
+ * The newest local_date with HEADLINE data, which anchors every range --
+ * screen rows, or app rows for a phone that has no screen events.
  *
  * Anchored on data rather than on today: a phone that has not synced for a
  * week would otherwise show seven empty columns and a zero headline, which
  * reads as a broken collector rather than a phone that was off Wi-Fi.
  */
 function latestDate(db: DatabaseSync, deviceId: string): string | null {
+  const table = sourceOf(db, deviceId) === 'screen' ? 'android_screen' : 'android_segments';
   const r = db
-    .prepare('SELECT MAX(local_date) AS d FROM android_screen WHERE device_id = ?')
+    .prepare(`SELECT MAX(local_date) AS d FROM ${table} WHERE device_id = ?`)
     .get(deviceId) as { d: string | null };
   return r.d;
 }
@@ -134,8 +181,13 @@ function rangeStart(latest: string, days: number): string {
 }
 
 export interface AndroidOverview {
+  /**
+   * What `today`, `dailyAverage` and `rangeScreenOn` measure: screen-on, or
+   * app time on a phone below Android 9. The page words them from this.
+   */
+  source: HeadlineSource;
   latestDate: string | null;
-  /** Screen-on on the newest day with data. THE headline. */
+  /** The headline on the newest day with data. See `source`. */
   today: number;
   dailyAverage: number;
   rangeScreenOn: number;
@@ -195,9 +247,10 @@ function unlocksPerDay(
 
 export function getAndroidOverview(deviceId: string, scope: AndroidScope): AndroidOverview {
   return withDb((db) => {
+    const source = sourceOf(db, deviceId);
     const latest = latestDate(db, deviceId);
     const empty: AndroidOverview = {
-      latestDate: null, today: 0, dailyAverage: 0, rangeScreenOn: 0,
+      source, latestDate: null, today: 0, dailyAverage: 0, rangeScreenOn: 0,
       rangeUnlocked: 0, unlocksToday: 0, unlocksDailyAverage: 0, unlocksTotal: 0,
       rangeApps: 0, daysWithData: 0, appCount: 0, unaccounted: 0,
     };
@@ -232,12 +285,32 @@ export function getAndroidOverview(deviceId: string, scope: AndroidScope): Andro
       )
       .get(deviceId, from, latest) as { ms: number; n: number };
 
+    if (source === 'apps') {
+      // No screen or unlock events exist on this phone. The headline is the
+      // union of app time, and the comparison against screen-on is dropped
+      // rather than reported as 1.00x -- apps against themselves.
+      const buckets = appBuckets(db, deviceId, from, latest);
+      const days = new Set(buckets.map((b) => b.date)).size;
+      const total = buckets.reduce((a, b) => a + b.ms, 0);
+      return {
+        ...empty,
+        latestDate: latest,
+        today: buckets.filter((b) => b.date === latest).reduce((a, b) => a + b.ms, 0),
+        dailyAverage: days > 0 ? Math.round(total / days) : 0,
+        rangeScreenOn: total,
+        rangeApps: apps.ms,
+        daysWithData: days,
+        appCount: apps.n,
+      };
+    }
+
     const unlocks = unlocksPerDay(db, deviceId, from, latest);
     const unlockDays = unlocks.size;
     let unlockTotal = 0;
     for (const n of unlocks.values()) unlockTotal += n;
 
     return {
+      source,
       latestDate: latest,
       today: today.ms,
       // Over days WITH data, never over the range length -- dividing by 30
@@ -337,6 +410,7 @@ export function getAndroidApps(deviceId: string, scope: AndroidScope): AndroidAp
 
 export interface AndroidDayPoint {
   date: string;
+  /** The HEADLINE per day: screen-on, or app time for a pre-9 phone. */
   screenOn: number;
   apps: number;
 }
@@ -370,6 +444,15 @@ export function getAndroidDaily(deviceId: string, scope: AndroidScope): AndroidD
       .all(deviceId, from, latest) as { d: string; ms: number }[];
 
     const appMap = new Map(apps.map((r) => [r.d, r.ms]));
+    if (sourceOf(db, deviceId) === 'apps') {
+      const byDate = new Map<string, number>();
+      for (const b of appBuckets(db, deviceId, from, latest)) {
+        byDate.set(b.date, (byDate.get(b.date) ?? 0) + b.ms);
+      }
+      return [...byDate.entries()]
+        .map(([date, ms]) => ({ date, screenOn: ms, apps: appMap.get(date) ?? 0 }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }
     return screen
       .map((r) => ({ date: r.d, screenOn: r.ms, apps: appMap.get(r.d) ?? 0 }))
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -384,6 +467,14 @@ export function getAndroidHourly(
     const latest = latestDate(db, deviceId);
     if (!latest) return Array.from({ length: 24 }, (_, h) => ({ hour: h, ms: 0 }));
     const from = rangeStart(latest, scope.days);
+
+    if (sourceOf(db, deviceId) === 'apps') {
+      const byHour = new Map<number, number>();
+      for (const b of appBuckets(db, deviceId, from, latest)) {
+        byHour.set(b.hour, (byHour.get(b.hour) ?? 0) + b.ms);
+      }
+      return Array.from({ length: 24 }, (_, h) => ({ hour: h, ms: byHour.get(h) ?? 0 }));
+    }
 
     const rows = db
       .prepare(

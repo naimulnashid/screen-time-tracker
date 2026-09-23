@@ -86,9 +86,23 @@ export default async function AndroidSyncPage({
                 belongs here, next to what it explains. */}
             <Row label="Android" value={`${device.androidRelease} (API ${device.sdkInt})`} />
             <Row label="Days with data" value={formatCount(overview.daysWithData)} />
-            <Row label="Screen on" value={formatDuration(overview.rangeScreenOn)} />
-            <Row label="Unlocked" value={formatDuration(overview.rangeUnlocked)} />
-            <Row label="In an app" value={formatDuration(overview.rangeApps)} />
+            {overview.source === 'screen' ? (
+              <>
+                <Row label="Screen on" value={formatDuration(overview.rangeScreenOn)} />
+                <Row label="Unlocked" value={formatDuration(overview.rangeUnlocked)} />
+                <Row label="In an app" value={formatDuration(overview.rangeApps)} />
+              </>
+            ) : (
+              <>
+                {/* Below Android 9 the events do not exist. "Not recorded"
+                    rather than 0s, which would read as a phone never used.
+                    "In an app" is the union the Overview's total shows, so
+                    the two pages agree to the second. */}
+                <Row label="Screen on" value="not recorded below Android 9" />
+                <Row label="Unlocked" value="not recorded below Android 9" />
+                <Row label="In an app" value={formatDuration(overview.rangeScreenOn)} />
+              </>
+            )}
             <Row label="Apps seen" value={formatCount(overview.appCount)} />
             <Row label="Latest day" value={overview.latestDate ?? '-'} />
             <Row

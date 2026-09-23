@@ -43,6 +43,7 @@ import { isHomeSurface } from '../src/lib/home-surface';
 import { stitchVisits, visitStats, visitCounts, openBuckets } from '../src/lib/visits';
 import { isListed, splitForList, listRule, LIST_MIN_MS, LIST_MIN_OPENS, LIST_MIN_DAYS } from '../src/lib/app-list';
 import { fillDays, heaviestDay } from '../src/lib/trend';
+import { headlineSource, unionMs, unionByHour } from '../src/lib/android-source';
 import {
   recentBlock, expandedBlocks, blockLabel, heatmapColor, HEATMAP_RAMP, WEEKS, DAY_LABELS,
 } from '../src/lib/heatmap';
@@ -1332,6 +1333,39 @@ section('chart summaries');
   const r = rankedSummary('Top', [1, 2, 3, 4, 5, 6, 7].map((i) => ({ name: `App ${i}`, value: 8 - i })), fmt);
   check('ranked: the first five by name', r.includes('1. App 1, 7m') && r.includes('5. App 5'), true);
   check('ranked: the rest are counted, not dropped', r.endsWith('and 2 more.'), true);
+}
+
+/* ------------------------------------------------------------------ */
+section('android headline source');
+
+{
+  // API 28 added SCREEN_* and KEYGUARD_*. Below it there is no screen-on to
+  // report, so the headline falls back to app time (Redmi 5 Plus, API 27).
+  check('API 27 -> app time', headlineSource(27), 'apps');
+  check('API 28 -> screen-on', headlineSource(28), 'screen');
+  check('API 36 -> screen-on', headlineSource(36), 'screen');
+  // 0 = never reported, which only builds that required 29+ could send.
+  check('unknown API keeps screen-on', headlineSource(0), 'screen');
+
+  check('union of nothing is zero', unionMs([]), 0);
+  check('disjoint intervals add', unionMs([{ start: 0, end: 10 }, { start: 20, end: 25 }]), 15);
+  // The hand-off: next app resumed before the last one paused. A SUM says 20.
+  check('overlap counts once', unionMs([{ start: 0, end: 10 }, { start: 5, end: 15 }]), 15);
+  check('contained interval adds nothing', unionMs([{ start: 0, end: 100 }, { start: 10, end: 20 }]), 100);
+  check('touching intervals merge', unionMs([{ start: 10, end: 20 }, { start: 0, end: 10 }]), 20);
+  check('inverted interval ignored', unionMs([{ start: 10, end: 5 }]), 0);
+
+  const b = unionByHour([
+    { date: '2026-09-23', hour: 21, start: 0, end: 30 * MIN },
+    { date: '2026-09-23', hour: 21, start: 20 * MIN, end: 40 * MIN },
+    { date: '2026-09-22', hour: 9, start: 0, end: MIN },
+  ]);
+  check('buckets come out in date, hour order', b.map((x) => `${x.date} ${x.hour}`), ['2026-09-22 9', '2026-09-23 21']);
+  check('a bucket is the union of its rows', b[1]?.ms, 40 * MIN);
+  // The physical bound, by construction: stacked full-hour sessions of
+  // several apps still make one hour.
+  const stacked = unionByHour([1, 2, 3].map(() => ({ date: 'd', hour: 0, start: 0, end: HOUR })));
+  check('an hour never holds more than an hour', stacked[0]?.ms, HOUR);
 }
 
 /* ------------------------------------------------------------------ */
