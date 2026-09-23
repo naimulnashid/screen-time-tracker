@@ -1,0 +1,10 @@
+{
+  "$schema_note": "Copy to config/app-colours.json (gitignored) and add an entry per logo file in public/apps_logo/. Keys are logo keys: the file name lower-cased with everything but letters and digits removed ('Google Play Store.png' -> googleplaystore). A device-folder logo is keyed 'folderkey/logokey' and falls back to the bare key. A value is either a hex string or { hex, note } when the choice needs explaining. Run `npx tsx scripts/measure-logo-colours.ts` for proposals, then check each against the rendered logo.",
+  "colours": {
+    "youtube": "#ff0033",
+    "vscode": "#0065a9",
+    "chrome": { "hex": "#fcd209", "note": "The yellow arc: a paint in the file and what a person sees. The blue centre is the middle of the mark, not the mark." },
+    "x": { "hex": "#ececf1", "note": "Monochrome brand: a light neutral means 'this brand has no colour', and black would vanish on the page." },
+    "mylaptop/camera": { "hex": "#9794f2", "note": "Scoped: this device's Camera has its own artwork." }
+  }
+}

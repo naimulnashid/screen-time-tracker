@@ -1,0 +1,19 @@
+# Matches what the repo already does; .gitattributes owns line endings.
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{ps1,vbs}]
+# Windows PowerShell 5.1 reads a BOM-less .ps1 as ANSI: keep these pure ASCII.
+indent_size = 4
+
+[*.{kt,kts}]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false

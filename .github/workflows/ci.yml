@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dashboard:
+    # Windows, because the project is: the collectors, the path handling and
+    # the PowerShell 5.1 rules below only mean something there.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run selftest
+
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      # Windows PowerShell 5.1 reads a BOM-less script as ANSI, so a UTF-8
+      # em-dash becomes a string delimiter and silently changes the logic.
+      # Checked in 5.1 itself, not in pwsh, which would not notice.
+      - name: PowerShell and VBScript are pure ASCII and parse under 5.1
+        shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem scripts -Recurse -Include *.ps1, *.vbs) {
+            if ([IO.File]::ReadAllBytes($f.FullName) | Where-Object { $_ -gt 127 } | Select-Object -First 1) {
+              Write-Host "non-ASCII: $($f.FullName)"; $bad++
+            }
+            if ($f.Extension -eq '.ps1') {
+              $errors = $null
+              [void][Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errors)
+              if ($errors) { Write-Host "parse error: $($f.FullName): $($errors[0].Message)"; $bad++ }
+            }
+          }
+          if ($bad) { exit 1 }
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v7
+
+      # A tampered gradle-wrapper.jar is a supply-chain attack on anyone who
+      # builds the APK; check it against Gradle's published checksums.
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build the reporter APK
+        run: ./gradlew --no-daemon assembleDebug

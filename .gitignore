@@ -1,0 +1,103 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# typescript build artifacts
+*.tsbuildinfo
+
+# env
+.env
+.env*.local
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# Android build + Gradle machine state.
+#
+# .gradle/ holds lock files, file hashes and an execution history that are
+# specific to this machine and this moment. local.properties carries the SDK
+# path, which includes a Windows user name -- Android Studio writes it on first
+# open, so there is nothing to gain by committing one.
+android/local.properties
+android/.gradle/
+android/app/build/
+android/build/
+*.apk
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---------------------------------------------------------------------------
+# COLLECTED DATA - NEVER COMMIT.
+#
+# Everything below contains a record of what this person looked at, and when.
+# That is more sensitive than the sibling project's byte counts, not less. The
+# repo holds code only. If you are adding a new collector output format, add it
+# here FIRST, before you run the collector.
+# ---------------------------------------------------------------------------
+
+# the persistent SQLite database (normally on D:\, but never commit a stray copy)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# raw SRUM snapshots + ESE journals pulled via VSS
+*.dat
+*.jfm
+*.jrs
+*.chk
+snapshot/
+snapshots/
+
+# SrumECmd CSV output
+*.csv
+csv-out/
+
+# Android capture output. `dumpsys usagestats` names every app opened and every
+# time it was opened, and the raw capture is not redacted the way the parsed
+# rows are.
+dumpsys-*.txt
+usagestats-*.txt
+android-capture/
+
+# npm run demo:seed -- synthetic data, rebuilt on demand
+demo/
+
+# scratch space used by the collector between snapshot and ingest
+temp/
+tmp/
+
+# Local dev-server launch config is machine-specific tooling, not project code.
+.claude/
+
+# ---------------------------------------------------------------------------
+# LOCAL-ONLY CONFIGURATION - NEVER COMMIT.
+#
+# These describe ONE installation: its drive layout, its devices, and every
+# app on them. Together the logos and their colours are an inventory of what
+# is installed on each device, which on any real phone means banking and
+# password apps -- and the
+# logos are third-party artwork this repository has no right to license.
+#
+# Each has a committed example (the logo folder's is its README). Running
+# `npm run backup:kit` copies the real files off the system drive, and
+# `npm run drill` fails if that copy is missing or stale.
+# ---------------------------------------------------------------------------
+config/collector.json
+config/app-colours.json
+public/apps_logo/*
+!public/apps_logo/README.md

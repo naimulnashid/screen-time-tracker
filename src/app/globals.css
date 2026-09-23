@@ -1,0 +1,1012 @@
+/*
+  Design tokens.
+
+  True-black OLED theme, single accent, large type. The rules that keep it
+  coherent:
+
+  - ONE accent (--accent) for anything primary, active, or focused. Per-app
+    chart colours are the only other saturated thing on screen.
+  - Red is reserved for genuine anomalies -- a failed collector run, a day well
+    above trend. Never decoration. A warning colour used for emphasis trains the
+    reader to ignore it, which costs more than the emphasis gains.
+  - Structural chrome (borders, secondary text, panel fills) stays restrained so
+    the saturated elements and the big numbers carry the hierarchy.
+  - Black-on-black drop shadows are invisible, so cards lift with a faint border
+    plus an inset highlight, not shadow alone.
+*/
+
+:root {
+  --bg: #000000;
+  --bg-panel: #0a0a0b;
+  --bg-panel-hover: #101012;
+  --bg-inset: #08080a;
+
+  --border: #1e1e22;
+  --border-strong: #2c2c33;
+  /* A form field's edge is how you find the field, so WCAG 1.4.11 wants it at
+     3:1 against its surroundings; --border-strong is 1.43:1. Decorative
+     dividers keep the quieter border. */
+  --border-input: #5d5d64;
+
+  /* The light plate behind a logo drawn black on transparent (NEEDS_PLATE).
+     It was used by `.app-icon--plate` and never DEFINED, so the rule resolved
+     to a transparent background and the plate never drew -- the X logo stayed
+     an invisible black mark, the exact failure the plate exists to stop.
+     Found 2026-09-23 when a duplicate rule that hard-coded this value was
+     removed as dead: it had been overridden by the broken one all along. */
+  --logo-plate: #ececf1;
+
+  --text: #f5f5f7;
+  --text-dim: #a1a1aa;
+  /* #7b7b86, not the earlier #6b6b76: that sat at 3.76:1 on a panel and
+     carries small text in twenty-odd places. This is the nearest grey with
+     the same blue cast that clears WCAG AA 4.5:1 on the panel, its hover
+     state and the page. */
+  --text-faint: #7b7b86;
+
+  /* --accent, --accent-bright, --accent-dim, --accent-glow and the --hm-N ramp
+     are NOT here. They are generated from src/lib/accent.ts and inlined by the
+     root layout, because each device has its own accent and one attribute on
+     the shell has to repaint all of them at once. Defining them here as well
+     would be a second source that drifts. */
+
+  --danger: #ff4d4f;
+  --danger-dim: rgba(255, 77, 79, 0.14);
+  --success: #22c55e;
+  --success-dim: rgba(34, 197, 94, 0.14);
+
+  --radius: 14px;
+  --radius-sm: 9px;
+
+  --ease: cubic-bezier(0.22, 0.9, 0.3, 1);
+  --dur: 200ms;
+
+  /* Deliberately larger than a typical dense dashboard. */
+  --fs-stat: clamp(2.1rem, 3.6vw, 3rem);
+  --fs-h1: clamp(1.7rem, 2.6vw, 2.2rem);
+  --fs-h2: 1.3rem;
+  --fs-body: 1.0625rem;
+  --fs-small: 0.9375rem;
+
+  /* Activity heat map geometry. Cells are fluid (1fr) and kept square with
+     `aspect-ratio`, so only a floor and the gaps are fixed here.
+     `--hm-daycol` must fit a three-letter weekday label. */
+  --hm-min: 11px;
+  --hm-gap: 3px;
+  --hm-daycol: 34px;
+
+  /* Sidebar geometry. The collapsed width has to fit a 20px icon plus its
+     padding and nothing else. */
+  --side-w: 232px;
+  --side-w-collapsed: 62px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Digits keep a fixed width everywhere, so tables align and count-up
+   animations do not make the layout shiver. */
+body, table, input, select, button { font-variant-numeric: tabular-nums; }
+
+.mono { font-family: var(--font-geist-mono), ui-monospace, monospace; }
+
+h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; }
+h1 { font-size: var(--fs-h1); }
+h2 { font-size: var(--fs-h2); }
+
+a { color: var(--accent); text-decoration: none; transition: color var(--dur) var(--ease); }
+a:hover { color: var(--accent-bright); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Read by a screen reader, drawn nowhere. The text alternative for each chart
+   lives in one of these -- an SVG of bars has no words of its own. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* First thing a keyboard reaches: past the sidebar and the top bar, straight
+   to the page. Invisible until focused, then unmissable. */
+.skip-link {
+  position: absolute; left: 0.75rem; top: -3rem; z-index: 100;
+  padding: 0.5rem 0.9rem;
+  background: var(--accent-fill); color: var(--on-accent);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+.skip-link:focus { top: 0.75rem; }
+/* The skip link's target takes focus so the NEXT Tab continues from the page,
+   but it is a region, not a control, and a ring around the whole page would
+   say otherwise. */
+#main:focus { outline: none; }
+.skip-link:hover { color: var(--on-accent); }
+
+/* ---------------------------------------------------------------- layout */
+
+/* Sidebar beside content; the body is the old single-column shell. */
+.shell { min-height: 100vh; display: flex; }
+.shell-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 0.9rem clamp(1rem, 3vw, 2.5rem);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  /* The bar can be empty on a device with no controls of its own, and an empty
+     bar that still occupies its height keeps the content top edge steady. */
+  min-height: 61px;
+}
+
+.brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; letter-spacing: -0.02em; }
+
+/* Page tabs. These belong to the DEVICE you are on, not to the app: the
+   sidebar answers "which machine", these answer "which view of it". */
+.nav { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+
+.nav-link {
+  position: relative;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.nav-link:hover { color: var(--text); background: var(--bg-panel-hover); }
+.nav-link[data-active='true'] { color: var(--accent-bright); background: var(--accent-dim); }
+
+/* ---------------------------------------------------------------- sidebar */
+
+.sidebar {
+  position: sticky; top: 0; z-index: 50;
+  flex-shrink: 0;
+  width: var(--side-w);
+  height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 0.9rem 0.6rem 0.6rem;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  transition: width var(--dur) var(--ease);
+}
+/* Before the stored state is read the width must not animate, or a collapsed
+   sidebar visibly slides shut on every single page load. */
+.sidebar[data-ready='false'] { transition: none; }
+.sidebar[data-collapsed='true'] { width: var(--side-w-collapsed); }
+
+/* One rule collapses every label. Everything that should vanish carries this
+   class, so there is no per-element list to keep in sync. */
+.sidebar[data-collapsed='true'] .sidebar-label { display: none; }
+
+/* Hamburger first, brand beside it. Collapsed, the brand's .sidebar-label is
+   hidden and the burger is left centred in the rail on its own. */
+.sidebar-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.15rem 0.15rem 1.1rem;
+}
+.sidebar[data-collapsed='true'] .sidebar-head { justify-content: center; }
+.sidebar-head .brand { white-space: nowrap; overflow: hidden; font-size: var(--fs-small); }
+
+.sidebar-burger {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease),
+              border-color var(--dur) var(--ease);
+}
+.sidebar-burger:hover {
+  color: var(--text);
+  background: var(--bg-panel-hover);
+  border-color: var(--border-strong);
+}
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; min-height: 0; overflow-y: auto; }
+
+.side-device {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease),
+              border-color var(--dur) var(--ease);
+}
+.side-device:hover { color: var(--text); background: var(--bg-panel-hover); }
+
+/*
+  The active device takes ITS OWN accent, not the page's.
+
+  `data-device` on the section scopes the accent variables to that entry, so the
+  Android row is green even while you are looking at the laptop. That is the
+  whole point of the sidebar: which machine you are about to switch to is
+  legible before you click.
+*/
+.side-device[data-active='true'] {
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+  border-color: var(--accent-glow);
+}
+.side-device-icon { display: flex; flex-shrink: 0; }
+.side-device-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.side-device-name {
+  font-size: var(--fs-small); font-weight: 600; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.side-device-sub { font-size: 0.75rem; color: var(--text-faint); }
+.side-device[data-active='true'] .side-device-sub { color: var(--accent); }
+
+/* Collapsed, a device row is just its icon, centred in the rail. */
+.sidebar[data-collapsed='true'] .side-device { justify-content: center; padding-inline: 0; }
+
+/* Narrow screens start on the icon rail. The hamburger still works from there,
+   so this is a starting point rather than a lock. */
+@media (max-width: 860px) {
+  .sidebar { width: var(--side-w-collapsed); }
+  .sidebar .sidebar-label { display: none; }
+  .sidebar .sidebar-head { justify-content: center; }
+  .sidebar .side-device { justify-content: center; padding-inline: 0; }
+}
+
+.main { flex: 1; padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 2.5rem) 5rem; }
+.container { max-width: 1220px; margin: 0 auto; }
+
+/*
+  Space between top-level sections.
+
+  `.card` carries no margin of its own and `.grid`'s gap only applies INSIDE a
+  grid, so consecutive full-width cards sat flush against each other --
+  separated by nothing but their two 1px borders, which reads as a seam rather
+  than as two panels. Measured at 0px between every sibling before this rule.
+
+  It went unnoticed while most pages put their cards inside grids. Giving the
+  charts a full-width row each made four cards stack directly, and the seams
+  became the most obvious thing on the page.
+
+  Adjacent margins collapse in block layout, so `.page-head`'s larger 2.2rem
+  bottom margin still wins under the heading, and the stat grid's own bottom
+  margin does not double up.
+*/
+.container > * + * { margin-top: 1.15rem; }
+
+.page-head { margin-bottom: 2.2rem; }
+.page-head p { margin: 0.4rem 0 0; color: var(--text-dim); font-size: var(--fs-small); }
+
+/* ---------------------------------------------------------------- cards */
+
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.6rem;
+  /* Inset highlight does the lifting a shadow cannot on pure black. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 28px rgba(0, 0, 0, 0.55);
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+.card--hover:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 36px rgba(0, 0, 0, 0.6);
+}
+
+.grid { display: grid; gap: 1.15rem; }
+/* 215px, the same floor as .grid--4, so a row of three stays a row of three at
+   an ordinary laptop width. At 260 it broke 2 + 1 below ~1120px, and the
+   phone's Overview is two rows meant to be read down the columns -- screen
+   time over unlocks -- which a 2 + 1 break scrambles. "255h 15m" still clears
+   its card at 997px with 19px to spare. */
+.grid--3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+.grid--2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+
+.stat-label {
+  font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.stat-value { font-size: var(--fs-stat); font-weight: 650; letter-spacing: -0.035em; line-height: 1.1; }
+.stat-unit { font-size: 0.42em; font-weight: 600; color: var(--text-dim); margin-left: 0.35rem; letter-spacing: 0; }
+.stat-sub { color: var(--text-dim); font-size: var(--fs-small); margin-top: 0.4rem; }
+
+/* ---------------------------------------------------------------- table */
+
+.table-wrap { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+
+th {
+  text-align: left; padding: 0.7rem 0.9rem;
+  font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--text-faint);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); }
+.num { text-align: right; white-space: nowrap; }
+
+tbody tr { transition: background var(--dur) var(--ease); }
+tbody tr:hover { background: var(--bg-panel-hover); }
+
+/* ---------------------------------------------------------------- bits */
+
+.badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.22rem 0.6rem; border-radius: 999px;
+  font-size: 0.8125rem; font-weight: 600;
+  border: 1px solid var(--border-strong); color: var(--text-dim);
+}
+.badge--ok { color: var(--success); background: var(--success-dim); border-color: transparent; }
+.badge--bad { color: var(--danger); background: var(--danger-dim); border-color: transparent; }
+.badge--accent { color: var(--accent-bright); background: var(--accent-dim); border-color: transparent; }
+
+.chip {
+  padding: 0.4rem 0.85rem; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: transparent;
+  color: var(--text-dim); font-size: var(--fs-small); font-weight: 500;
+  font-family: inherit; cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.chip:hover { color: var(--text); border-color: var(--text-faint); transform: translateY(-1px); }
+.chip[data-active='true'] {
+  /* --accent-fill / --on-accent, not --accent / #fff: white on Android green
+     is 1.78:1. The pair is defined per device in accent.ts. */
+  color: var(--on-accent); background: var(--accent-fill); border-color: var(--accent-fill);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+/* Native selects render as a light-mode control on Windows unless told
+   otherwise, which is jarring against a true-black page. */
+select.chip {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
+                    linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 1.9rem !important;
+  color-scheme: dark;
+  max-width: 15rem;
+}
+.empty { text-align: center; padding: 4rem 1rem; color: var(--text-dim); }
+
+/* ------------------------------------------------------------- app icons */
+
+/*
+  One box, two contents: a real logo where we have one, the app's chart colour
+  where we do not. Both render at the same size so a mixed table keeps its
+  names on a single vertical line.
+*/
+.app-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.app-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* ---------------------------------------------------------------- motion */
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.animate-in { animation: fadeUp 480ms var(--ease) both; }
+
+/* Respect the OS setting. Motion here is decorative; none of it conveys
+   information that is lost when it is switched off. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+/* ------------------------------------------------------------------ login */
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 2.4rem 2rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 50px rgba(0, 0, 0, 0.7);
+  animation: fadeUp 420ms var(--ease) both;
+}
+
+.login-mark { border-radius: 9px; }
+
+.login-title {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.login-sub {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-small);
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  margin-top: 0.4rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-body);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.login-button {
+  width: 100%;
+  padding: 0.72rem 1rem;
+  background: var(--accent-fill);
+  border: 1px solid var(--accent-fill);
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.login-button:hover:not(:disabled) {
+  /* Lift and glow, but keep the fill: lightening it to --accent-bright put
+     white text at 2.99:1. */
+  box-shadow: 0 0 18px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.login-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.login-error {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--danger);
+  text-align: center;
+}
+
+/* ------------------------------------------------------- brand + sync bits */
+
+.brand-mark { border-radius: 6px; display: block; }
+.brand { color: var(--text); }
+.brand:hover { color: var(--text); }
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ------------------------------------------------------------------ toast */
+
+/*
+  Anchored to the viewport, not the top bar. The sync result used to sit inline
+  next to the button, where its variable length ("Added 1,247 new rows" vs "Up
+  to date - nothing new since the last run") shoved the scope controls sideways
+  and wrapped the bar onto two rows.
+*/
+.toast {
+  position: fixed;
+  right: clamp(1rem, 3vw, 2rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  z-index: 100;
+
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.85rem 0.9rem 0.85rem 1rem;
+
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.75);
+
+  font-size: var(--fs-small);
+  color: var(--text);
+  animation: toast-in 260ms var(--ease) both;
+}
+
+.toast--ok { border-left: 3px solid var(--accent); }
+.toast--error { border-left: 3px solid var(--danger); }
+
+.toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent-bright);
+}
+.toast--error .toast-dot { background: var(--danger); }
+
+.toast-text { flex: 1; line-height: 1.45; }
+
+.toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: 0;
+  color: var(--text-faint);
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.toast-close:hover { color: var(--text); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --------------------------------------------------- refresh meta + icons */
+
+/* Square chip for icon-only controls, so it does not stretch like a text chip. */
+.icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  width: 34px;
+  height: 34px;
+}
+.icon-chip:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* -------------------------------------------------------------- skeletons */
+
+/*
+  The shimmer sweeps across a panel-coloured base, so a skeleton reads as the
+  card it is standing in for rather than as a foreign grey block.
+*/
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-inset) 25%,
+    var(--bg-panel-hover) 50%,
+    var(--bg-inset) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---------------------------------------------------------------- heatmap */
+
+/*
+  Ported from the sibling Data Usage Tracker, class for class, so the two
+  Activity cards read as one design.
+
+  The gutter matters: cells grow on hover, and without padding here the growth
+  is clipped by the scroll container. Keep this at least half the hover growth.
+*/
+.heatmap-scroll {
+  overflow-x: auto;
+  padding: 6px 7px 10px;
+}
+
+/*
+  One grid holds the month row, the weekday column and every cell, each placed
+  explicitly. Sharing tracks is what keeps the three registered with one
+  another - the weekday labels take their heights from the same rows the cells
+  size, so nothing can drift.
+
+  Columns are `1fr` with a floor, so the range stretches to fill the card and
+  only scrolls once it would fall below `--hm-min`. Cells stay square via
+  `aspect-ratio`, which derives their height from that fluid width.
+*/
+.heatmap-plot {
+  display: grid;
+  /* grid-template-columns is set inline from the component's WEEKS constant,
+     so the column count lives in exactly one place. */
+  grid-template-rows: 15px repeat(7, auto);
+  column-gap: var(--hm-gap);
+  row-gap: var(--hm-gap);
+  align-items: center;
+}
+
+.heatmap-month {
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 15px;
+  color: var(--text-faint);
+  align-self: end;
+}
+
+.heatmap-day {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-faint);
+  white-space: nowrap;
+  padding-right: 8px;
+}
+
+.heatmap-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  transition: transform 140ms var(--ease), outline-color 140ms var(--ease);
+  outline: 1px solid transparent;
+}
+
+/* Days never recorded get a hairline instead of a fill, so an empty stretch
+   reads as "not recorded" rather than as a run of zero-usage days. */
+.heatmap-cell[data-nodata='true'] {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Kept gentle so the growth stays inside `.heatmap-scroll`'s gutter. Raising
+   this means widening that padding to match. */
+.heatmap-cell:hover {
+  transform: scale(1.14);
+  outline-color: var(--text-faint);
+}
+
+/* Legend swatches sit outside the grid, so they keep a fixed size. */
+.heatmap-swatch {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  font-size: 13.5px;
+  color: var(--text-faint);
+  flex-wrap: wrap;
+}
+
+.heatmap-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/*
+  With the Expand button, the legend is three columns: summary, button, scale.
+  The two outer columns are equal `1fr`, which is what puts the button in the
+  true middle of the row; with flex and space-between it would sit between
+  two texts of different widths, off-centre.
+
+  Sized by the CARD, not the viewport (the container is `.heatmap`): a phone
+  in desktop mode reports a wide viewport while the card is narrow. Below
+  480px the scale no longer fits a third of the row, so it falls back to a
+  wrapping flex: the summary on a line of its own, then button and scale.
+*/
+.heatmap { container-type: inline-size; }
+
+.heatmap-legend--split {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+}
+.heatmap-legend--split .heatmap-scale { justify-self: end; }
+
+@container (max-width: 480px) {
+  .heatmap-legend--split { display: flex; row-gap: 10px; }
+  .heatmap-legend--split .heatmap-summary { flex-basis: 100%; }
+}
+
+/* The expanded page: blocks of the Overview's width, stacked oldest first. */
+.heatmap-block + .heatmap-block { margin-top: 1.6rem; }
+
+.heatmap-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 7px 4px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.heatmap-block-total {
+  font-weight: 500;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------- By App: show all apps */
+
+/* The button closes the table rather than opening a new section: centred under
+   a hairline, with what it hides said beside it.
+
+   This was defined TWICE, the later copy (left from a pager section) silently
+   overriding most of this one -- so the rendered result was a merge neither
+   copy described. Folded into one rule that reproduces exactly what rendered. */
+.table-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+}
+.table-more-note {
+  font-size: var(--fs-small);
+  color: var(--text-faint);
+}
+
+/* ------------------------------------------------- card title + callouts */
+
+.card-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1.15rem;
+  flex-wrap: wrap;
+}
+
+/* A figure that describes the whole panel, sat in the title's right slot. */
+.callout {
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1.25;
+}
+.callout-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.callout-value {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--accent-bright);
+}
+.callout-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+/* The date sits beside the label rather than under the figure, so the callout
+   is two lines instead of three and stays clear of the chart's plot area. */
+.callout-date {
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Four score cards need a smaller floor than the three-up grid, or the fourth
+   wraps to its own row on an ordinary laptop width. */
+.grid--4 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+/* The "All" card. Accent-coloured because it is the headline figure; the other
+   three stay near-white so the hierarchy reads at a glance. */
+.stat-value--accent { color: var(--accent-bright); }
+
+
+/* --------------------------------------------------------------- by app */
+
+/*
+  Fixed layout so the name column takes the slack and truncates. With `auto`,
+  a long NT-derived name widens the table past the panel and Total and Share
+  end up behind a horizontal scroll -- the columns most worth reading.
+
+  Percentages rather than pixels so it still fills any width. They total 100.
+*/
+.app-table { table-layout: fixed; width: 100%; }
+
+.app-table th:nth-child(1), .app-table td:nth-child(1) { width: 30%; }
+.app-table th:nth-child(2), .app-table td:nth-child(2) { width: 13%; }
+.app-table th:nth-child(3), .app-table td:nth-child(3) { width: 13%; }
+.app-table th:nth-child(4), .app-table td:nth-child(4) { width: 13%; }
+.app-table th:nth-child(5), .app-table td:nth-child(5) { width: 11%; }
+.app-table th:nth-child(6), .app-table td:nth-child(6) { width: 20%; }
+
+.app-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* The kind badge must not be squeezed out by a long name. */
+.app-kind {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  /* Records is the first thing worth losing when space is tight. */
+  .app-table th:nth-child(5), .app-table td:nth-child(5) { display: none; }
+  .app-table th:nth-child(1), .app-table td:nth-child(1) { width: 34%; }
+}
+
+/* ----------------------------------------------------------------- footer */
+
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 1.4rem clamp(1rem, 3vw, 2.5rem);
+  margin-top: 4rem;
+}
+
+.footer-base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+}
+
+/* The shell is a flex column, so this pins the footer to the bottom on short
+   pages instead of leaving it floating mid-viewport. */
+.main { flex: 1; }
+
+/* -------------------------------------------------------- app detail bits */
+
+.app-link { color: var(--text); text-decoration: none; }
+.app-link:hover { color: var(--accent-bright); text-decoration: underline; }
+
+.back-link {
+  font-size: var(--fs-small);
+  color: var(--text-dim);
+  transition: color var(--dur) var(--ease);
+}
+.back-link:hover { color: var(--accent-bright); }
+
+/* A paragraph of explanation inside a card. It runs the full width of the
+   card: capped at 78ch it left a third of every explanatory card empty, which
+   read as a layout bug rather than as a reading measure. The line height
+   carries the legibility instead. */
+.prose-note {
+  margin: 0;
+  color: var(--text-dim); font-size: var(--fs-small); line-height: 1.7;
+}
+.prose-note strong { color: var(--text); font-weight: 600; }
+
+/* ------------------------------------------------------------- app logos */
+
+/*
+  Logos live in public/apps_logo/ and are served by /api/app-logo, never
+  linked from public/ directly -- `next start` snapshots that folder at boot
+  and this dashboard stays up for weeks. See src/lib/app-logo.ts.
+*/
+
+.app-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.app-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/*
+  The stand-in for an app with no logo file. Muted on purpose: it should read
+  as "no logo here", not compete with the real artwork beside it.
+*/
+.app-icon--initial {
+  background: var(--bg-panel-hover);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/*
+  A light plate for logos that are black on transparent -- X being the
+  measured case. Without it the artwork is invisible on this page and reads as
+  a failed lookup rather than as a logo that loaded perfectly.
+*/
+.app-icon--plate {
+  background: var(--logo-plate);
+  padding: 2px;
+}
+
+/* Name + logo as one unit, so the two never drift apart in a flex row.
+   min-width 0 lets the flex child actually shrink. */
+.app-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------- sync now button */
+
+/*
+  Icon and label as one inline unit, so the chip's own padding still shapes it
+  and the label does not shift when it changes between "Sync now" and
+  "Syncing" -- the icon is what the eye tracks while it spins.
+*/
+.sync-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  /* The two labels differ in width; reserving the wider one stops the chip
+     resizing mid-run, which reads as the layout twitching. */
+  min-width: 5.4rem;
+  justify-content: center;
+}
+
+.sync-label .spin { animation: spin 900ms linear infinite; transform-origin: 50% 50%; }
+

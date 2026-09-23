@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A clock, matching the dashboard's favicon rather than the sibling reporter's
+  ascending bars. Two reporter apps sit in one app drawer on this phone, so the
+  marks have to differ in SHAPE and not only in hue.
+
+  Adaptive icons are 108x108dp with only the middle 72x72dp guaranteed visible
+  (the launcher masks and may parallax the rest), so everything here stays well
+  inside a 66dp circle centred on 54,54.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Ring. Stroked rather than two filled circles so the launcher's own
+         background shows through the middle. -->
+    <path
+        android:strokeColor="#9B82FF"
+        android:strokeWidth="7"
+        android:fillColor="#00000000"
+        android:pathData="M54,26 a28,28 0 1,1 -0.1,0 z" />
+
+    <!-- Hands, near-white so they separate from the ring at launcher size. -->
+    <path
+        android:strokeColor="#ECE8FF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M54,54 L54,36" />
+    <path
+        android:strokeColor="#ECE8FF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M54,54 L67,62" />
+</vector>

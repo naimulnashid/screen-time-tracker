@@ -1,0 +1,45 @@
+# Changelog
+
+Notable changes per release. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/). The day-by-day reasoning behind
+each change -- what was measured, and what it overturned -- is in
+[`docs/DEVLOG.md`](docs/DEVLOG.md).
+
+## [1.0.0] - 2026-09-23
+
+First public release.
+
+### Added
+- **Windows collector**: an unelevated foreground-window sampler (logon task),
+  with lock detection through `WTSQuerySessionInformation`. It writes
+  crash-safe JSONL, which an hourly task and a "Sync now" button fold into
+  SQLite. Window titles are never captured.
+- **Android collector**: *Screen Time Reporter*, a dependency-free APK that
+  reads `UsageStatsManager` events and pushes sessions and screen-on spans
+  over the LAN, gzipped, with a server-confirmed watermark.
+- **Dashboard** (Next.js, port 7844): per-device Overview, By App, Activity
+  heat map and Sync Status pages, with app detail pages, range scoping,
+  brand-coloured bars and local logos.
+- **Reset survival**: the database lives off the system drive and is backed up
+  with SQLite's `backup()`. `npm run backup:kit` saves the code, the secrets
+  and the local-only config, and `npm run drill` proves a restore would work.
+- **Demo mode**: `npm run demo:seed` builds a synthetic installation through
+  the real write paths, so the dashboard can be tried without a sampler or a
+  phone.
+- `npm run selftest` (368 checks), GitHub Actions CI and Dependabot.
+
+### Security
+- Fail-closed shared-password gate; login throttling with a global budget; a
+  PBKDF2-derived session key; a safe post-login redirect; cross-origin writes
+  refused; size-capped phone uploads; CSP and related headers; sandboxed SVG
+  logos; `npm run firewall` to keep the port off Public networks. See
+  [`SECURITY.md`](SECURITY.md).
+
+### Accessibility
+- WCAG 2.1 AA contrast throughout, per-page titles, a text summary on every
+  chart, a skip link, `aria-current` navigation and announced login errors.
+  Two documented exceptions: the fixed-width phone layout, and the heat map's
+  lowest shades.
+
+[1.0.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.0.0

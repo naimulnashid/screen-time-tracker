@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "Copy to config/collector.json (gitignored) and edit the paths.",
+    "",
+    "The database MUST NOT live on the system drive (C:\\ on most machines):",
+    "surviving a Windows reset is the point of this project, and",
+    "openDatabase() refuses a path there and throws.",
+    "",
+    "  databasePath   the live database. If its folder is synced by a cloud",
+    "                 client, remember a WAL database is three files that can",
+    "                 be uploaded at three different instants -- so the synced",
+    "                 copy of THIS file is not a reliable restore source.",
+    "",
+    "  backupPath     a consistent single-file copy, written with SQLite's",
+    "                 backup() API after every ingest. Restore from THIS one.",
+    "                 The recovery kit also writes its bundle and local-files",
+    "                 copy into this folder.",
+    "",
+    "  scratchDir     working space, kept OUTSIDE any synced folder: the",
+    "                 recovery kit puts a plaintext copy of .env.local here.",
+    "",
+    "  samplerLogDir  where the Windows sampler appends its JSONL between",
+    "                 ingests. Also off the system drive: until the next ingest",
+    "                 it is the only copy of that day's screen time.",
+    "",
+    "  deviceLabel    what this machine is called in the dashboard; its URL",
+    "                 slug is derived from it (\"My Laptop\" -> /windows/my-laptop)."
+  ],
+
+  "deviceLabel": "My Laptop",
+
+  "databasePath": "D:\\PersistentData\\screen-time\\live\\screen-time.db",
+  "backupPath": "D:\\PersistentData\\screen-time\\screen-time.db",
+  "scratchDir": "D:\\ScreenTime-scratch",
+  "samplerLogDir": "D:\\ScreenTime-scratch\\sampler",
+
+  "backupEnabled": true
+}

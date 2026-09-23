@@ -1,0 +1,52 @@
+{
+  "name": "screen-time-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-only per-app screen time for a Windows laptop and Android phones, kept on a non-system drive so it survives a Windows reset.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/naimulnashid/screen-time-tracker.git"
+  },
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "next dev -p 7844",
+    "build": "next build",
+    "start": "next start -p 7844",
+    "atp": "tsx scripts/research/phase1-analyze-atp.ts",
+    "android:capture": "tsx scripts/research/phase1-android-capture.ts",
+    "android:analyze": "tsx scripts/research/phase1-android-analyze.ts",
+    "sample": "powershell -ExecutionPolicy Bypass -File scripts/sampler.ps1",
+    "ingest": "tsx scripts/ingest-windows.ts",
+    "selftest": "tsx scripts/selftest.ts",
+    "demo:seed": "tsx scripts/seed-demo.ts",
+    "demo": "cd demo && node ../node_modules/next/dist/bin/next start .. -p 7849",
+    "logo:vacuum": "powershell -ExecutionPolicy Bypass -File scripts/vacuum-svg-defs.ps1",
+    "logo:distribute": "tsx scripts/distribute-logos.ts",
+    "drill": "tsx scripts/reset-drill.ts",
+    "backup:kit": "powershell -ExecutionPolicy Bypass -File scripts/backup-recovery-kit.ps1",
+    "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore.ps1",
+    "autostart": "powershell -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
+    "dashboard:stop": "powershell -ExecutionPolicy Bypass -File scripts/dashboard-stop.ps1",
+    "firewall": "powershell -ExecutionPolicy Bypass -File scripts/firewall-private-only.ps1"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "dependencies": {
+    "geist": "^1.7.2",
+    "next": "^15.5.26",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

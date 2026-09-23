@@ -1,0 +1,27 @@
+# Monthly, and minor/patch grouped into one PR, so updates arrive as a small
+# steady trickle rather than as noise. Majors still come one by one.
+#
+# Gradle is deliberately NOT here: android/build.gradle.kts pins the plugin
+# versions to what is already in the local Gradle cache, so a rebuild after a
+# Windows reset needs nothing new from the network. Bump those by hand.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # @types/node must match the Node the project RUNS on (engines: >=22.16,
+      # .nvmrc: 22). A newer major types APIs that do not exist at runtime,
+      # and the typecheck would happily pass code that then fails. Move it
+      # together with .nvmrc and engines, by hand.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
