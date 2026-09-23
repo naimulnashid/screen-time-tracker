@@ -1107,6 +1107,38 @@ that hands driver rows to a client component needs the same treatment; the
 query functions that `.map()` their results are already safe by accident, and
 that is worth making deliberate if one is ever simplified.
 
+## The phone app is released SIGNED, on GitHub Releases
+
+Decided 2026-09-23: the APK is published as an asset on a GitHub Release,
+never committed. Git history stays code-only, and `*.apk` stays ignored.
+
+    cd android && ./gradlew assembleRelease     (JAVA_HOME = Android Studio's jbr)
+    -> app/build/outputs/apk/release/app-release.apk
+    apksigner verify --print-certs <apk>        check before uploading
+
+- **The key is `<scratchDir>\recovery\screen-time-release.jks`**: RSA 4096,
+  100-year validity, alias `screentime`, DN `CN=Screen Time Reporter,
+  O=naimulnashid`. The certificate DN is readable by anyone who downloads
+  the APK, so it carries only the public GitHub handle.
+- **`android/keystore.properties` names it and holds the passwords.** It is
+  gitignored, along with `*.jks` and `*.keystore`, in BOTH repos. Anyone with
+  the key can ship an update the phones will accept, so the private repo does
+  not get it either. `npm run backup:kit` copies the properties file into
+  `recovery\`, and `npm run drill` fails if the key is missing, on the system
+  drive, or its properties copy is stale.
+- **Without the properties file, `assembleRelease` builds UNSIGNED and warns.**
+  It does not fall back to the debug key: a debug-signed "release" would
+  install once and then refuse every real update.
+- **Losing the key costs no data, but it breaks updates.** A release signed
+  by any other key will not install over this one, so each phone would have
+  to uninstall the app, re-grant usage access and re-enter the token. The
+  debug build that was sideloaded before is in the same position: switching
+  a phone to the release APK means uninstalling the debug one first.
+  Server-side history is unaffected, and the first sync backfills ~10 days.
+- **Bump `versionCode` for every release**, or Android refuses the update as
+  a downgrade. The v1.0.0 asset is `versionCode 1` / `versionName "1.0"`,
+  built from the v1.0.0 app sources plus the signing config.
+
 ## Phase 4: the reset drill
 
     npm run drill        verify recoverability; changes nothing

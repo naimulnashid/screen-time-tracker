@@ -248,6 +248,33 @@ try {
     note('.env.local is absent', 'the dashboard fails closed without DASHBOARD_PASSWORD');
   }
 
+  // The APK signing key. Losing it does not lose data, but every later
+  // release stops installing over the published one: the phones would have
+  // to uninstall the app, re-grant usage access and re-enter the token. The
+  // .jks is created in the recovery dir, so it must NOT be on C:\, and the
+  // properties file naming it (gitignored, with the passwords) needs its copy.
+  const ksProps = join('android', 'keystore.properties');
+  if (existsSync(ksProps)) {
+    const text = readFileSync(ksProps, 'utf8');
+    const store = /^storeFile=(.+)$/m.exec(text)?.[1]?.trim() ?? '';
+    const propsCopy = cfg.samplerLogDir
+      ? join(resolve(cfg.samplerLogDir, '..'), 'recovery', 'keystore.properties')
+      : '';
+    if (!store || !existsSync(store)) {
+      bad('APK signing key is MISSING', `${ksProps} names ${store || 'nothing'}, which does not exist`);
+    } else if (onSystemDrive(store)) {
+      bad('APK signing key lives on the system drive', `${store} -- move it to <scratchDir>\\recovery\\ and update ${ksProps}`);
+    } else if (!propsCopy || !existsSync(propsCopy)) {
+      bad('APK signing passwords live only on C:\\', `${ksProps} has no copy -- run npm run backup:kit`);
+    } else if (readFileSync(propsCopy, 'utf8').trim() !== text.trim()) {
+      bad('APK signing properties copy is STALE', `${propsCopy} differs from ${ksProps} -- run npm run backup:kit`);
+    } else {
+      ok('APK signing key and passwords are off the system drive', store);
+    }
+  } else {
+    note('no APK signing key configured', 'assembleRelease would build UNSIGNED');
+  }
+
   // The local-only files: gitignored, so the repo's remote does not have them
   // and only the kit's mirror survives a reset. Compared BYTE FOR BYTE, for the
   // same reason as the secrets above: a copy taken before the last logo was

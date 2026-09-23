@@ -6,6 +6,25 @@ Notable changes per release. The format follows
 each change -- what was measured, and what it overturned -- is in
 [`docs/DEVLOG.md`](docs/DEVLOG.md).
 
+## [Unreleased]
+
+### Added
+- **A signed release APK** of *Screen Time Reporter*, attached to the
+  [v1.0.0 release](https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.0.0).
+  The signing key is never in the repository; builds without it come out
+  unsigned rather than debug-signed.
+
+### Fixed
+- **The daily trend line** is one continuous line again: a day with no
+  recording dips to zero instead of breaking the line. The tooltip still
+  says "Not recorded".
+- **The Windows sampler survives a logoff.** A logoff kills it without its
+  cleanup; the next start now recovers the lost span and records the time it
+  was down as a gap. One sampler per output folder is enforced, and a long
+  switched-off period no longer overflows span lengths at 24.8 days.
+- **Days holding only gap** no longer count as days with data, so time
+  switched off does not lower the daily average.
+
 ## [1.0.0] - 2026-09-23
 
 First public release.

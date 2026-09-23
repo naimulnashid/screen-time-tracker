@@ -3,7 +3,7 @@
 
         powershell -ExecutionPolicy Bypass -File scripts\backup-recovery-kit.ps1
 
-    The database already has a backup. This covers the two things that do NOT,
+    The database already has a backup. This covers the things that do NOT,
     both found by `npm run drill`:
 
       1. THE CODE. The repo lives on C:\ with no remote, so a reset destroys
@@ -20,6 +20,11 @@
          describe this installation (its drives, its devices, every app on
          them). Nothing else keeps a copy, and a clone without collector.json
          cannot even find the database backup to restore.
+
+      4. THE APK SIGNING KEY. The .jks is created in the secrets folder below,
+         so it already survives a reset; android\keystore.properties, which
+         names it and holds its passwords, is gitignored and copied there
+         too. Without the key a new release cannot install over the old one.
 
     ------------------------------------------------------------------------
     THE DESTINATIONS ARE DIFFERENT ON PURPOSE.
@@ -142,6 +147,25 @@ if ($SkipSecrets) {
         Write-Info (Join-Path $secretDir '.env.local')
         Write-Info "plaintext, local disk only -- not uploaded anywhere"
     }
+
+    # The APK signing properties. The key itself should already sit in the
+    # secrets folder; a key on C:\ would die with the reset, so say so.
+    $ksProps = Join-Path $repo 'android\keystore.properties'
+    if (Test-Path $ksProps) {
+        $secretDir = Join-Path $cfg.scratchDir 'recovery'
+        if (-not (Test-Path $secretDir)) { New-Item -ItemType Directory -Path $secretDir -Force | Out-Null }
+        Copy-Item $ksProps (Join-Path $secretDir 'keystore.properties') -Force
+        $store = ((Get-Content $ksProps | Where-Object { $_ -like 'storeFile=*' }) -replace '^storeFile=', '').Trim()
+        if (-not $store -or -not (Test-Path $store)) {
+            Write-Bad "APK signing key not found at '$store'"
+        } elseif ($store -like "$($env:SystemDrive)*") {
+            Write-Bad "APK signing key is on the system drive ($store) -- move it to $secretDir"
+        } else {
+            Write-Ok "APK signing properties copied; key at $store"
+        }
+    } else {
+        Write-Info "no android\keystore.properties -- no APK signing key to preserve"
+    }
 }
 
 # --- 3. The local-only files -------------------------------------------
@@ -194,6 +218,9 @@ Everything below assumes C:\ is gone and D:\ survived.
    (or set DASHBOARD_PASSWORD and ANDROID_INGEST_TOKEN by hand -- but then the
     phone needs the new token typed into Screen Time Reporter, or it will 401
     on every sync and only say so in its own status line)
+
+   APK SIGNING KEY -- only needed to build a new release of the phone app:
+   copy "$($cfg.scratchDir)\recovery\keystore.properties" android\keystore.properties
 
    LOCAL-ONLY FILES -- config, brand colours and logos; gitignored, so the
    clone does not have them, and step 3 needs collector.json:

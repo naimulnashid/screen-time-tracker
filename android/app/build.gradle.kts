@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -28,13 +30,38 @@ android {
         buildConfig = true
     }
 
+    // The release APK is published on GitHub Releases, so it is signed with a
+    // real key. The key and its passwords are LOCAL ONLY: android/
+    // keystore.properties (gitignored) names the .jks and holds the
+    // passwords, and a copy of both lives in <scratchDir>\recovery\. Losing
+    // the key means a new release cannot install over the old one; the app
+    // would have to be uninstalled first.
+    //
+    // Without the file, assembleRelease still builds, UNSIGNED, and says so,
+    // so a fresh clone is buildable and nobody is handed a debug-signed
+    // "release".
+    val keystoreProps = rootProject.file("keystore.properties")
+    val signing = Properties().apply {
+        if (keystoreProps.exists()) keystoreProps.inputStream().use { load(it) }
+    }
+    signingConfigs {
+        if (keystoreProps.exists()) {
+            create("release") {
+                storeFile = file(signing.getProperty("storeFile"))
+                storePassword = signing.getProperty("storePassword")
+                keyAlias = signing.getProperty("keyAlias")
+                keyPassword = signing.getProperty("keyPassword")
+            }
+        } else {
+            logger.warn("android/keystore.properties not found: the release APK will be UNSIGNED")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
-        // Debug is what actually gets installed: this app is sideloaded onto
-        // one phone over adb and never published, so a release signing config
-        // would be ceremony with no reader.
     }
 
     compileOptions {

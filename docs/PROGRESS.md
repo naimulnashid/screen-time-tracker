@@ -640,3 +640,11 @@ writes the lost span and a gap before it begins. That work happens at
 startup, so shutdown time is unaffected. A mutex keeps it to one sampler per
 folder. Tested with a real kill, a second copy, and a heartbeat 40 days old,
 which also exposed an Int32 overflow in span lengths that is now fixed.
+
+### 2026-09-23 - a signed APK on GitHub Releases
+
+There were no releases, only the v1.0.0 tag, and no APK anywhere public. The
+phone app now has a release key, kept with the other secrets and covered by
+the kit and the drill, and the signed APK is attached to a v1.0.0 Release.
+Phones running the old debug build must uninstall it before installing the
+release, because the signatures differ.

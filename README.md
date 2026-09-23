@@ -172,13 +172,23 @@ starts from the moment the sampler runs.
 
 ### 3. A phone (optional)
 
-1. Build the APK:
+1. Download the signed APK from the
+   [Releases](https://github.com/naimulnashid/screen-time-tracker/releases)
+   page and install it; Android will ask you to allow installs from your
+   browser or file manager. It is not on the Play Store.
+
+   Or build it yourself:
    ```bash
    cd android
    ./gradlew assembleDebug
    ```
-   Then install `app/build/outputs/apk/debug/app-debug.apk`, for example with
-   `adb install`. It is sideloaded, not published.
+   and install `app/build/outputs/apk/debug/app-debug.apk`, for example with
+   `adb install`. A self-built copy is signed with a different key, so it
+   cannot install over the released one, or the other way round, without
+   uninstalling first. To sign your own release builds, point
+   `android/keystore.properties` (gitignored) at your keystore with
+   `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, then run
+   `./gradlew assembleRelease`.
 2. In the app, tap **Grant usage access** and enable *Screen Time Reporter*.
 3. Enter the dashboard's address (`http://<your-PC's-LAN-IP>:7844`) and
    `ANDROID_INGEST_TOKEN`, then tap **Save and test connection**.

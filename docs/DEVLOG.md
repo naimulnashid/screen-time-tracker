@@ -6,6 +6,21 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### A signed release APK, published on GitHub Releases
+
+- **The phone app now has a real release signing key**, and the APK is
+  attached to the v1.0.0 GitHub Release rather than committed. The owner chose
+  that over a committed binary, which would add ~2 MB to every clone's
+  history for each version.
+- **The key and passwords never enter git**, in either repo:
+  `android/keystore.properties` (gitignored) points at a `.jks` kept in the
+  non-synced recovery folder. The kit copies the properties file there, and
+  the drill fails if the key is missing, on the system drive, or stale.
+- **No key, no signature:** a clone without the properties file builds an
+  UNSIGNED release and says so, rather than silently debug-signing it.
+- The README now points phone users at Releases first, and says why a
+  self-built APK cannot install over the released one.
+
 ### The sampler survives a logoff: startup recovers what the kill lost
 
 - **The heartbeat now says whether its run closed cleanly.** `closed` is set

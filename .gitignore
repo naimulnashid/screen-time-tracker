@@ -33,6 +33,14 @@ android/app/build/
 android/build/
 *.apk
 
+# The release SIGNING KEY and its passwords. Never in git, public or private:
+# anyone holding the key can ship an update the phones will accept as ours.
+# The key lives in <scratchDir>\recovery\ and npm run backup:kit copies the
+# properties file there too.
+android/keystore.properties
+*.jks
+*.keystore
+
 # os / editor
 .DS_Store
 Thumbs.db
