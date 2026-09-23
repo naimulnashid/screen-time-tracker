@@ -555,9 +555,11 @@ Matches the sibling deliberately, so the two projects stay legible together.
 - **Next.js 16** (App Router, Turbopack builds) + **React 19** + **TypeScript 5**
   - Moved from 15 on 2026-09-23, A/B tested against a Next 15 build of the
     same commit: every page, the auth rewrite, the headers and the redirects
-    behaved identically. `src/middleware.ts` keeps its name and still works;
-    Next 16 calls that convention deprecated in favour of `proxy.ts`, and the
-    build says so. Renaming it is a separate change.
+    behaved identically.
+  - **The auth gate is `src/proxy.ts`**, exporting `proxy`. Next 16 renamed
+    the `middleware.ts` convention and now runs it on Node, not Edge. Older
+    notes in this file and in the DEVLOG say "middleware"; that means this
+    file.
   - **`next build` rewrites `tsconfig.json`** if `jsx` is not `react-jsx` or
     `.next/dev/types/**/*.ts` is missing from `include`, and reformats every
     array while it is there. Both values are now in the file, so it is left
@@ -596,7 +598,7 @@ scripts/
 src/
   lib/
     accent.ts        the ONLY place an accent hex exists
-    auth.ts          Web Crypto only - pulled into Edge middleware
+    auth.ts          Web Crypto only - pulled into the proxy
     login-throttle.ts, safe-next.ts   the sign-in hardening
     config.ts        reads collector.json, once
     db.ts, schema.ts node:sqlite, backup, sync_log, DDL
@@ -611,7 +613,8 @@ src/
   app/               (dash) route group + /login outside it
                      /windows/<slug>/* and /android/<slug>/*; the old
                      bare /, /apps, /sync survive as redirects
-  middleware.ts      the single auth gate, and the cross-origin check
+  proxy.ts           the single auth gate, the cross-origin check, and the
+                     400 for a malformed path
 ```
 
 `scripts/research/srum-recover.ps1` is a **copy** of the sibling's, not a reference to
@@ -956,9 +959,30 @@ with its heading and its sidebar entry -- one edit, no drift. The cost is that
 a rename breaks a bookmark, which is the right trade for the config file
 staying the single source of what this machine is called.
 
-**A wrong slug 404s.** The pages compare the segment against `windowsSlug()`
+**A wrong slug 404s.** The segment is compared against `windowsSlug()`
 instead of ignoring it. Skip that and every misspelling renders Zephyrus G16
 under a wrong name, which is the URL quietly going back to meaning nothing.
+
+⚠️ **The check lives in a LAYOUT, and the skeletons live in route groups.**
+From v1.0.0 until 2026-09-23, the pages made the check themselves, and a wrong
+slug rendered the not-found screen **with status 200**. Every page sits inside
+a `loading.tsx` Suspense boundary, and the 200 goes out with the skeleton
+before the page runs. Nothing looked wrong in a browser; only the status
+code did.
+
+So `windows/[device]/layout.tsx` and `android/[device]/layout.tsx` do the
+check, and `apps/[key]` and `apps/[pkg]` have layouts that 404 an app never
+recorded. A layout is outside its OWN segment's boundary but inside every
+boundary ABOVE it. That is why the Overview and By App skeletons moved into
+`[device]/(overview)/` and `apps/(list)/`. At `[device]/loading.tsx` the
+Overview skeleton wrapped every laptop page, so no check below it could
+return a 404. **Do not put a `loading.tsx` back at `[device]` or `apps`.**
+
+A malformed `%` (`/apps/100%`) never reaches any of this. Next validates a
+param's encoding before route code runs and answered with a bare 500, so
+`proxy.ts` answers a path that does not decode with a 400 first. Params
+arrive still ENCODED (`exe%253A` is not `exe:`), and `decodeSegment()` in
+`slug.ts` decodes them without throwing.
 
 ⚠️ **A redirect does NOT carry the query string.** `redirect('/windows/x')`
 drops `?days=7`, so a bookmarked `/apps?days=7` would land on the full range
@@ -1016,6 +1040,13 @@ misclassify it.
 The rewritten response carries `cache-control: no-store`. Nothing may hold the
 login form under a dashboard URL.
 
+⚠️ **That header only survives because `/login` is DYNAMIC** (`force-dynamic`
+in `login/layout.tsx`). A prerendered /login is served with Next's own
+`s-maxage=31536000`, which REPLACED the gate's `no-store`. Measured
+2026-09-23 on fresh Next 15 and 16 builds alike. The long-running live server
+happened to send `no-store`, so checking only against it would have missed
+the bug. **Check this header on a fresh build**, with curl.
+
 ## Security hardening, and two traps it found
 
 Done 2026-09-23 before publishing, and verified against a real production
@@ -1033,7 +1064,7 @@ build (a scratch copy on another port, never over the live `.next`).
   read with a byte limit (8 MB), gunzip gets `maxOutputLength` (64 MB), and
   `payloadProblem()` bounds array lengths and string sizes. A 1 GiB gzip bomb
   is refused in 40 ms.
-- **Cross-origin writes are refused in the middleware** by comparing `Origin`
+- **Cross-origin writes are refused in the proxy** by comparing `Origin`
   to `Host`. SameSite=Lax alone treats every localhost PORT as the same site.
 - **The session key is PBKDF2-derived** from the password (200k iterations,
   cached per process). Keyed by the raw password, a copied cookie was an

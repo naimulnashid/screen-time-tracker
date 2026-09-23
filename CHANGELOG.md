@@ -17,9 +17,15 @@ each change -- what was measured, and what it overturned -- is in
 ### Changed
 - **Next.js 16** (from 15) and **React 19.3**, with the other minor and patch
   updates Dependabot grouped. Nothing visible changes; after pulling, run
-  `npm install` and rebuild.
+  `npm install` and rebuild. The auth gate is now `src/proxy.ts`, Next 16's
+  name for what was `middleware.ts`.
 
 ### Fixed
+- **A wrong address is a real 404.** A misspelt device, or an app that was
+  never recorded, showed the not-found page but sent status 200. A malformed
+  `%` in the path now gets 400 instead of a server error.
+- **The sign-in form is never cacheable.** Served in place of a dashboard
+  page, it could go out marked cacheable for a year on a fresh build.
 - **The daily trend line** is one continuous line again: a day with no
   recording dips to zero instead of breaking the line. The tooltip still
   says "Not recorded".

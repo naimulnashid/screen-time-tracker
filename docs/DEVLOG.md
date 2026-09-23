@@ -6,6 +6,34 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### A wrong address is a real 404, and the login form is really no-store
+
+These are the three follow-ups from the Next 16 move, each checked with curl
+on a fresh production build before it landed.
+
+- **`middleware.ts` is now `proxy.ts`**, exporting `proxy`, which is Next 16's
+  name for the convention. It now runs on Node rather than Edge. The build's
+  deprecation warning is gone, and the gate behaves exactly as before.
+- **A wrong device slug, or an app never recorded, now returns 404.** It
+  showed the not-found screen but sent HTTP 200: each page sat inside a
+  `loading.tsx` boundary, and the 200 went out with the skeleton before the
+  page's check ran. The checks moved into layouts at `[device]`, `apps/[key]`
+  and `apps/[pkg]`. The Overview and By App skeletons moved into the
+  `(overview)` and `(list)` route groups, because at `[device]` and `apps`
+  they wrapped every page below and kept the check inside a boundary.
+- **A malformed `%` in the path returns 400**, not Next's bare 500. Next
+  checks a param's encoding before any route code runs, so only the proxy can
+  answer first. `decodeSegment()` replaces the direct `decodeURIComponent`
+  calls, so a key that decodes to something with `%` in it cannot throw.
+- **`/login` is rendered per request**, so a rewritten login form is sent
+  `no-store`. Prerendered, it went out with Next's `s-maxage=31536000` in
+  place of the gate's header.
+
+Measured on the build: every page of both devices 200; wrong slugs, unknown
+apps and unknown packages 404; `/apps/100%` 400 and `/apps/100%25` 404; the
+legacy redirects, the RSC redirect, the cross-origin 403 and the API 401
+unchanged.
+
 ### Next.js 16 and React 19.3, from the first Dependabot PRs
 
 - **Three PRs arrived with the first Dependabot run.** The minor/patch group

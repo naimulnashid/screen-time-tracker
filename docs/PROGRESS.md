@@ -657,3 +657,12 @@ scratch servers. TypeScript 7 failed CI and is declined; its major versions
 are now ignored until Next supports it. The testing found that the login form
 served over a dashboard URL is not reliably `no-store`, an older bug on both
 versions. That is left as a separate fix.
+
+### 2026-09-23 - the Next 16 follow-ups
+
+All three are done. The auth gate is `proxy.ts`. The login form is `no-store`,
+because `/login` is now rendered per request. A wrong device, app or package
+now returns a real 404 instead of a not-found page with status 200. That fix
+meant moving the checks into layouts, and moving the Overview and By App
+skeletons into route groups so no loading boundary sits above those layouts.
+A malformed `%` now gets a 400 instead of Next's 500.
