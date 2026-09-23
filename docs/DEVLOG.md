@@ -4,6 +4,17 @@ What changed, why, and what was measured to decide it -- newest first. This
 was the project's CHANGELOG.md until v1.0.0; the release log is now
 [`../CHANGELOG.md`](../CHANGELOG.md), and `CLAUDE.md` is the orientation doc.
 
+## After 1.0.0
+
+### A social preview image
+
+`docs/social-preview.png` (1280x640, 149 KB) is the card GitHub shows when the
+repository link is shared. GitHub has no API for it: upload it under
+Settings > General > Social preview. It is built from the demo screenshots, so
+like them it shows synthetic data only. It was rendered with headless Edge from
+a throwaway HTML page, using Geist from node_modules and the icon from
+src/app/icon.svg.
+
 ## Before 1.0.0
 
 ### Ready to publish: licence, docs, CI, a demo
