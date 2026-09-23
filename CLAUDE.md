@@ -840,6 +840,7 @@ kill -9 loses at most the one in flight.
 
     WINDOWS   active time = SUM(duration_ms) WHERE kind = 'app'
     ANDROID   screen time = SUM over android_screen, NEVER over the app rows
+    ANDROID < 9   app time = UNION of android_segments, per local hour
 
 Do not "fix" one to match the other. The reason is structural:
 
@@ -852,6 +853,40 @@ Do not "fix" one to match the other. The reason is structural:
 
 The shared half: `gap` and `locked` are never active time, and `unknown` is
 never quietly folded into either.
+
+### Below Android 9 a phone HAS NO screen-on, and gets app time instead
+
+`SCREEN_INTERACTIVE` / `SCREEN_NON_INTERACTIVE` and `KEYGUARD_SHOWN` /
+`HIDDEN` were all added in **API 28**. Measured 2026-09-23 on a **Redmi 5
+Plus, Android 8.1 / API 27, MIUI 11**: the event stream is
+`MOVE_TO_FOREGROUND` / `MOVE_TO_BACKGROUND` and nothing that marks the
+screen or the lock. Those are constants 1 and 2, which 29 renamed
+`ACTIVITY_RESUMED` / `PAUSED`, so the session code needs no change. There is
+no Digital Wellbeing on 8.1 either, so this phone has no external check.
+
+Such a phone sends app sessions and an EMPTY screen array. That is a fact
+about the OS, not an outage. A screen-on headline would read zero forever, so
+`headlineSource(sdkInt)` in `lib/android-source.ts` picks per device:
+
+- **`sdk_int >= 28`, or `0` (never reported):** screen-on, as before.
+- **Below 28:** the UNION of every app session, launcher included, taken per
+  `(local_date, local_hour)`. Segments are split at hour edges, so a
+  per-bucket union is exact. It is a union and not a `SUM()` so that a
+  hand-off overlap or split-screen counts once, and so that no hour can hold
+  more than an hour.
+
+Every page says **"in apps"** for such a phone, never "screen on". The unlock
+row is dropped rather than shown as zero, and "Attributed vs unaccounted" is
+replaced by a card explaining why (apps compared with themselves would read
+1.00x). Sync Status says "not recorded below Android 9". The figure is honestly lower
+than screen-on would be, by roughly the 0.76x measured on the Nothing.
+
+The phone app also closes stale sessions differently below 29. There is no
+`DEVICE_SHUTDOWN` there, so a session left open across a reboot would be
+clipped to "now", adding hours that never happened. But below 29 only one
+activity can be resumed at a time, so `buildSessions()` closes every other
+open package when a new one resumes. It is NOT applied on 29+, where
+split-screen apps really are resumed together.
 
 ### `unknown` is shown, not hidden
 
@@ -1182,7 +1217,18 @@ never committed. Git history stays code-only, and `*.apk` stays ignored.
   Server-side history is unaffected, and the first sync backfills ~10 days.
 - **Bump `versionCode` for every release**, or Android refuses the update as
   a downgrade. The v1.0.0 asset is `versionCode 1` / `versionName "1.0"`,
-  built from the v1.0.0 app sources plus the signing config.
+  built from the v1.0.0 app sources plus the signing config. **`versionCode
+  2` / `"1.1"`** lowered `minSdk` 29 -> 27 for the Redmi 5 Plus.
+- **`minSdk` 27 is guarded by lint, so run `lintRelease` with every build.**
+  `assembleRelease` alone does NOT fail on a NewApi error, and lowering the
+  floor found two: `unsafeCheckOpNoThrow` (29; `checkOpNoThrow` below it) and
+  `isAccessibilityHeading` (28). The four `InlinedApi` warnings on the
+  `SCREEN_*` / `KEYGUARD_*` constants are intended and suppressed: the values
+  compile in and simply never arrive below 28.
+- **MIUI refuses `adb install`** with `INSTALL_FAILED_USER_RESTRICTED` unless
+  Developer options has *Install via USB* switched on, which needs a Mi
+  account. `adb push` the APK to `/sdcard/Download/` and install it from the
+  phone's file manager instead.
 
 ## Phase 4: the reset drill
 

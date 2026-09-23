@@ -116,8 +116,9 @@ the measurements.
   so there are no native modules to compile.
 - **A drive that is not the system drive**, such as `D:\`, for the database.
   The code refuses to put it on `C:\`, since surviving a reset is the point.
-- **Optional, for phones:** Android 10 or newer, and JDK 17 or Android Studio
-  to build the APK.
+- **Optional, for phones:** Android 8.1 or newer, and JDK 17 or Android
+  Studio to build the APK. Below Android 9 a phone records no screen-on or
+  unlock events, so its dashboard shows time in apps instead of screen time.
 
 ## Try it with demo data
 

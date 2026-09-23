@@ -666,3 +666,13 @@ now returns a real 404 instead of a not-found page with status 200. That fix
 meant moving the checks into layouts, and moving the Overview and By App
 skeletons into route groups so no loading boundary sits above those layouts.
 A malformed `%` now gets a 400 instead of Next's 500.
+
+### 2026-09-23 - a third phone, on Android 8.1
+
+The Redmi 5 Plus runs Android 8.1, which records which app is in front but
+not when the screen is on or unlocked; both arrived with Android 9. The phone
+app now installs on 8.1 and up (1.1, `versionCode 2`), and the dashboard
+gives such a phone a "time in apps" headline, a union of its app sessions,
+instead of a screen-on figure that would read zero forever. Unlocks are left
+out and the Overview says why. The phone has synced once. The signed 1.1 APK
+is built but not yet attached to a GitHub Release.

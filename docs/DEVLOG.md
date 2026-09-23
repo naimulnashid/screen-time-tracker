@@ -6,6 +6,46 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Phones below Android 9: app time instead of screen-on
+
+A Redmi 5 Plus (Android 8.1 / API 27, MIUI 11) was probed over adb before
+anything was built, the same way the Nothing was in Phase 1.
+
+- **What it has:** per-app foreground events, as `MOVE_TO_FOREGROUND` /
+  `MOVE_TO_BACKGROUND`. Those are constants 1 and 2, which API 29 renamed
+  `ACTIVITY_RESUMED` / `PAUSED`, so session reconstruction carries over as is.
+- **What it lacks:** every `SCREEN_*` and `KEYGUARD_*` event, all added in
+  API 28, and Digital Wellbeing, which arrived with Android 9. The headline
+  source does not exist on this phone, and neither does the external check.
+- **The phone app** drops `minSdk` 29 -> 27. The reason given for 29,
+  `getTotalTimeVisible()`, went with the daily rollup; the app reads events
+  only. Lint found the two calls that did need 28+ (`unsafeCheckOpNoThrow`,
+  `isAccessibilityHeading`), and both are guarded. `assembleRelease` alone did
+  NOT fail on them, so `lintRelease` now runs with every build.
+- **No `DEVICE_SHUTDOWN` below 29**, so a session left open across a reboot
+  would be clipped to "now": invented hours. Below 29 only one activity can
+  be resumed at a time, so a new foreground package now closes every other
+  open one. It is not applied on 29+, where split-screen apps really are
+  resumed together.
+- **The dashboard picks a headline per device**, from the `sdk_int` the phone
+  already sends (`lib/android-source.ts`). Below 28 it is the UNION of app
+  sessions per local hour, launcher included. A union rather than a sum keeps
+  a hand-off overlap from counting twice, and keeps every hour at or under
+  an hour. Every place that said "screen on" says "in apps" for such a phone.
+  The unlock row is dropped rather than drawn at zero. The attributed-vs-
+  unaccounted card, which would compare apps with themselves, is replaced by
+  one that explains the gap.
+- **MIUI refuses `adb install`** (`INSTALL_FAILED_USER_RESTRICTED`) unless
+  *Install via USB* is on, which needs a Mi account. The APK went on through
+  the phone's file manager.
+
+Verified on a scratch build against a snapshot of the real database: every
+page for all three phones and the laptop returned 200, the new phone's pages
+use the app-time wording throughout, and the Nothing's Overview is unchanged.
+The first sync's event reach matched the phone's uptime. It had been off
+before that, so whether 8.1 also keeps ~10 days is still to be seen as the
+reach grows.
+
 ### A wrong address is a real 404, and the login form is really no-store
 
 These are the three follow-ups from the Next 16 move, each checked with curl

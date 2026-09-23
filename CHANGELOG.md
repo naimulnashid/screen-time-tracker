@@ -9,6 +9,13 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Added
+- **Phones on Android 8.1 and 9.** The phone app now installs on Android 8.1
+  (API 27) and up, from 10 before (*Screen Time Reporter* 1.1, `versionCode
+  2`). Android only records screen-on and unlock events from version 9, so an
+  8.x phone's pages show **time in apps**: the time any app or the home
+  screen was in front, with overlaps counted once. They say so, leave the
+  unlock figures out instead of showing zero, and explain why. Phones on 9
+  and up are unchanged.
 - **A signed release APK** of *Screen Time Reporter*, attached to the
   [v1.0.0 release](https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.0.0).
   The signing key is never in the repository; builds without it come out
