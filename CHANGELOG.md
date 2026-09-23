@@ -8,10 +8,14 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-23
+
 ### Added
 - **Phones on Android 8.1 and 9.** The phone app now installs on Android 8.1
   (API 27) and up, from 10 before (*Screen Time Reporter* 1.1, `versionCode
-  2`). Android only records screen-on and unlock events from version 9, so an
+  2`, attached to the
+  [v1.1.0 release](https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.1.0)).
+  Android only records screen-on and unlock events from version 9, so an
   8.x phone's pages show **time in apps**: the time any app or the home
   screen was in front, with overlaps counted once. They say so, leave the
   unlock figures out instead of showing zero, and explain why. Phones on 9
@@ -22,6 +26,9 @@ each change -- what was measured, and what it overturned -- is in
   unsigned rather than debug-signed.
 
 ### Changed
+- **Phones are listed in the sidebar in the order they were added**, so a new
+  phone joins the end instead of reshuffling the list. They were
+  alphabetical.
 - **Next.js 16** (from 15) and **React 19.3**, with the other minor and patch
   updates Dependabot grouped. Nothing visible changes; after pulling, run
   `npm install` and rebuild. The auth gate is now `src/proxy.ts`, Next 16's
@@ -79,4 +86,6 @@ First public release.
   Two documented exceptions: the fixed-width phone layout, and the heat map's
   lowest shades.
 
+[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.0.0

@@ -1,6 +1,6 @@
 {
   "name": "screen-time-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Local-only per-app screen time for a Windows laptop and Android phones, kept on a non-system drive so it survives a Windows reset.",
   "license": "MIT",

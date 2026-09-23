@@ -1218,7 +1218,8 @@ never committed. Git history stays code-only, and `*.apk` stays ignored.
 - **Bump `versionCode` for every release**, or Android refuses the update as
   a downgrade. The v1.0.0 asset is `versionCode 1` / `versionName "1.0"`,
   built from the v1.0.0 app sources plus the signing config. **`versionCode
-  2` / `"1.1"`** lowered `minSdk` 29 -> 27 for the Redmi 5 Plus.
+  2` / `"1.1"`** lowered `minSdk` 29 -> 27 for the Redmi 5 Plus; it is the
+  v1.1.0 release's asset.
 - **`minSdk` 27 is guarded by lint, so run `lintRelease` with every build.**
   `assembleRelease` alone does NOT fail on a NewApi error, and lowering the
   floor found two: `unsafeCheckOpNoThrow` (29; `checkOpNoThrow` below it) and

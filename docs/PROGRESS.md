@@ -674,5 +674,11 @@ not when the screen is on or unlocked; both arrived with Android 9. The phone
 app now installs on 8.1 and up (1.1, `versionCode 2`), and the dashboard
 gives such a phone a "time in apps" headline, a union of its app sessions,
 instead of a screen-on figure that would read zero forever. Unlocks are left
-out and the Overview says why. The phone has synced once. The signed 1.1 APK
-is built but not yet attached to a GitHub Release.
+out and the Overview says why. The phone has synced once.
+
+### 2026-09-23 - v1.1.0, and phones in the order they were added
+
+v1.1.0 is released, with the signed 1.1 APK attached, and carries everything
+since 1.0.0. The sidebar now lists phones by when each first reported rather
+than alphabetically, which had put the newest phone above an older one; a
+new phone now always joins the end.
