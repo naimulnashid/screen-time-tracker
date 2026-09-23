@@ -626,10 +626,7 @@ own logon task, with all five phases in it. Signing in again is expected.
 Reported as a broken chart. It was a correct chart that looked broken: the
 laptop hibernated through a whole day, and the line break that
 `fillDays()` deliberately puts there looked like a glitch with nothing around
-it. The fix labels the hole rather than filling it. Drawing the day as zero
-would have been true this time only because the event log happens to say the
-machine was asleep. The sampler cannot tell that from a sampler that died
-while you worked.
-
-Checked on a scratch build with a copy of the database: one band on the
-laptop at 7, 30 and 90 days, and none on the phone, which has that day.
+it. A labelled band over the hole was tried first and rejected as clutter.
+What shipped is the owner's preference: one continuous line, drawing a
+missing day at zero. The tooltip still tells a missing day apart from a
+quiet one, since the null survives in the data.

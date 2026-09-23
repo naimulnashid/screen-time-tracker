@@ -1705,21 +1705,25 @@ If nothing clears the bar, everything is shown -- an empty table over a button
 is worse than a table of small numbers. The charts always rank every app;
 only the table folds.
 
-### The trend is a LINE, and a missing day BREAKS it
+### The trend is ONE continuous LINE; a missing day is drawn at ZERO
 
 `TrendChart` on the Overviews; the app detail pages keep `DailyTrendChart`'s
 bars, read beside the same-shaped opens chart. A bar chart could omit a
 missing day and nobody noticed. A line JOINS its points, so a week the laptop
 sat shut would be drawn as a slope of invented usage. `fillDays()` puts a NULL
-on every unrecorded day and the line breaks there; the tooltip says "Not
-recorded". The Heaviest day callout is the sibling's, from `heaviestDay()`.
+on every unrecorded day, and the chart plots that null at zero. The Heaviest
+day callout is the sibling's, from `heaviestDay()`.
 
-**The break alone looked like a bug** -- reported as a broken chart, over
-a day the laptop spent hibernated. So each
-unrecorded stretch is also shaded and labelled "Not recorded"
-(`unrecordedRuns()`), spanning recorded day to recorded day. Do not "fix" a
-hole by drawing it as zero: the sampler cannot tell a sleeping laptop from a
-dead sampler.
+**The owner's call, made 2026-09-23: one unbroken line, dipping to zero.**
+Two earlier versions were rejected. Breaking the line at a null was reported
+as a broken chart, over a day the laptop spent hibernated. Shading the hole
+with a "Not recorded" label was then rejected as clutter in the middle of the
+chart. Do not reintroduce either.
+
+The null is still kept in the DATA, not replaced by 0 in `fillDays()`. The
+tooltip says "Not recorded", and the screen-reader summary counts those days
+apart from quiet ones and leaves them out of the average. Only the plotted
+`plot` field is zero.
 
 ### The heat map is the sibling's, with two departures
 

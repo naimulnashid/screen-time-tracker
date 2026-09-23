@@ -42,7 +42,7 @@ import { queryString } from '../src/lib/scope';
 import { isHomeSurface } from '../src/lib/home-surface';
 import { stitchVisits, visitStats, visitCounts, openBuckets } from '../src/lib/visits';
 import { isListed, splitForList, listRule, LIST_MIN_MS, LIST_MIN_OPENS, LIST_MIN_DAYS } from '../src/lib/app-list';
-import { fillDays, heaviestDay, unrecordedRuns } from '../src/lib/trend';
+import { fillDays, heaviestDay } from '../src/lib/trend';
 import {
   recentBlock, expandedBlocks, blockLabel, heatmapColor, HEATMAP_RAMP, WEEKS, DAY_LABELS,
 } from '../src/lib/heatmap';
@@ -747,8 +747,8 @@ section('by-app list cut-off');
 section('trend line');
 
 {
-  // A missing day is NULL, so the line breaks there instead of drawing a slope
-  // across days nothing was recorded.
+  // A missing day is NULL, so the chart draws it at zero instead of a slope
+  // across days nothing was recorded, and the tooltip can still say so.
   const filled = fillDays([
     { date: '2026-08-30', ms: 5 },
     { date: '2026-09-02', ms: 9 },
@@ -761,25 +761,6 @@ section('trend line');
     { date: '2026-11-01', ms: 1 }, { date: '2026-10-31', ms: 2 },
   ]).map((p) => p.date), ['2026-10-31', '2026-11-01']);
   check('no points, no days', fillDays([]), []);
-
-  // Shaded bands span recorded-day to recorded-day, which is where the line
-  // is missing. The reported case: one hibernated day between two used ones.
-  check('one missing day is one band across it', unrecordedRuns(fillDays([
-    { date: '2026-09-18', ms: 1 }, { date: '2026-09-20', ms: 2 },
-  ])), [{ from: '2026-09-18', to: '2026-09-20', days: 1 }]);
-  check('two stretches are two bands', unrecordedRuns(filled.concat(fillDays([
-    { date: '2026-09-03', ms: 1 }, { date: '2026-09-05', ms: 1 },
-  ]))), [
-    { from: '2026-08-30', to: '2026-09-02', days: 2 },
-    { from: '2026-09-03', to: '2026-09-05', days: 1 },
-  ]);
-  // A recorded zero is a day, not a hole -- only null is unrecorded.
-  check('nothing missing, no bands', unrecordedRuns(fillDays([
-    { date: '2026-09-01', ms: 1 }, { date: '2026-09-02', ms: 0 },
-  ])), []);
-  check('a null with no neighbour is not drawn to an edge', unrecordedRuns([
-    { date: '2026-09-01', ms: null }, { date: '2026-09-02', ms: 3 },
-  ]), []);
 
   check('heaviest day', heaviestDay(filled), { date: '2026-09-02', ms: 9 });
   // A recorded zero is not a heaviest day.

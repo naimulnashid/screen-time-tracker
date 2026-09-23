@@ -6,19 +6,19 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
-### The trend line's missing days are shaded and labelled
+### The trend line is one continuous line; a missing day dips to zero
 
 - **Reported: the laptop's Daily trend "looks broken" around one day.**
   The data was right. The laptop hibernated through that whole day (Kernel-Power
   42, then the clock jumping more than a day), so the day has no rows.
-  `fillDays()` makes it null and the line breaks, as designed. But a bare
-  wedge cut out of the area reads as a rendering fault, not as "no recording".
-- **Each unrecorded stretch is now a faint band labelled "Not recorded"**,
-  from the recorded day before to the recorded day after. That is where the
-  line is missing, and a band over the null day alone would be zero wide on a
-  point axis. The label is dropped when the band is under 72px; the tooltip
-  still says it. `unrecordedRuns()` in `lib/trend.ts` finds the stretches and
-  is self-tested.
+  `fillDays()` makes it null, and the line broke there by design. But a bare
+  wedge cut out of the area read as a rendering fault.
+- **First fix, reverted the same day:** a faint band labelled "Not recorded"
+  over each hole. The owner did not want text in the middle of the chart.
+- **What shipped:** the chart plots a null day at ZERO, so the line is one
+  continuous line that dips to the floor. The null stays in the data, so the
+  tooltip still says "Not recorded", and the text summary still counts those
+  days separately and leaves them out of the average.
 - **Why no `gap` row covers the day:** Windows logged the session off before
   hibernating (Winlogon 7002), which kills the sampler without its `finally`.
   The sampler started at the next logon has no memory of the last one, so
