@@ -63,11 +63,35 @@ function isCrossOriginWrite(request: NextRequest): boolean {
   }
 }
 
+/**
+ * A path whose percent-encoding does not decode, like `/apps/100%`.
+ *
+ * Next validates a dynamic segment's encoding before any route code runs, and
+ * answers a malformed one with a bare 500 -- a server fault, reported for what
+ * is a bad address. It is the client's mistake, so it gets a 400, and it gets
+ * it here, the one place that runs before Next's own routing does.
+ */
+function isMalformedPath(pathname: string): boolean {
+  try {
+    decodeURIComponent(pathname);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isCrossOriginWrite(request)) {
     return NextResponse.json({ error: 'cross-origin' }, { status: 403 });
+  }
+
+  if (isMalformedPath(pathname)) {
+    return new NextResponse('Bad Request: malformed URL encoding', {
+      status: 400,
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
+    });
   }
 
   if (pathname === '/login' || pathname === '/api/login') return NextResponse.next();

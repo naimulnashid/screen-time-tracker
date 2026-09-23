@@ -11,6 +11,7 @@ import {
 import { AppIcon } from '@/components/AppIcon';
 import { logoUrl, needsLightPlate } from '@/lib/app-logo';
 import { parseDays } from '@/lib/scope';
+import { decodeSegment } from '@/lib/slug';
 import { formatDuration, formatPercent } from '@/lib/format';
 import type { Metadata } from 'next';
 import { androidAppTitle } from '@/lib/page-title';
@@ -44,7 +45,10 @@ export default async function AndroidAppDetailPage({
   const device = getAndroidDeviceBySlug(slug);
   if (!device) notFound();
 
-  const pkg = decodeURIComponent(rawPkg);
+  // layout.tsx has already 404'd a malformed or unrecorded package; this only
+  // narrows the type, since the page renders alongside the layout.
+  const pkg = decodeSegment(rawPkg);
+  if (pkg === null) notFound();
   const sp = await searchParams;
   const scope = { days: parseDays(sp.days) };
 

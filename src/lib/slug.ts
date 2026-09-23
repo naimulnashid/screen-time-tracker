@@ -25,3 +25,19 @@ export function slugify(label: string): string {
     .replace(/^-+|-+$/g, '');
   return base || 'device';
 }
+
+/**
+ * A percent-encoded path segment -> its text, or null when it is malformed.
+ *
+ * App keys and package names travel URL-encoded (see the Windows app detail
+ * page for why they are not slugified). `decodeURIComponent` THROWS on a stray
+ * `%`, so `/apps/100%` was a 500 where it should be a 404: an address that
+ * names nothing, not a server fault.
+ */
+export function decodeSegment(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+}

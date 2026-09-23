@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { deviceLabel, windowsSlug } from './config';
 import { appNameForKey } from './queries';
 import { getAndroidDeviceBySlug, androidAppLabel } from './android-queries';
+import { decodeSegment } from './slug';
 
 /**
  * Page titles, as `<page> · <device>`, which the root layout suffixes with
@@ -28,7 +29,8 @@ export function windowsTitle(slug: string, section?: Section): Metadata {
 
 export function windowsAppTitle(slug: string, rawKey: string): Metadata {
   if (slug !== windowsSlug()) return {};
-  return title([appNameForKey(decodeURIComponent(rawKey)) ?? 'App', deviceLabel()]);
+  const key = decodeSegment(rawKey);
+  return title([(key !== null ? appNameForKey(key) : null) ?? 'App', deviceLabel()]);
 }
 
 export function androidTitle(slug: string, section?: Section): Metadata {
@@ -40,6 +42,7 @@ export function androidTitle(slug: string, section?: Section): Metadata {
 export function androidAppTitle(slug: string, rawPkg: string): Metadata {
   const device = getAndroidDeviceBySlug(slug);
   if (!device) return {};
-  const pkg = decodeURIComponent(rawPkg);
+  const pkg = decodeSegment(rawPkg);
+  if (pkg === null) return {};
   return title([androidAppLabel(device.deviceId, pkg) ?? pkg, device.label]);
 }

@@ -25,7 +25,7 @@ import { safeNextPath } from '../src/lib/safe-next';
 import { dailySummary, hourlySummary, rankedSummary } from '../src/lib/chart-summary';
 import { LoginThrottle, clientKey, FREE_FAILURES, WINDOW_MS, GLOBAL_FAILURES } from '../src/lib/login-throttle';
 import { issueSession, verifySession } from '../src/lib/auth';
-import { slugify } from '../src/lib/slug';
+import { slugify, decodeSegment } from '../src/lib/slug';
 import { windowsPages, androidPages, pagesForPath } from '../src/lib/nav';
 import { deviceOf } from '../src/lib/accent';
 import { getSamplerStatus } from '../src/lib/sampler-status';
@@ -367,6 +367,8 @@ section('phone-local time');
 
 check('slugify strips punctuation', slugify('Nothing A001'), 'nothing-a001');
 check('slugify handles junk', slugify('!!!'), 'device');
+check('decodeSegment decodes an app key', decodeSegment('exe%3Avisual%20studio%2Fsetup'), 'exe:visual studio/setup');
+check('decodeSegment: a stray % is null, not a throw', decodeSegment('100%'), null);
 
 /* ------------------------------------------------------------------ */
 section('visit stitching');

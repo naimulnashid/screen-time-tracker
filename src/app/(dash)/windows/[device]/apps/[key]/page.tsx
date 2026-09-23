@@ -8,6 +8,7 @@ import { getAppDetail, appExists, earnsDetailPage, windowsLogoScope } from '@/li
 import { AppIcon } from '@/components/AppIcon';
 import { logoUrl, needsLightPlate } from '@/lib/app-logo';
 import { windowsSlug } from '@/lib/config';
+import { decodeSegment } from '@/lib/slug';
 import { parseDays } from '@/lib/scope';
 import { formatDuration, formatPercent } from '@/lib/format';
 import type { Metadata } from 'next';
@@ -44,7 +45,10 @@ export default async function AppDetailPage({
   const { device: slug, key: raw } = await params;
   if (slug !== windowsSlug()) notFound();
 
-  const key = decodeURIComponent(raw);
+  // layout.tsx has already 404'd a malformed or unrecorded key; this only
+  // narrows the type, since the page renders alongside the layout.
+  const key = decodeSegment(raw);
+  if (key === null) notFound();
   const backHref = `/windows/${slug}/apps`;
   const sp = await searchParams;
   const scope = { days: parseDays(sp.days) };

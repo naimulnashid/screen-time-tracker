@@ -73,9 +73,8 @@ export default async function OverviewPage({
   params: Promise<{ device: string }>;
   searchParams: Promise<{ days?: string }>;
 }) {
-  // There is exactly one laptop, so the slug is checked rather than looked up.
-  // Without this every misspelling renders the real machine under a wrong
-  // address, and the URL stops being an answer to "which device".
+  // The real check, the one that makes a wrong slug a 404, is in
+  // [device]/layout.tsx. This one only keeps the page honest on its own.
   const { device: slug } = await params;
   if (slug !== windowsSlug()) notFound();
 
