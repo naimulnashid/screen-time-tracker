@@ -784,6 +784,14 @@ kill -9 loses at most the one in flight.
   The honest fix is `RegisterPowerSettingNotification` for
   `GUID_MONITOR_POWER_ON`, which needs a message loop.
 
+- **A LOGOFF leaves no `gap`, and loses the in-flight span.** Windows can log
+  the session off before hibernating (Winlogon 7002). That
+  kills the sampler without running `finally`, and the next logon's sampler
+  starts with no memory of the last one. So a day and more had no row at
+  all, and the seconds in flight were lost. The raw material for a fix is already there:
+  on startup, the previous `sampler-status.json` holds both the last sample
+  time and the unflushed span.
+
 - **Data recorded before 2026-08-31 03:00 over-reports `unattributed`.** Those
   spans were written before lock detection existed and cannot be
   reclassified -- there is no record of what the session state was. The share
@@ -1705,6 +1713,13 @@ missing day and nobody noticed. A line JOINS its points, so a week the laptop
 sat shut would be drawn as a slope of invented usage. `fillDays()` puts a NULL
 on every unrecorded day and the line breaks there; the tooltip says "Not
 recorded". The Heaviest day callout is the sibling's, from `heaviestDay()`.
+
+**The break alone looked like a bug** -- reported as a broken chart, over
+a day the laptop spent hibernated. So each
+unrecorded stretch is also shaded and labelled "Not recorded"
+(`unrecordedRuns()`), spanning recorded day to recorded day. Do not "fix" a
+hole by drawing it as zero: the sampler cannot tell a sleeping laptop from a
+dead sampler.
 
 ### The heat map is the sibling's, with two departures
 

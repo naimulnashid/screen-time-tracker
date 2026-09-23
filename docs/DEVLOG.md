@@ -6,6 +6,25 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### The trend line's missing days are shaded and labelled
+
+- **Reported: the laptop's Daily trend "looks broken" around one day.**
+  The data was right. The laptop hibernated through that whole day (Kernel-Power
+  42, then the clock jumping more than a day), so the day has no rows.
+  `fillDays()` makes it null and the line breaks, as designed. But a bare
+  wedge cut out of the area reads as a rendering fault, not as "no recording".
+- **Each unrecorded stretch is now a faint band labelled "Not recorded"**,
+  from the recorded day before to the recorded day after. That is where the
+  line is missing, and a band over the null day alone would be zero wide on a
+  point axis. The label is dropped when the band is under 72px; the tooltip
+  still says it. `unrecordedRuns()` in `lib/trend.ts` finds the stretches and
+  is self-tested.
+- **Why no `gap` row covers the day:** Windows logged the session off before
+  hibernating (Winlogon 7002), which kills the sampler without its `finally`.
+  The sampler started at the next logon has no memory of the last one, so
+  nothing spans the hole. The few seconds in flight at the kill were lost too.
+  Recorded under *Still open* in `CLAUDE.md`.
+
 ### Screenshots: every page, full length, in brand colours, with no device names
 
 - **The demo phone is "My Phone"**, like "My Laptop". Its Pixel-specific apps

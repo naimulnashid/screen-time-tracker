@@ -45,6 +45,36 @@ export function fillDays(points: { date: string; ms: number }[]): TrendPoint[] {
   return out;
 }
 
+/**
+ * Each unbroken stretch of unrecorded days, as the recorded days either side.
+ *
+ * The break `fillDays()` puts in the line is correct and it LOOKED BROKEN:
+ * after a laptop hibernated through a whole day, the chart showed a bare
+ * wedge cut out of the area either side of it, and it was reported as a
+ * rendering fault rather than read as a day with no recording. So the chart
+ * shades each stretch and labels it. The band runs from the recorded day before to
+ * the recorded day after because that is where the line is missing -- a band
+ * over the null day alone would be zero wide on a point axis.
+ *
+ * `fillDays()` output starts and ends on a recorded day, so every run has
+ * both neighbours; a run that somehow lacks one is dropped rather than drawn
+ * to an edge it does not have.
+ */
+export function unrecordedRuns(points: TrendPoint[]): { from: string; to: string; days: number }[] {
+  const out: { from: string; to: string; days: number }[] = [];
+  let i = 0;
+  while (i < points.length) {
+    if (points[i]!.ms !== null) { i++; continue; }
+    let j = i;
+    while (j < points.length && points[j]!.ms === null) j++;
+    if (i > 0 && j < points.length) {
+      out.push({ from: points[i - 1]!.date, to: points[j]!.date, days: j - i });
+    }
+    i = j;
+  }
+  return out;
+}
+
 /** The day with the most time, for the card's callout. Null when every day is empty. */
 export function heaviestDay(points: { date: string; ms: number | null }[]): { date: string; ms: number } | null {
   let best: { date: string; ms: number } | null = null;

@@ -1,14 +1,14 @@
 'use client';
 
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ReferenceArea, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { useRouter } from 'next/navigation';
 
 import { formatCount, formatDayShort, formatDuration, formatHourOfDay, formatPercent } from '@/lib/format';
 import { hourTick, niceCountAxis, niceHourAxis } from '@/lib/axis';
-import type { TrendPoint } from '@/lib/trend';
+import { unrecordedRuns, type TrendPoint } from '@/lib/trend';
 import { dailySummary, hourlySummary, rankedSummary } from '@/lib/chart-summary';
 
 /**
@@ -281,9 +281,14 @@ function HourlyBars({
  * `data` must come through `fillDays()`: a null is a day with no recording,
  * and it BREAKS the line rather than joining its neighbours, because a slope
  * drawn across a week the laptop was shut would be usage made up.
+ *
+ * The break alone read as a rendering fault, so each unrecorded stretch is
+ * also shaded and labelled -- see `unrecordedRuns()`. The label is dropped
+ * when the band is too narrow to hold it; the tooltip still says it.
  */
 export function TrendChart({ data }: { data: TrendPoint[] }) {
   const axis = niceHourAxis(data.reduce((m, d) => Math.max(m, d.ms ?? 0), 0));
+  const holes = unrecordedRuns(data);
   const summary = dailySummary(
     'Time per day',
     data.map((d) => ({ date: d.date, value: d.ms })),
@@ -320,6 +325,29 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
             axisLine={false}
             width={44}
           />
+          {holes.map((h) => (
+            <ReferenceArea
+              key={h.from}
+              x1={h.from}
+              x2={h.to}
+              ifOverflow="hidden"
+              fill="var(--text-faint)"
+              fillOpacity={0.08}
+              stroke="none"
+              label={({ viewBox }: { viewBox?: { x?: number; y?: number; width?: number } }) => {
+                const { x = 0, y = 0, width = 0 } = viewBox ?? {};
+                if (width < 72) return null;
+                return (
+                  <text
+                    x={x + width / 2} y={y + 14} textAnchor="middle"
+                    fill="var(--text-faint)" fontSize={11}
+                  >
+                    Not recorded
+                  </text>
+                );
+              }}
+            />
+          ))}
           <Tooltip
             cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '4 4' }}
             content={({ active, payload, label }) => {

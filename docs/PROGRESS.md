@@ -620,3 +620,16 @@ removed. So the README shows a synthetic installation, seeded through the real
 write paths, served from a scratch copy and captured by headless Edge. The
 live dashboard was then stopped only for the Next update and rebuilt by its
 own logon task, with all five phases in it. Signing in again is expected.
+
+### 2026-09-23 - a hole in the trend line
+
+Reported as a broken chart. It was a correct chart that looked broken: the
+laptop hibernated through a whole day, and the line break that
+`fillDays()` deliberately puts there looked like a glitch with nothing around
+it. The fix labels the hole rather than filling it. Drawing the day as zero
+would have been true this time only because the event log happens to say the
+machine was asleep. The sampler cannot tell that from a sampler that died
+while you worked.
+
+Checked on a scratch build with a copy of the database: one band on the
+laptop at 7, 30 and 90 days, and none on the phone, which has that day.
