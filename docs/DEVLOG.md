@@ -6,6 +6,37 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### An installable app (PWA)
+
+`app/manifest.ts` serves `/manifest.webmanifest` from `lib/pwa.ts`;
+`/pwa/<icon>.png` and `app/apple-icon.tsx` rasterise `icon.svg` at build time
+with `next/og`, so the mark keeps one definition and no dependency is added.
+
+- **Measured, not assumed: no service worker is needed.** Headless Edge,
+  asked over the DevTools protocol (`Page.getInstallabilityErrors`), reported
+  **no errors** on a fresh production build from a signed-out profile. The
+  live build reported `no-manifest`, as the control. So there is no service
+  worker, and no cache: a dashboard whose job is current numbers should not
+  hold stale ones anywhere, and an offline page for a server on the same
+  machine buys little.
+- **The manifest and icons bypass the auth gate.** Browsers fetch a manifest
+  without cookies, so behind the gate it would get the login redirect and
+  the app would silently stop being installable. The signed-out Edge profile
+  above is the proof that it works; the self-test checks the matcher.
+- **`metadata.icons` REPLACES the file-based favicon.** The first version set
+  `icons.apple` in the root layout and every page lost `<link rel="icon">`.
+  Found by diffing the head against the live server. The apple icon is now
+  the `apple-icon.tsx` file convention, which merges.
+- **The phone cannot install it.** Over the laptop's LAN address the page
+  reported `isSecureContext: false` and no `serviceWorker`. Chromium installs
+  only from HTTPS or loopback, so the LAN gets a home-screen shortcut at most.
+  Real install on the phone would need HTTPS on the LAN, which is a
+  certificate the phone trusts, and is not done.
+- **Maskable icons are the clock without its tile.** A launcher mask would
+  cut the tile's corners and leave its hairline edge as a clipped outline.
+  `glyphOnly()` strips the `<rect>`s; at 7/8 of the edge the ring reaches
+  0.314 x edge from centre, inside the 0.4 circle every mask keeps.
+
 ### Phones below Android 9: app time instead of screen-on
 
 A Redmi 5 Plus (Android 8.1 / API 27, MIUI 11) was probed over adb before

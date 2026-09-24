@@ -8,6 +8,14 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Added
+- **Install the dashboard as an app.** Edge and Chrome on the PC offer to
+  install it from `http://localhost:7844`, and it then opens in its own
+  window with the clock icon. There is no offline mode: an installed window
+  shows live numbers or nothing. A phone on the LAN gets a home-screen
+  shortcut at most, because browsers only install sites served over HTTPS or
+  from `localhost`.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added

@@ -609,6 +609,7 @@ src/
     visits.ts, trend.ts, heatmap.ts, app-list.ts, scope.ts, nav.ts, slug.ts
     home-surface.ts  which Android packages are launchers, not apps
     sampler-status.ts  reads the sampler's heartbeat for the Sync page
+    pwa.ts, pwa-icon.tsx  the installable-app manifest and its icons
   components/        Shell, Sidebar, Nav, ScopeBar, Charts, ...
   app/               (dash) route group + /login outside it
                      /windows/<slug>/* and /android/<slug>/*; the old
@@ -1167,6 +1168,23 @@ requests in 20 ms were seen in its network log, from a page that never
 submits on its own. That is the likely explanation of Phase B's 29-vs-30
 throttle count. **Test a scratch server at `127.0.0.1`**, which is a different
 host with its own cookie jar and no saved logins.
+
+## It installs as an app, on the laptop only
+
+`lib/pwa.ts` holds the manifest and icon specs; `app/manifest.ts`, the
+`/pwa/[icon]` route and `app/apple-icon.tsx` serve them, rasterised from
+`icon.svg` with `next/og` at build time. **Edge reported zero installability
+errors with no service worker** (measured 2026-09-24), so there is none, and
+nothing caches the numbers.
+
+- **The manifest and icons are exempt from the proxy matcher.** A manifest is
+  fetched WITHOUT cookies; gated, it gets the login redirect and the app
+  quietly stops being installable. Self-tested.
+- **Never set `metadata.icons` in a layout.** It REPLACES the file-based
+  `icon.svg` rather than adding to it; every page lost its favicon. Use the
+  file conventions (`apple-icon.tsx`).
+- **The phone cannot install it**: over the LAN address the page is not a
+  secure context. Real install there needs HTTPS on the LAN.
 
 ## node:sqlite rows are NOT plain objects
 

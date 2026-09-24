@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   // Pages set `<page> · <device>` (lib/page-title.ts); this suffixes the app.
   title: { default: 'Screen Time', template: '%s · Screen Time' },
   description: 'Local dashboard over per-app screen time history, across a laptop and a phone.',
+  // The manifest (app/manifest.ts) covers installing on Chromium. iOS reads
+  // neither it nor its icons, and wants this and app/apple-icon.tsx instead.
+  // NOT `icons` here: that replaces the file-based favicon.
+  appleWebApp: { capable: true, title: 'Screen Time', statusBarStyle: 'black' },
 };
 
 /**

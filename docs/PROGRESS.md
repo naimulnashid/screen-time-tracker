@@ -682,3 +682,11 @@ v1.1.0 is released, with the signed 1.1 APK attached, and carries everything
 since 1.0.0. The sidebar now lists phones by when each first reported rather
 than alphabetically, which had put the newest phone above an older one; a
 new phone now always joins the end.
+
+### 2026-09-24 - the dashboard installs as an app
+
+Edge and Chrome on the laptop now offer to install the dashboard from
+`localhost:7844`, and it opens in its own window with the clock icon. Edge
+confirmed it installable with no errors, and no service worker was needed, so
+nothing is cached. The phone cannot install it over plain-HTTP LAN; that
+would need HTTPS.

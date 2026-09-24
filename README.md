@@ -161,6 +161,13 @@ It serves on `http://localhost:7844`. The first build takes a minute. After
 that, the logon task rebuilds whenever the source is newer than the build.
 `start-screen-time-dashboard.bat` and `stop-dashboard.bat` do the same by hand.
 
+**It installs as an app.** In Edge or Chrome on the PC, open
+`http://localhost:7844` and use the install icon in the address bar, or
+*Apps > Install this site as an app*. It opens in its own window with the
+clock icon. A phone reaching it over the LAN can only add a home-screen
+shortcut that opens in the browser: installing needs HTTPS or `localhost`,
+and the dashboard is plain HTTP on the LAN.
+
 ### 2. The Windows collector
 
 ```bash

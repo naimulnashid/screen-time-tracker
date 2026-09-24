@@ -44,6 +44,8 @@ import { stitchVisits, visitStats, visitCounts, openBuckets } from '../src/lib/v
 import { isListed, splitForList, listRule, LIST_MIN_MS, LIST_MIN_OPENS, LIST_MIN_DAYS } from '../src/lib/app-list';
 import { fillDays, heaviestDay } from '../src/lib/trend';
 import { headlineSource, unionMs, unionByHour } from '../src/lib/android-source';
+import { PWA_MANIFEST, PWA_ICONS, glyphOnly } from '../src/lib/pwa';
+import { config as proxyConfig } from '../src/proxy';
 import {
   recentBlock, expandedBlocks, blockLabel, heatmapColor, HEATMAP_RAMP, WEEKS, DAY_LABELS,
 } from '../src/lib/heatmap';
@@ -1366,6 +1368,45 @@ section('android headline source');
   // several apps still make one hour.
   const stacked = unionByHour([1, 2, 3].map(() => ({ date: 'd', hour: 0, start: 0, end: HOUR })));
   check('an hour never holds more than an hour', stacked[0]?.ms, HOUR);
+}
+
+/* ------------------------------------------------------------------ */
+section('installable app');
+
+{
+  // What Chromium's install check reads. A manifest missing any of these is
+  // still served, still parses, and simply never offers the install button.
+  const m = PWA_MANIFEST;
+  check('manifest has a name', m.name.length > 0 && m.short_name.length > 0, true);
+  check('it opens standalone', m.display, 'standalone');
+  check('start_url sits inside the scope', m.start_url.startsWith(m.scope), true);
+  const sizes = m.icons.filter((i) => i.type === 'image/png').map((i) => i.sizes);
+  check('a 192px PNG icon', sizes.includes('192x192'), true);
+  check('a 512px PNG icon', sizes.includes('512x512'), true);
+  check('a maskable icon', m.icons.some((i) => i.purpose === 'maskable'), true);
+  // Every icon it names must be one the route can draw -- dynamicParams is
+  // off, so anything else is a 404 the browser reports nowhere visible.
+  const drawable = new Set(PWA_ICONS.map((i) => `/pwa/${i.file}`));
+  check('every PNG icon is drawn by the route',
+    m.icons.filter((i) => i.src.startsWith('/pwa/')).every((i) => drawable.has(i.src)), true);
+
+  // The maskable icons are the favicon minus its tile. If icon.svg changes
+  // shape so the tile no longer strips, a launcher mask would cut its corners.
+  const favicon = readFileSync(join('src', 'app', 'icon.svg'), 'utf8');
+  const glyph = glyphOnly(favicon);
+  check('the tile strips out', /<rect\b/.test(glyph), false);
+  check('the clock survives it', /<circle\b/.test(glyph) && (glyph.match(/<path\b/g) ?? []).length, 2);
+
+  // A browser fetches the manifest WITHOUT cookies. Behind the gate it would
+  // get the login redirect and the app would silently stop being installable.
+  const gated = new RegExp(`^${proxyConfig.matcher[0]}$`);
+  check('the manifest bypasses the gate', gated.test('/manifest.webmanifest'), false);
+  check('so do its icons', PWA_ICONS.every((i) => !gated.test(`/pwa/${i.file}`)), true);
+  check('the svg icon it names too', gated.test('/icon.svg'), false);
+  // iOS asks for this one with no cookie either.
+  check('the apple touch icon too', gated.test('/apple-icon'), false);
+  check('a dashboard page is still gated', gated.test('/windows/zephyrus-g16'), true);
+  check('an API route is still gated', gated.test('/api/ingest'), true);
 }
 
 /* ------------------------------------------------------------------ */

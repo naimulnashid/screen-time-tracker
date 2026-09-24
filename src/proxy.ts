@@ -16,9 +16,14 @@ import { safeNextPath } from '@/lib/safe-next';
  * The matcher lets Next's own static assets and the favicon through. Browsers
  * fetch `icon.svg` before any session exists, and gating it only makes the
  * login page render with a broken image -- it is a logo, it leaks nothing.
+ *
+ * The web app manifest and the app icons (`lib/pwa.ts`) pass for a stronger
+ * reason: a browser fetches a manifest WITHOUT cookies, so gating it would
+ * hand back the login redirect and the dashboard would quietly stop being
+ * installable, signed in or not.
  */
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|icon.svg|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|icon.svg|favicon.ico|manifest.webmanifest|pwa/|apple-icon).*)'],
 };
 
 /**
