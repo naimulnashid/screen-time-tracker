@@ -11,6 +11,7 @@ import { hourTick, niceCountAxis, niceHourAxis } from '@/lib/axis';
 import type { TrendPoint } from '@/lib/trend';
 import { dailySummary, hourlySummary, rankedSummary } from '@/lib/chart-summary';
 import type { StackPoint } from '@/lib/stack';
+import { ink } from '@/lib/ink';
 import { AppIcon } from './AppIcon';
 
 /**
@@ -54,7 +55,7 @@ function TooltipBox({
         borderRadius: 'var(--radius-sm)',
         padding: '0.6rem 0.8rem',
         fontSize: 'var(--fs-small)',
-        boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
+        boxShadow: 'var(--tooltip-shadow)',
       }}
     >
       <div
@@ -585,8 +586,11 @@ function RankedApps({
                 // accent; where a brand colour exists it says more than the
                 // highlight would, and stacking both would leave the top bar
                 // wearing a colour that belongs to no app at all.
+                //
+                // Brand colours go through `ink()`, so a near-white one still
+                // separates from a white card on the light theme.
                 fill={
-                  d.colour
+                  (d.colour ? ink(d.colour) : null)
                   ?? (Number(d[dataKey]) === peak && peak > 0
                     ? 'var(--accent-bright)'
                     : 'var(--accent)')
@@ -671,7 +675,7 @@ function bandFills(series: StackSeriesDatum[]): string[] {
   let unbranded = 0;
   return series.map((s) => {
     if (s.key === 'other') return OTHER_FILL;
-    if (s.colour) return s.colour;
+    if (s.colour) return ink(s.colour);
     const turn = 72 * unbranded++;
     return turn === 0 ? 'var(--accent)' : `oklch(from var(--accent) l c calc(h + ${turn}))`;
   });

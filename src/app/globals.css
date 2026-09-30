@@ -79,6 +79,95 @@
      padding and nothing else. */
   --side-w: 232px;
   --side-w-collapsed: 62px;
+
+  /* ---- Surfaces and shadows that differ by theme. The dark values are the
+     dashboard's original look; the light theme below redefines every one. */
+  color-scheme: dark;
+  --topbar-bg: rgba(0, 0, 0, 0.82);
+  /* Black-on-black shadows vanish, so dark cards lift with an inset top
+     highlight; the drop shadow only deepens the edge. */
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 28px rgba(0, 0, 0, 0.55);
+  --shadow-card-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 36px rgba(0, 0, 0, 0.6);
+  --shadow-pop: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.75);
+  --shadow-control-hover: none;
+  --tooltip-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  /* A hovered table row. Its own token rather than --bg-panel-hover, which
+     the skeleton shimmer also uses and which must stay close to --bg-inset. */
+  --row-hover: #101012;
+  /* Hairline around a never-recorded heat-map day, so an empty stretch still
+     shows its grid. */
+  --hm-none-ring: var(--border);
+  /* A non-zero "skipped" count on the phone's upload history: soft red,
+     because the failure red is for a failed run and this is a warning. */
+  --warn-text: #ff8a80;
+  /* Lightness band every app colour is painted within (lib/ink.ts, OKLCH L).
+     A no-op on the dark theme: ensureReadable() in app-colour.ts already
+     lifts dark brand colours on the server. */
+  --ink-lo: 0;
+  --ink-hi: 1;
+}
+
+/*
+  THE LIGHT THEME.
+
+  Not the dark theme inverted. Ported from the sibling Data Usage Tracker on
+  2026-10-01, whose design notes it follows:
+
+  - A pale grey CANVAS with white cards on it, not white on white. The
+    separation between sections comes from that step plus a real border and a
+    soft, layered shadow -- which, unlike on black, is visible here, so it
+    does the lifting the inset highlight does in the dark theme.
+  - Hover is ELEVATION: a card, a chip or a menu rises by casting a larger,
+    softer shadow.
+  - Text is near-black, not black, and the greys are measured: --text-dim
+    7.7:1 and --text-faint 5.3:1 on white, 4.8:1 on the canvas and 4.6:1 on a
+    hovered row.
+  - The accents are deepened per device until they read as text on white
+    (lib/accent.ts), and the heat map runs light-to-dark.
+  - App colours are clamped darker (--ink-hi) so near-white brand colours do
+    not vanish into the card.
+
+  The theme is `data-theme` on <html>, set before first paint (lib/theme.ts).
+*/
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f4f5f7;
+  --bg-panel: #ffffff;
+  --bg-panel-hover: #f5f7fa;
+  --bg-inset: #eef0f3;
+
+  --border: #e3e5ea;
+  --border-strong: #cfd2d9;
+  --border-input: #8a8a96;
+
+  /* No plate: the marks it rescues are dark, and dark reads on white. */
+  --logo-plate: transparent;
+
+  --text: #16171a;
+  --text-dim: #52525b;
+  --text-faint: #6b6b76;
+
+  --danger: #b42318;
+  --danger-dim: rgba(217, 45, 32, 0.1);
+  --success: #15803d;
+  --success-dim: rgba(21, 128, 61, 0.1);
+
+  --topbar-bg: rgba(255, 255, 255, 0.86);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.07);
+  --shadow-card-hover: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 12px 24px -4px rgba(16, 24, 40, 0.12);
+  --shadow-pop: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 16px 32px -4px rgba(16, 24, 40, 0.16);
+  --shadow-control-hover: 0 2px 6px rgba(16, 24, 40, 0.1);
+  --tooltip-shadow: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 12px 24px -4px rgba(16, 24, 40, 0.16);
+  /* #f5f7fa on white (1.06:1) does not show; this is the deepest step that
+     keeps --text-faint at 4.6:1 on the hovered row. */
+  --row-hover: #eceff4;
+  /* On a white card the --border hairline all but vanishes, so never-recorded
+     days get a real ring -- outlined, never filled like a quiet day. */
+  --hm-none-ring: #cdd1d8;
+  --warn-text: #b42318;
+  --ink-lo: 0;
+  --ink-hi: 0.78;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -153,7 +242,7 @@ a:hover { color: var(--accent-bright); }
   position: sticky; top: 0; z-index: 40;
   display: flex; align-items: center; gap: 1.5rem;
   padding: 0.9rem clamp(1rem, 3vw, 2.5rem);
-  background: rgba(0, 0, 0, 0.82);
+  background: var(--topbar-bg);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
   /* The bar can be empty on a device with no controls of its own, and an empty
@@ -308,14 +397,14 @@ a:hover { color: var(--accent-bright); }
   border-radius: var(--radius);
   padding: 1.6rem;
   /* Inset highlight does the lifting a shadow cannot on pure black. */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 28px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-card);
   transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
               box-shadow var(--dur) var(--ease);
 }
 .card--hover:hover {
   border-color: var(--border-strong);
   transform: translateY(-2px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 36px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .grid { display: grid; gap: 1.15rem; }
@@ -353,7 +442,7 @@ td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); }
 .num { text-align: right; white-space: nowrap; }
 
 tbody tr { transition: background var(--dur) var(--ease); }
-tbody tr:hover { background: var(--bg-panel-hover); }
+tbody tr:hover { background: var(--row-hover); }
 
 /* ---------------------------------------------------------------- bits */
 
@@ -374,7 +463,10 @@ tbody tr:hover { background: var(--bg-panel-hover); }
   font-family: inherit; cursor: pointer;
   transition: all var(--dur) var(--ease);
 }
-.chip:hover { color: var(--text); border-color: var(--text-faint); transform: translateY(-1px); }
+.chip:hover {
+  color: var(--text); border-color: var(--text-faint); transform: translateY(-1px);
+  box-shadow: var(--shadow-control-hover);
+}
 .chip[data-active='true'] {
   /* --accent-fill / --on-accent, not --accent / #fff: white on Android green
      is 1.78:1. The pair is defined per device in accent.ts. */
@@ -382,8 +474,8 @@ tbody tr:hover { background: var(--bg-panel-hover); }
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
-/* Native selects render as a light-mode control on Windows unless told
-   otherwise, which is jarring against a true-black page. */
+/* Native selects take their colours from `color-scheme`, which each theme
+   sets on :root, so the control matches whichever page it is on. */
 select.chip {
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
@@ -392,7 +484,6 @@ select.chip {
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
   padding-right: 1.9rem !important;
-  color-scheme: dark;
   max-width: 15rem;
 }
 .empty { text-align: center; padding: 4rem 1rem; color: var(--text-dim); }
@@ -455,7 +546,7 @@ select.chip {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 50px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--shadow-pop);
   animation: fadeUp 420ms var(--ease) both;
 }
 
@@ -560,7 +651,7 @@ select.chip {
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.75);
+  box-shadow: var(--shadow-pop);
 
   font-size: var(--fs-small);
   color: var(--text);
@@ -698,7 +789,7 @@ select.chip {
 /* Days never recorded get a hairline instead of a fill, so an empty stretch
    reads as "not recorded" rather than as a run of zero-usage days. */
 .heatmap-cell[data-nodata='true'] {
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--hm-none-ring);
 }
 
 /* Kept gentle so the growth stays inside `.heatmap-scroll`'s gutter. Raising
@@ -1026,3 +1117,60 @@ select.chip {
 
 .sync-label .spin { animation: spin 900ms linear infinite; transform-origin: 50% 50%; }
 
+/* ------------------------------------------------------------ theme menu */
+
+.theme-menu { position: relative; }
+
+/* The icon follows the APPLIED theme, which is on <html> before first paint,
+   so it is right immediately -- the menu's own state loads a moment later. */
+.theme-icon--sun { display: none; }
+:root[data-theme='light'] .theme-icon--sun { display: block; }
+:root[data-theme='light'] .theme-icon--moon { display: none; }
+
+.theme-popover {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  min-width: 9.5rem;
+  display: flex; flex-direction: column;
+  padding: 0.3rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
+  animation: theme-pop 160ms var(--ease) both;
+}
+@keyframes theme-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.theme-option {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 0; border-radius: 7px;
+  background: none; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-small); text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.theme-option:hover, .theme-option:focus-visible { background: var(--row-hover); color: var(--text); }
+.theme-option[aria-checked='true'] { color: var(--accent-bright); font-weight: 600; }
+.theme-check { width: 1em; text-align: center; }
+
+/* ----------------------------------------------- light-theme refinements */
+
+/* A glow reads as light on black and as a smudge on white. On the light
+   theme, solid controls lift with a tinted shadow instead. */
+:root[data-theme='light'] .chip[data-active='true'] {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.1), 0 2px 8px var(--accent-glow);
+}
+:root[data-theme='light'] .login-button:hover:not(:disabled) {
+  box-shadow: 0 2px 4px rgba(16, 24, 40, 0.1), 0 6px 16px var(--accent-glow);
+}
+/* The rails get the same separation the cards do. */
+:root[data-theme='light'] .sidebar { box-shadow: 1px 0 0 var(--border), 4px 0 16px -8px rgba(16, 24, 40, 0.08); }
+:root[data-theme='light'] .topbar { box-shadow: 0 1px 0 var(--border); }
+/* Rows lift a touch on hover rather than only changing shade. */
+:root[data-theme='light'] .side-device:hover,
+:root[data-theme='light'] .nav-link:hover { box-shadow: var(--shadow-control-hover); }
+/* The plate's padding goes with its background: without a plate, a padded
+   logo would only look smaller than its neighbours. */
+:root[data-theme='light'] .app-icon--plate { padding: 0; }

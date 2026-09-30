@@ -173,7 +173,7 @@ export default async function AndroidSyncPage({
                     */}
                     <td
                       className="num mono"
-                      style={{ color: r.rowsSkipped > 0 ? '#ff8a80' : 'var(--text-dim)' }}
+                      style={{ color: r.rowsSkipped > 0 ? 'var(--warn-text)' : 'var(--text-dim)' }}
                     >
                       {formatCount(r.rowsSkipped)}
                     </td>

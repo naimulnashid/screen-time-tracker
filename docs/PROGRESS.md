@@ -69,6 +69,14 @@ now shows up before you switch away from it.
 
 ## Log
 
+### 2026-10-01 - light theme
+
+Ported from the sibling. Checked in the browser on the synthetic demo
+(never real data) at 1280px: every page in light, dark unchanged value for
+value, `system` following an emulated OS switch live, and the theme script
+inside `<head>` before `<body>`. 18 new self-tests recompute the light
+accents' contrast.
+
 ### 2026-09-04 - brand colours for 14 new logos
 
 106 -> 115 logo files (laptop 35, Nothing 66, Redmi 19). The coverage

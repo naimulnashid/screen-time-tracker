@@ -9,6 +9,17 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Added
+- **Light theme.** A Dark / Light / System menu in the top bar, shown as a
+  sun or a moon. It is its own design rather than the dark one inverted: a
+  pale grey page under white cards, real borders and soft shadows, hover as
+  lift, greys measured for contrast on white (secondary text 7.7:1, the
+  faintest 5.3:1), and each device's accent deepened until it reads as text
+  on white (violet `#6644e8`, Android green `#0d7340`, both 5.9:1). The heat
+  map runs light to dark, never-recorded days keep a visible outline, and app
+  colours are painted within a lightness band so a near-white brand colour
+  still shows on a white card. The choice is kept per browser and applied
+  before the first paint, so no page flashes the other theme; the installed
+  app's title bar follows it. Dark stays the default.
 - **Install the dashboard as an app.** Edge and Chrome on the PC offer to
   install it from `http://localhost:7844`, and it then opens in its own
   window with the clock icon. There is no offline mode: an installed window

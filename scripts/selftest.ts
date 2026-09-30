@@ -27,7 +27,9 @@ import { LoginThrottle, clientKey, FREE_FAILURES, WINDOW_MS, GLOBAL_FAILURES } f
 import { issueSession, verifySession } from '../src/lib/auth';
 import { slugify, decodeSegment } from '../src/lib/slug';
 import { windowsPages, androidPages, pagesForPath } from '../src/lib/nav';
-import { deviceOf } from '../src/lib/accent';
+import { deviceOf, ACCENTS, LIGHT_ACCENTS, accentStyleSheet } from '../src/lib/accent';
+import { ink } from '../src/lib/ink';
+import { THEME_SCRIPT, THEME_KEY, THEME_COLORS } from '../src/lib/theme';
 import { getSamplerStatus } from '../src/lib/sampler-status';
 import {
   logoDir, logoKey, logoUrl, needsLightPlate, allLogoFiles, deviceScopeKeys, logoIdentity,
@@ -1475,6 +1477,66 @@ section('installable app');
   check('the apple touch icon too', gated.test('/apple-icon'), false);
   check('a dashboard page is still gated', gated.test('/windows/zephyrus-g16'), true);
   check('an API route is still gated', gated.test('/api/ingest'), true);
+}
+
+/* ------------------------------------------------------------------ */
+section('light theme');
+{
+  // WCAG relative luminance and contrast, so the ratios quoted in accent.ts
+  // are recomputed on every run rather than trusted from a comment.
+  const lum = (hex: string) => [16, 8, 0]
+    .map((sh) => ((parseInt(hex.slice(1), 16) >> sh) & 255) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    .reduce((a, c, i) => a + c * [0.2126, 0.7152, 0.0722][i]!, 0);
+  const contrast = (a: string, b: string) => {
+    const [x, y] = [lum(a), lum(b)];
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  // The tint behind an active tab: the accent at 10% over white.
+  const tint = (hex: string) => '#' + [16, 8, 0]
+    .map((sh) => Math.round(((parseInt(hex.slice(1), 16) >> sh) & 255) * 0.1 + 255 * 0.9))
+    .map((v) => v.toString(16).padStart(2, '0')).join('');
+  for (const [id, t] of Object.entries(LIGHT_ACCENTS)) {
+    // Accents are TEXT on the light theme: links, the headline figure, the
+    // active tab. AA for body text is 4.5:1, on the card, the canvas and the tint.
+    for (const [role, hex] of [['accent', t.accent], ['bright', t.accentBright]] as const) {
+      check(`${id} light ${role} reads on white`, contrast(hex, '#ffffff') >= 4.5, true);
+      check(`${id} light ${role} reads on the canvas`, contrast(hex, THEME_COLORS.light) >= 4.5, true);
+      check(`${id} light ${role} reads on its tint`, contrast(hex, tint(t.accent)) >= 4.5, true);
+    }
+    check(`${id} light fill carries its text`, contrast(t.onAccent, t.accentFill) >= 4.5, true);
+    // "Bright" is the emphasis step; on white that means DARKER.
+    check(`${id} light bright is darker`, lum(t.accentBright) < lum(t.accent), true);
+    // More time, more ink: the ramp darkens step by step.
+    check(`${id} light heat map darkens`,
+      t.heatmap.every((c, i) => i === 0 || lum(c) < lum(t.heatmap[i - 1]!)), true);
+  }
+  check('both themes cover the same devices',
+    Object.keys(LIGHT_ACCENTS).sort().join(), Object.keys(ACCENTS).sort().join());
+
+  // The stylesheet carries both themes, and the light blocks come AFTER the
+  // dark ones: equal specificity would otherwise let dark win.
+  const sheet = accentStyleSheet();
+  check('the light root block is emitted', sheet.includes(":root[data-theme='light']{"), true);
+  check('a light device block is emitted', sheet.includes("[data-theme='light'] [data-device='android']{"), true);
+  check('light comes after dark',
+    sheet.indexOf("[data-theme='light']") > sheet.lastIndexOf("[data-device='android']{--accent:" + ACCENTS.android.accent), true);
+
+  // ink(): a hex is wrapped in the theme's lightness band; anything already a
+  // var() or a mix is left alone, since it has no single lightness to clamp.
+  check('ink wraps a hex in the theme band',
+    ink('#dcdcdc'), 'oklch(from #dcdcdc clamp(var(--ink-lo, 0), l, var(--ink-hi, 1)) c h)');
+  check('ink leaves a var() alone', ink('var(--accent)'), 'var(--accent)');
+  check('ink leaves a short hex alone', ink('#abc'), '#abc');
+
+  // The script is the one implementation: it must read the key the toggle
+  // writes, and paint the same canvas colours the manifest meta expects.
+  check('the theme script reads the toggle key', THEME_SCRIPT.includes(`localStorage.getItem('${THEME_KEY}')`), true);
+  check('it sets both canvas colours',
+    THEME_SCRIPT.includes(THEME_COLORS.light) && THEME_SCRIPT.includes(THEME_COLORS.dark), true);
+  check('dark is the default', THEME_SCRIPT.includes(`||'dark'`), true);
+  // It runs before anything else, as plain ES5: no arrows, no let/const.
+  check('the theme script is ES5', /=>|let|const|`/.test(THEME_SCRIPT), false);
 }
 
 /* ------------------------------------------------------------------ */

@@ -597,7 +597,8 @@ scripts/
                             not needed to run anything
 src/
   lib/
-    accent.ts        the ONLY place an accent hex exists
+    accent.ts        the ONLY place an accent hex exists (both themes)
+    theme.ts, ink.ts the light/dark switch, and app colours per theme
     auth.ts          Web Crypto only - pulled into the proxy
     login-throttle.ts, safe-next.ts   the sign-in hardening
     config.ts        reads collector.json, once
@@ -1168,6 +1169,43 @@ requests in 20 ms were seen in its network log, from a page that never
 submits on its own. That is the likely explanation of Phase B's 29-vs-30
 throttle count. **Test a scratch server at `127.0.0.1`**, which is a different
 host with its own cookie jar and no saved logins.
+
+## Two themes: dark by default, light on request
+
+Added 2026-10-01, ported from the sibling. `data-theme` on `<html>` is
+`dark` or `light`; the CHOICE (`dark`, `light`, `system`) is per browser in
+`localStorage` under `st-theme`, never in the database.
+
+- **The switch is an inline script at the top of `<head>`** (`THEME_SCRIPT`
+  in `lib/theme.ts`), run before first paint, and the menu calls the same
+  script after a change. Do not move it into an effect or a stylesheet: that
+  paints one frame of the wrong theme on every full load. `<html>` carries
+  `suppressHydrationWarning` because the script edits it before React
+  hydrates, by design.
+- **Every colour is a token with a value per theme.** The light block is
+  `:root[data-theme='light']` in `globals.css`, and the light ACCENTS are
+  `LIGHT_ACCENTS` in `accent.ts`, still the only place an accent hex lives.
+  A new surface colour, shadow or hover gets a token in both places, never a
+  literal in a rule -- a literal is how the dark theme's `rgba(0,0,0,.82)`
+  top bar would have turned up on a white page.
+- **On the light theme the accent is TEXT-grade**, 5.9:1 on white, and its
+  "bright" step is DARKER. `section('light theme')` in the self-test
+  recomputes every quoted ratio; change a light accent and it tells you.
+- **App colours are painted through `ink()`** (`lib/ink.ts`), an OKLCH
+  lightness clamp in CSS. Light caps L at 0.78 so a near-white brand colour
+  still separates from the card. Dark's band is a no-op, because
+  `ensureReadable()` already lifts dark brand colours server-side. Anything
+  that paints an app's brand colour must go through it.
+- **Two contrast traps the sibling hit, avoided here:** a hovered table row
+  needs its own `--row-hover` (the shimmer's `--bg-panel-hover` is 1.06:1 on
+  white), and the never-recorded heat-map ring needs its own
+  `--hm-none-ring` (the `--border` hairline vanishes on white).
+- **No logo plate on the light theme.** `--logo-plate` is transparent and
+  the plate's padding goes with it: the marks it rescues are dark, and dark
+  reads on white.
+- **The manifest stays black.** `theme_color` / `background_color` in the
+  manifest are static; the page's `theme-color` meta is what follows the
+  theme, and the installed window's title bar reads that.
 
 ## It installs as an app, on the laptop only
 

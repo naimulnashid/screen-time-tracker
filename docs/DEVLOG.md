@@ -6,6 +6,39 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Light theme
+
+Ported from the sibling Data Usage Tracker, which shipped it on 2026-09-30
+and fixed its hover and empty-day contrast the next day; both halves came
+across together.
+
+- **`data-theme` on `<html>`, set by an inline script before first paint**
+  (`lib/theme.ts`). A stylesheet toggle or a React effect would paint one
+  frame of the wrong theme on every full load. The choice (dark, light,
+  system) is per browser in `localStorage` under `st-theme`, not in the
+  database: it is a viewing preference, and two browsers may want different
+  ones. `system` keeps following the OS after load.
+- **Every surface is a token with a value per theme.** The dark theme's
+  inline shadows, the top bar's translucent black and the tooltip's shadow
+  became `--shadow-card`, `--topbar-bg`, `--tooltip-shadow` and friends, and
+  the dark values were checked unchanged in the browser afterwards.
+- **Light accents are deepened, and self-tested.** Violet `#7c5cff` is
+  4.35:1 on white and the phone's green 1.78:1, too pale for text. `#6644e8`
+  and `#0d7340` clear 5:1 on white, the canvas and the tint behind an active
+  tab, and a new self-test section recomputes every one of those ratios so a
+  later edit cannot quietly drop below AA.
+- **App colours go through `ink()`** (`lib/ink.ts`), an OKLCH lightness
+  clamp done in CSS. On the light theme a near-white brand colour is pulled
+  down to L 0.78 so the bar still separates from the card; on the dark theme
+  the band is a no-op, because `ensureReadable()` already lifts dark brand
+  colours on the server and its self-tests assert on what it returns.
+- **Two contrast traps from the sibling, avoided from the start.** A hovered
+  row at `--bg-panel-hover` was 1.06:1 on white and did not show, so rows
+  got their own `--row-hover`. And the never-recorded heat-map outline, a
+  `--border` hairline, vanished on white, so it got `--hm-none-ring`.
+- **No logo plate on the light theme.** The plate rescues dark marks on
+  black; on white they read on their own.
+
 ### Stacked by-app charts, headline callouts, and the app's name
 
 **Top apps by day / Most opened by day** sit on both Overviews after the heat

@@ -7,6 +7,7 @@ import { Sidebar, type SidebarPhone } from './Sidebar';
 import { Nav } from './Nav';
 import { ScopeBar } from './ScopeBar';
 import { SignOutButton } from './SignOutButton';
+import { ThemeToggle } from './ThemeToggle';
 import { SyncNowButton } from './SyncNowButton';
 import { Footer } from './Footer';
 
@@ -61,6 +62,7 @@ export function Shell({
             <Suspense fallback={null}>
               <ScopeBar />
             </Suspense>
+            <ThemeToggle />
             <SignOutButton />
           </div>
         </header>
