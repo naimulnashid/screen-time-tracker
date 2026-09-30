@@ -29,9 +29,10 @@ import { join } from 'node:path';
 import { dbPath, databaseExists, loadConfig } from './config';
 import { resolveApp } from './app-name';
 import {
-  stitchVisits, visitStats, visitCounts, openBuckets,
+  stitchVisits, visitStats, visitCounts, openBuckets, opensByDay,
   type RawSession, type SessionBucket,
 } from './visits';
+import type { StackInput } from './stack';
 import { formatRelative } from './format';
 
 export const WINDOWS_DEVICE_ID = 'zephyrus';
@@ -372,6 +373,65 @@ export function getHourly(scope: Scope): HourPoint[] {
     // Always 24 points, so the chart's shape is comparable between ranges and
     // an empty hour reads as empty rather than as missing.
     return Array.from({ length: 24 }, (_, h) => ({ hour: h, ms: map.get(h) ?? 0 }));
+  });
+}
+
+export interface DailyByApp {
+  /** Time per local day per resolved app. */
+  time: StackInput[];
+  /** Opens (visits) per local day per resolved app, filed where each BEGAN. */
+  opens: StackInput[];
+  /** Resolved key -> display name, for every id above. */
+  names: Map<string, string>;
+}
+
+/**
+ * Per-app, per-day time and opens, for the Overview's two stacked charts.
+ *
+ * Time is summed per local day and RESOLVED app, so a versioned WindowsApps
+ * folder is one band, as it is one row on By App. Opens are visits, bucketed
+ * exactly as the app detail page buckets them -- see `opensByDay()`.
+ */
+export function getDailyByApp(scope: Scope): DailyByApp {
+  return withDb((db) => {
+    const names = new Map<string, string>();
+    const latest = latestDate(db);
+    if (!latest) return { time: [], opens: [], names };
+    const from = rangeStart(db, scope.days);
+
+    const rows = db
+      .prepare(
+        `SELECT local_date AS d, app_path, SUM(duration_ms) AS ms
+           FROM windows_segments
+          WHERE device_id = ? AND kind = 'app'
+            AND local_date >= ? AND local_date <= ?
+          GROUP BY local_date, app_path`,
+      )
+      .all(WINDOWS_DEVICE_ID, from, latest) as { d: string; app_path: string; ms: number }[];
+
+    const time: StackInput[] = [];
+    for (const r of rows) {
+      const app = resolveApp(r.app_path);
+      names.set(app.key, app.name);
+      time.push({ date: r.d, id: app.key, value: r.ms });
+    }
+
+    // Where each session started, read off its FIRST row -- the one whose own
+    // start is the session's. See getAppDetail() for why the stored local
+    // date is used rather than recomputed.
+    const starts = db
+      .prepare(
+        `SELECT session_start_utc AS s, local_date AS d
+           FROM windows_segments
+          WHERE device_id = ? AND kind = 'app' AND start_utc = session_start_utc
+            AND local_date >= ? AND local_date <= ?`,
+      )
+      .all(WINDOWS_DEVICE_ID, from, latest) as { s: string; d: string }[];
+    const bucketOf = new Map<number, SessionBucket>(
+      starts.map((r) => [Date.parse(r.s), { date: r.d, hour: 0 }]),
+    );
+    const opens = opensByDay(stitchVisits(allSessions(db, from, latest)), bucketOf);
+    return { time, opens, names };
   });
 }
 

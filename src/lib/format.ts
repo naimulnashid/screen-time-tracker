@@ -150,6 +150,11 @@ export function formatCount(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+/** 1 -> "1 open", 1234 -> "1,234 opens" */
+export function formatOpens(n: number): string {
+  return `${formatCount(n)} open${n === 1 ? '' : 's'}`;
+}
+
 /** "2026-08-21" -> "Aug 21" */
 export function formatDayShort(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);

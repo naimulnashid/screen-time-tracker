@@ -1,19 +1,23 @@
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
-import { TrendChart, HourlyChart } from '@/components/Charts';
+import { TrendChart, HourlyChart, StackedDailyChart } from '@/components/Charts';
+import { Callout } from '@/components/Callout';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { KindBar } from '@/components/KindBar';
 import { SamplerEmpty } from '@/components/EmptyState';
 import { deviceLabel, windowsSlug } from '@/lib/config';
 import {
-  getOverview, getApps, getDaily, getHourly, hasWindowsData,
-  collectedAgo, WINDOWS_DEVICE_ID,
+  getOverview, getApps, getDaily, getHourly, getDailyByApp, hasWindowsData,
+  collectedAgo, windowsLogoScope, WINDOWS_DEVICE_ID,
 } from '@/lib/queries';
+import { stackByApp, peakOf } from '@/lib/stack';
+import { stackSeries } from '@/lib/stack-series';
 import { ALL_DAYS, parseDays, queryString } from '@/lib/scope';
 import { fillDays, heaviestDay } from '@/lib/trend';
 import {
   splitDuration, formatDuration, formatDayLong, formatDayShort, formatPercent,
+  formatHourOfDay, formatOpens,
 } from '@/lib/format';
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
@@ -101,7 +105,21 @@ export default async function OverviewPage({
 
   const trend = fillDays(daily.map((d) => ({ date: d.date, ms: d.active })));
   const heaviest = heaviestDay(trend);
-  const busiest = hourly.reduce((m, h) => (h.ms > m.ms ? h : m), hourly[0] ?? { hour: 0, ms: 0 });
+  const busiest = peakOf(hourly, (h) => h.ms);
+
+  // The two stacked charts: every app past the top eight is folded into
+  // Other, ranked separately for each, because the apps you spend longest in
+  // are not the ones you open most -- the same reason By App has two charts.
+  const byApp = getDailyByApp(scope);
+  const recordedDays = daily.map((d) => d.date);
+  const nameOf = (id: string) => byApp.names.get(id) ?? id;
+  const timeStack = stackByApp(byApp.time, recordedDays);
+  const opensStack = stackByApp(byApp.opens, recordedDays);
+  const laptop = windowsLogoScope();
+  const timeSeries = stackSeries(timeStack.series, nameOf, laptop);
+  const opensSeries = stackSeries(opensStack.series, nameOf, laptop);
+  const topByTime = timeSeries.find((s) => s.key !== 'other');
+  const topByOpens = opensSeries.find((s) => s.key !== 'other');
 
   return (
     <>
@@ -160,13 +178,7 @@ export default async function OverviewPage({
           sub={`Active time per day across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} with data. Asleep time is deliberately not drawn.`}
           aside={
             heaviest && (
-              <div className="callout">
-                <div className="callout-head">
-                  <span className="callout-label">Heaviest day</span>
-                  <span className="callout-date">{formatDayShort(heaviest.date)}</span>
-                </div>
-                <div className="callout-value">{formatDuration(heaviest.ms)}</div>
-              </div>
+              <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
             )
           }
         >
@@ -193,12 +205,52 @@ export default async function OverviewPage({
         />
       </Card>
 
+      {/* The By App rankings, day by day: which apps made each day's total,
+          and which ones were reached for. Every band together IS the active
+          time above, since the sampler partitions it -- Other included. */}
       <Card delay={300}>
         <CardTitle
-          sub={
-            busiest.ms > 0
-              ? `Busiest hour: ${busiest.hour}:00 with ${formatDuration(busiest.ms)}`
-              : 'Active time by hour of day.'
+          sub="Active time per day, top 8 apps stacked; everything else grouped as Other."
+          aside={
+            topByTime && (
+              <Callout label="Top app" detail={topByTime.name} value={formatDuration(topByTime.total)} />
+            )
+          }
+        >
+          Top apps by day
+        </CardTitle>
+        {timeStack.points.length > 1 ? (
+          <StackedDailyChart points={timeStack.points} series={timeSeries} measure="time" />
+        ) : (
+          <p className="prose-note">One day of data so far.</p>
+        )}
+      </Card>
+
+      <Card delay={360}>
+        <CardTitle
+          sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
+          aside={
+            topByOpens && (
+              <Callout label="Most opened" detail={topByOpens.name} value={formatOpens(topByOpens.total)} />
+            )
+          }
+        >
+          Most opened by day
+        </CardTitle>
+        {opensStack.points.length > 1 ? (
+          <StackedDailyChart points={opensStack.points} series={opensSeries} measure="opens" />
+        ) : (
+          <p className="prose-note">One day of data so far.</p>
+        )}
+      </Card>
+
+      <Card delay={420}>
+        <CardTitle
+          sub="Active time by hour of day, summed across the range."
+          aside={
+            busiest && (
+              <Callout label="Busiest hour" detail={formatHourOfDay(busiest.hour)} value={formatDuration(busiest.ms)} />
+            )
           }
         >
           Shape of the day
@@ -209,7 +261,7 @@ export default async function OverviewPage({
       {/* Last, because it answers "can these numbers be trusted" rather than
           "how did I spend my time" -- worth a look, not worth the top of the
           page. The unknown-share warning travels with it. */}
-      <Card delay={360}>
+      <Card delay={480}>
         <CardTitle sub="Every millisecond the sampler accounted for, and how.">
           Where the time went
         </CardTitle>

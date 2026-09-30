@@ -9,10 +9,15 @@ import {
   androidEarnsDetailPage,
 } from '@/lib/android-queries';
 import { AppIcon } from '@/components/AppIcon';
+import { Callout } from '@/components/Callout';
+import { heaviestDay } from '@/lib/trend';
+import { peakOf } from '@/lib/stack';
 import { logoUrl, needsLightPlate } from '@/lib/app-logo';
 import { parseDays } from '@/lib/scope';
 import { decodeSegment } from '@/lib/slug';
-import { formatDuration, formatPercent } from '@/lib/format';
+import {
+  formatDuration, formatPercent, formatDayShort, formatHourOfDay, formatOpens,
+} from '@/lib/format';
 import type { Metadata } from 'next';
 import { androidAppTitle } from '@/lib/page-title';
 
@@ -91,6 +96,15 @@ export default async function AndroidAppDetailPage({
     );
   }
 
+  // Each chart's headline figure, for the top right of its card. A single
+  // day draws no chart, so it gets no callout either.
+  const heaviest = detail.daily.length > 1
+    ? heaviestDay(detail.daily.map((d) => ({ date: d.date, ms: d.active })))
+    : null;
+  const mostOpens = detail.dailyOpens.length > 1 ? peakOf(detail.dailyOpens, (d) => d.opens) : null;
+  const busiest = peakOf(detail.hourly, (h) => h.ms);
+  const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
+
   return (
     <>
       <div className="page-head">
@@ -139,7 +153,16 @@ export default async function AndroidAppDetailPage({
       </div>
 
       <Card delay={240}>
-        <CardTitle sub={`Time in ${detail.label} per day.`}>Daily trend</CardTitle>
+        <CardTitle
+          sub={`Time in ${detail.label} per day.`}
+          aside={
+            heaviest && (
+              <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
+            )
+          }
+        >
+          Daily trend
+        </CardTitle>
         {detail.daily.length > 1 ? (
           <DailyTrendChart data={detail.daily} />
         ) : (
@@ -157,7 +180,14 @@ export default async function AndroidAppDetailPage({
         comparing bar heights that mean different things.
       */}
       <Card delay={300}>
-        <CardTitle sub={`How many times ${detail.label} was opened each day.`}>
+        <CardTitle
+          sub={`How many times ${detail.label} was opened each day.`}
+          aside={
+            mostOpens && (
+              <Callout label="Most opens" detail={formatDayShort(mostOpens.date)} value={formatOpens(mostOpens.opens)} />
+            )
+          }
+        >
           Opens per day
         </CardTitle>
         {detail.dailyOpens.length > 1 ? (
@@ -168,12 +198,28 @@ export default async function AndroidAppDetailPage({
       </Card>
 
       <Card delay={360}>
-        <CardTitle sub="When this app is usually open.">Shape of the day</CardTitle>
+        <CardTitle
+          sub="When this app is usually open."
+          aside={
+            busiest && (
+              <Callout label="Busiest hour" detail={formatHourOfDay(busiest.hour)} value={formatDuration(busiest.ms)} />
+            )
+          }
+        >
+          Shape of the day
+        </CardTitle>
         <HourlyChart data={detail.hourly} />
       </Card>
 
       <Card delay={420}>
-        <CardTitle sub="The hour an open began, not the hours it went on for.">
+        <CardTitle
+          sub="The hour an open began, not the hours it went on for."
+          aside={
+            busiestOpens && (
+              <Callout label="Busiest hour" detail={formatHourOfDay(busiestOpens.hour)} value={formatOpens(busiestOpens.opens)} />
+            )
+          }
+        >
           When it gets opened
         </CardTitle>
         <HourlyOpensChart data={detail.hourlyOpens} />

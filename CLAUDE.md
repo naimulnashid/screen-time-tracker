@@ -1171,6 +1171,9 @@ host with its own cookie jar and no saved logins.
 
 ## It installs as an app, on the laptop only
 
+It installs as **Screen Time Dashboard** (`PWA_MANIFEST` in `lib/pwa.ts`,
+self-tested); page titles still end in `Screen Time`.
+
 `lib/pwa.ts` holds the manifest and icon specs; `app/manifest.ts`, the
 `/pwa/[icon]` route and `app/apple-icon.tsx` serve them, rasterised from
 `icon.svg` with `next/og` at build time. **Edge reported zero installability
@@ -1839,6 +1842,7 @@ series is read left to right, so width is the dimension carrying information.
     Overview   score cards (laptop: one row of three; phone: screen time
                over unlocks, two rows of three, each latest day / per day /
                range total), Daily trend (line), Activity heat map,
+               Top apps by day, Most opened by day (stacked, top 8 + Other),
                Shape of the day, then "Where the time went" (laptop) or
                "Attributed vs unaccounted" (phone) LAST
     By App     Top apps, Most opened, then the app table. NO score cards:
@@ -1846,6 +1850,15 @@ series is read left to right, so width is the dimension carrying information.
                split was dropped -- on the phone it read FLAG_SYSTEM, which
                counts preinstalled YouTube as "system".
     Activity   the heat map expanded: every day, six months to a row
+
+Every chart card names its headline figure in its top right corner --
+heaviest day, busiest hour, top app -- through `components/Callout.tsx`,
+with `peakOf()` deciding it. A new chart gets one too.
+
+The stacked charts rank each by its OWN measure, fold the rest into Other,
+and use synthetic data keys (`s0`..`s7`, `other`): Recharts reads a dotted
+`dataKey` as a path, so a package name would plot nothing. The phone's home
+screen is left out of the OPENS stack only, named on the card, as on By App.
 
 The rankings live on By App because that is the page the apps are on. The
 trust card sits last on the Overview because it answers "can these numbers be

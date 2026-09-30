@@ -33,9 +33,10 @@ import 'server-only';
 import { DatabaseSync } from 'node:sqlite';
 import { dbPath, databaseExists } from './config';
 import {
-  stitchVisits, visitStats, visitCounts, openBuckets,
+  stitchVisits, visitStats, visitCounts, openBuckets, opensByDay,
   type RawSession, type SessionBucket,
 } from './visits';
+import type { StackInput } from './stack';
 import {
   headlineSource, unionByHour, type HeadlineSource, type HourBucket,
 } from './android-source';
@@ -488,6 +489,65 @@ export function getAndroidHourly(
 
     const map = new Map(rows.map((r) => [r.hour, r.ms]));
     return Array.from({ length: 24 }, (_, h) => ({ hour: h, ms: map.get(h) ?? 0 }));
+  });
+}
+
+export interface AndroidDailyByApp {
+  /** Time per local day per package. Never a headline: see rule 2. */
+  time: StackInput[];
+  /** Opens (visits) per local day per package, filed where each BEGAN. */
+  opens: StackInput[];
+  /** Package -> the label the phone reported, for every id above. */
+  labels: Map<string, string>;
+}
+
+/**
+ * Per-app, per-day time and opens, for the Overview's two stacked charts.
+ *
+ * These are app rows, so they add up to LESS than screen-on time -- the gap
+ * the "Attributed vs unaccounted" card explains. They are drawn as what they
+ * are, never scaled up to meet the headline.
+ */
+export function getAndroidDailyByApp(deviceId: string, scope: AndroidScope): AndroidDailyByApp {
+  return withDb((db) => {
+    const labels = new Map<string, string>();
+    const latest = latestDate(db, deviceId);
+    if (!latest) return { time: [], opens: [], labels };
+    const from = rangeStart(latest, scope.days);
+
+    const rows = db
+      .prepare(
+        `SELECT g.local_date AS d, g.package_name AS pkg,
+                COALESCE(a.label, g.package_name) AS label,
+                SUM(g.duration_ms) AS ms
+           FROM android_segments g
+           LEFT JOIN android_apps a
+             ON a.device_id = g.device_id AND a.package_name = g.package_name
+          WHERE g.device_id = ? AND g.local_date >= ? AND g.local_date <= ?
+          GROUP BY g.local_date, g.package_name`,
+      )
+      .all(deviceId, from, latest) as { d: string; pkg: string; label: string; ms: number }[];
+
+    const time: StackInput[] = [];
+    for (const r of rows) {
+      labels.set(r.pkg, r.label);
+      time.push({ date: r.d, id: r.pkg, value: r.ms });
+    }
+
+    // Phone-local dates, read back off the row as the detail page does.
+    const starts = db
+      .prepare(
+        `SELECT session_start_utc AS s, local_date AS d
+           FROM android_segments
+          WHERE device_id = ? AND start_utc = session_start_utc
+            AND local_date >= ? AND local_date <= ?`,
+      )
+      .all(deviceId, from, latest) as { s: string; d: string }[];
+    const bucketOf = new Map<number, SessionBucket>(
+      starts.map((r) => [Date.parse(r.s), { date: r.d, hour: 0 }]),
+    );
+    const opens = opensByDay(stitchVisits(allSessions(db, deviceId, from, latest)), bucketOf);
+    return { time, opens, labels };
   });
 }
 

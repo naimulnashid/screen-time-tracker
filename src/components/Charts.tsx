@@ -6,10 +6,12 @@ import {
 } from 'recharts';
 import { useRouter } from 'next/navigation';
 
-import { formatCount, formatDayShort, formatDuration, formatHourOfDay, formatPercent } from '@/lib/format';
+import { formatCount, formatDayShort, formatDuration, formatHourOfDay, formatOpens, formatPercent } from '@/lib/format';
 import { hourTick, niceCountAxis, niceHourAxis } from '@/lib/axis';
 import type { TrendPoint } from '@/lib/trend';
 import { dailySummary, hourlySummary, rankedSummary } from '@/lib/chart-summary';
+import type { StackPoint } from '@/lib/stack';
+import { AppIcon } from './AppIcon';
 
 /**
  * ⚠️ NO COLOUR HEX APPEARS IN THIS FILE.
@@ -39,7 +41,8 @@ function TooltipBox({
   value: string;
   sub?: string;
   tag?: string;
-  rows?: { k: string; v: string }[];
+  /** `swatch` puts a band's colour beside its name, for a stacked chart. */
+  rows?: { k: string; v: string; swatch?: string }[];
   icon?: string | null;
   plate?: boolean;
 }) {
@@ -89,7 +92,10 @@ function TooltipBox({
         >
           {rows.map((r) => (
             <div key={r.k} style={{ display: 'flex', justifyContent: 'space-between', gap: '1.2rem' }}>
-              <span style={{ color: 'var(--text-dim)' }}>{r.k}</span>
+              <span style={{ color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                {r.swatch && <span className="legend-swatch" style={{ background: r.swatch }} />}
+                {r.k}
+              </span>
               <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.v}</span>
             </div>
           ))}
@@ -121,7 +127,7 @@ const TIME: Metric = { axis: niceHourAxis, tick: hourTick, value: formatDuration
 const OPENS: Metric = {
   axis: niceCountAxis,
   tick: (n) => formatCount(n),
-  value: (n) => `${formatCount(n)} open${n === 1 ? '' : 's'}`,
+  value: formatOpens,
 };
 
 function DailyBars({
@@ -632,5 +638,161 @@ export function MostOpenedChart({ data }: { data: TopAppDatum[] }) {
         { k: 'Time', v: formatDuration(d.ms) },
       ]}
     />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** One band of a stacked chart. Built server-side, like `TopAppDatum`. */
+export interface StackSeriesDatum {
+  /** The data key from `stackByApp()`: `s0`..`s7`, or `other`. */
+  key: string;
+  name: string;
+  total: number;
+  /** Brand colour, or null to take a colour derived from the accent. */
+  colour?: string | null;
+  icon?: string | null;
+  plate?: boolean;
+}
+
+/** Other is many apps, so it wears no app's colour: the neutral of "unaccounted". */
+const OTHER_FILL = 'color-mix(in srgb, var(--text-dim) 55%, var(--bg-panel))';
+
+/**
+ * A colour for each band. Brand first, as on every other chart here.
+ *
+ * An app with no brand colour cannot simply take the accent, as a lone bar
+ * does: two of them in one stack would be two bands of one colour with a
+ * seam between. So the first takes the accent and each later one turns the
+ * accent's HUE a step further round, keeping its lightness and chroma --
+ * derived in CSS, so no hex enters this file.
+ */
+function bandFills(series: StackSeriesDatum[]): string[] {
+  let unbranded = 0;
+  return series.map((s) => {
+    if (s.key === 'other') return OTHER_FILL;
+    if (s.colour) return s.colour;
+    const turn = 72 * unbranded++;
+    return turn === 0 ? 'var(--accent)' : `oklch(from var(--accent) l c calc(h + ${turn}))`;
+  });
+}
+
+/**
+ * Per-app values per day, stacked: the sibling Data Usage Tracker's "Daily
+ * by app", in time or in opens.
+ *
+ * `points` come from `stackByApp()`, which has already folded everything past
+ * the top eight into Other and put every calendar day in. An unrecorded day
+ * plots at zero, as on the trend line above it, and its tooltip says so.
+ *
+ * The legend carries the logo where one exists. Brand colours cluster --
+ * Microsoft's blues, Google's -- so the logo is often what actually tells two
+ * neighbouring bands apart.
+ */
+export function StackedDailyChart({
+  points, series, measure,
+}: {
+  points: StackPoint[];
+  series: StackSeriesDatum[];
+  measure: 'time' | 'opens';
+}) {
+  const metric = measure === 'time' ? TIME : OPENS;
+  const fills = bandFills(series);
+  const peak = points.reduce(
+    (m, p) => Math.max(m, series.reduce((n, s) => n + (p.v[s.key] ?? 0), 0)),
+    0,
+  );
+  const axis = metric.axis(peak);
+  // Sized to the longest tick. A day's opens across every app run to four
+  // digits, and at the 44px the time axes use, such a label lost its first.
+  const axisWidth = Math.max(44, 16 + 8 * Math.max(...axis.ticks.map((t) => metric.tick(t).length)));
+  const named = series.filter((s) => s.key !== 'other');
+  const summary =
+    `${measure === 'time' ? 'Time' : 'Opens'} per day by app, over ${points.length} days. ` +
+    rankedSummary('Largest', named.map((s) => ({ name: s.name, value: s.total })), metric.value, named.length);
+  return (
+    <>
+      <p className="sr-only">{summary}</p>
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatDayShort}
+            stroke={AXIS}
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={{ stroke: GRID }}
+            minTickGap={28}
+          />
+          <YAxis
+            domain={axis.domain}
+            ticks={axis.ticks}
+            tickFormatter={metric.tick}
+            stroke={AXIS}
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            width={axisWidth}
+          />
+          <Tooltip
+            cursor={{ stroke: 'var(--accent)', strokeWidth: 1, strokeDasharray: '4 4' }}
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const p = payload[0]!.payload as StackPoint;
+              if (!p.recorded) {
+                return <TooltipBox label={formatDayShort(String(label))} value="Not recorded" />;
+              }
+              // Largest first, and no zero rows: a tooltip listing six apps
+              // at "0s" buries the two that were used.
+              const rows = series
+                .map((s, i) => ({ s, fill: fills[i]!, value: p.v[s.key] ?? 0 }))
+                .filter((r) => r.value > 0)
+                .sort((a, b) => b.value - a.value);
+              const total = rows.reduce((n, r) => n + r.value, 0);
+              return (
+                <TooltipBox
+                  label={formatDayShort(String(label))}
+                  value={metric.value(total)}
+                  rows={rows.map((r) => ({ k: r.s.name, v: metric.value(r.value), swatch: r.fill }))}
+                />
+              );
+            }}
+          />
+          {series.map((s, i) => (
+            <Area
+              key={s.key}
+              type="monotone"
+              dataKey={`v.${s.key}`}
+              name={s.name}
+              stackId="1"
+              stroke={fills[i]}
+              fill={fills[i]}
+              fillOpacity={0.72}
+              strokeWidth={1}
+              animationDuration={700}
+              animationBegin={i * 45}
+              animationEasing="ease-out"
+              dot={false}
+              activeDot={false}
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+      <div className="legend">
+        {series.map((s, i) => (
+          <span key={s.key} className="legend-item">
+            {/* The logo where there is one, the band's colour where there is
+                not -- an initial would name the app twice and colour it never. */}
+            {s.icon ? (
+              <AppIcon name={s.name} src={s.icon} plate={s.plate} size={15} />
+            ) : (
+              <span className="legend-swatch" style={{ background: fills[i] }} />
+            )}
+            {s.name}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }

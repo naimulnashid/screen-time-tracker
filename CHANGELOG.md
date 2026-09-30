@@ -14,7 +14,18 @@ each change -- what was measured, and what it overturned -- is in
   window with the clock icon. There is no offline mode: an installed window
   shows live numbers or nothing. A phone on the LAN gets a home-screen
   shortcut at most, because browsers only install sites served over HTTPS or
-  from `localhost`.
+  from `localhost`. It installs as **Screen Time Dashboard**.
+- **Top apps by day** and **Most opened by day** on every Overview, after
+  the Activity heat map: each day's time and opens stacked by app, the top
+  eight named and the rest grouped as Other, with logos in the legend and a
+  per-app breakdown on hover. On a phone the home screen is left out of the
+  opens chart, as it is on By App, and the card says so.
+
+### Changed
+- **Every chart names its headline figure in its top right corner**: the
+  busiest hour on Shape of the day, the top app on the new stacked charts,
+  and on each app's page the heaviest day, the day with the most opens and
+  the busiest hour for time and for opens.
 
 ## [1.1.0] - 2026-09-23
 

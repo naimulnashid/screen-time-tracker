@@ -1,16 +1,22 @@
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
-import { TrendChart, HourlyChart } from '@/components/Charts';
+import { TrendChart, HourlyChart, StackedDailyChart } from '@/components/Charts';
+import { Callout } from '@/components/Callout';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import {
   getAndroidDeviceBySlug, getAndroidOverview, getAndroidDaily, getAndroidHourly,
+  getAndroidDailyByApp,
 } from '@/lib/android-queries';
+import { stackByApp, peakOf } from '@/lib/stack';
+import { stackSeries } from '@/lib/stack-series';
+import { isHomeSurface } from '@/lib/home-surface';
 import { collectedAgo } from '@/lib/queries';
 import { ALL_DAYS, parseDays, queryString } from '@/lib/scope';
 import { fillDays, heaviestDay } from '@/lib/trend';
 import {
   splitDuration, formatDuration, formatDayLong, formatDayShort, formatPercent,
+  formatHourOfDay, formatOpens, formatCount,
 } from '@/lib/format';
 import type { Metadata } from 'next';
 import { androidTitle } from '@/lib/page-title';
@@ -116,6 +122,28 @@ export default async function AndroidOverviewPage({
 
   const trend = fillDays(daily.map((d) => ({ date: d.date, ms: d.screenOn })));
   const heaviest = heaviestDay(trend);
+  const busiest = peakOf(hourly, (h) => h.ms);
+
+  // The two stacked charts, each ranked by its own measure. See the laptop's
+  // Overview; the one difference is that app rows here do NOT add up to the
+  // headline, which the last card explains.
+  const byApp = getAndroidDailyByApp(device.deviceId, scope);
+  const recordedDays = daily.map((d) => d.date);
+  const nameOf = (id: string) => byApp.labels.get(id) ?? id;
+  const timeStack = stackByApp(byApp.time, recordedDays);
+  // The home screen leaves the OPENS stack only, as it leaves By App's Most
+  // opened: it is passed through, not opened, and would be the tallest band
+  // by far. It stays in the time stack, and the card names it -- see
+  // home-surface.ts.
+  const home = new Map<string, number>();
+  for (const r of byApp.opens) {
+    if (isHomeSurface(r.id)) home.set(r.id, (home.get(r.id) ?? 0) + r.value);
+  }
+  const opensStack = stackByApp(byApp.opens.filter((r) => !home.has(r.id)), recordedDays);
+  const timeSeries = stackSeries(timeStack.series, nameOf, slug);
+  const opensSeries = stackSeries(opensStack.series, nameOf, slug);
+  const topByTime = timeSeries.find((s) => s.key !== 'other');
+  const topByOpens = opensSeries.find((s) => s.key !== 'other');
 
   const attributedPct = data.rangeScreenOn > 0
     ? (data.rangeApps / data.rangeScreenOn) * 100
@@ -208,13 +236,7 @@ export default async function AndroidOverviewPage({
           sub={`${perDay} across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} of data.`}
           aside={
             heaviest && (
-              <div className="callout">
-                <div className="callout-head">
-                  <span className="callout-label">Heaviest day</span>
-                  <span className="callout-date">{formatDayShort(heaviest.date)}</span>
-                </div>
-                <div className="callout-value">{formatDuration(heaviest.ms)}</div>
-              </div>
+              <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
             )
           }
         >
@@ -239,7 +261,63 @@ export default async function AndroidOverviewPage({
       </Card>
 
       <Card delay={480}>
-        <CardTitle sub={screen ? 'When the screen is actually on.' : 'When an app is actually in front.'}>
+        <CardTitle
+          sub={
+            screen
+              ? 'Time in apps per day, top 8 stacked; everything else grouped as Other. Apps never cover all of screen-on time: see the last card.'
+              : 'Time in apps per day, top 8 stacked; everything else grouped as Other.'
+          }
+          aside={
+            topByTime && (
+              <Callout label="Top app" detail={topByTime.name} value={formatDuration(topByTime.total)} />
+            )
+          }
+        >
+          Top apps by day
+        </CardTitle>
+        {timeStack.points.length > 1 ? (
+          <StackedDailyChart points={timeStack.points} series={timeSeries} measure="time" />
+        ) : (
+          <p className="prose-note">One day of data so far.</p>
+        )}
+      </Card>
+
+      <Card delay={540}>
+        <CardTitle
+          sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
+          aside={
+            topByOpens && (
+              <Callout label="Most opened" detail={topByOpens.name} value={formatOpens(topByOpens.total)} />
+            )
+          }
+        >
+          Most opened by day
+        </CardTitle>
+        {opensStack.points.length > 1 ? (
+          <StackedDailyChart points={opensStack.points} series={opensSeries} measure="opens" />
+        ) : (
+          <p className="prose-note">One day of data so far.</p>
+        )}
+        {home.size > 0 && (
+          <p className="prose-note" style={{ marginTop: '0.9rem' }}>
+            {[...home.keys()].map(nameOf).join(', ')}{' '}
+            {home.size === 1 ? 'is' : 'are'} left out, with{' '}
+            {formatCount([...home.values()].reduce((a, b) => a + b, 0))} opens:
+            the home screen is what you pass through between apps, not
+            something you open. It keeps its band in Top apps by day above.
+          </p>
+        )}
+      </Card>
+
+      <Card delay={600}>
+        <CardTitle
+          sub={screen ? 'When the screen is actually on.' : 'When an app is actually in front.'}
+          aside={
+            busiest && (
+              <Callout label="Busiest hour" detail={formatHourOfDay(busiest.hour)} value={formatDuration(busiest.ms)} />
+            )
+          }
+        >
           Shape of the day
         </CardTitle>
         <HourlyChart data={hourly} />
@@ -250,7 +328,7 @@ export default async function AndroidOverviewPage({
           was spent. A pre-9 phone has nothing to compare against, and says
           why instead of drawing apps against themselves. */}
       {!screen && (
-        <Card delay={540}>
+        <Card delay={660}>
           <CardTitle sub="Why this phone's figures are app time, and why there are no unlocks.">
             No screen events on Android {device.androidRelease}
           </CardTitle>
@@ -268,7 +346,7 @@ export default async function AndroidOverviewPage({
         </Card>
       )}
       {screen && (
-      <Card delay={540}>
+      <Card delay={660}>
         <CardTitle sub="Screen-on time, and how much of it any app accounts for.">
           Attributed vs unaccounted
         </CardTitle>

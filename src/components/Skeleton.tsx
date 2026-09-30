@@ -48,6 +48,13 @@
  */
 export const HEATMAP_HEIGHT = 325;
 
+/**
+ * A stacked by-app chart's content height: the 300px chart plus its legend,
+ * which wraps to a second row when the app names are long or the window
+ * narrow. Shared by both Overviews, which each carry two.
+ */
+export const STACKED_HEIGHT = 350;
+
 /** One shimmering block. */
 export function Skeleton({
   height,

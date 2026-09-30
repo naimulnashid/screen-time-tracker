@@ -6,6 +6,44 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Stacked by-app charts, headline callouts, and the app's name
+
+**Top apps by day / Most opened by day** sit on both Overviews after the heat
+map, modelled on the sibling's "Daily by app". `lib/stack.ts` folds per-app,
+per-day rows into the top eight plus Other, ranking each chart by its OWN
+measure -- the apps you spend longest in are not the ones you open most, the
+same reason By App has two rankings. Opens are visits filed on the day each
+began (`opensByDay()` in `visits.ts`, the all-apps form of `openBuckets()`).
+
+- **Data keys are synthetic, `s0`..`s7` and `other`.** Recharts reads a
+  dotted `dataKey` as a path, so `com.android.chrome` -- or `Node.js` --
+  would have plotted nothing, silently.
+- **An app with no brand colour turns the accent's hue**, 72 degrees per
+  unbranded band, with CSS relative colour (`oklch(from var(--accent) ...)`),
+  so two unbranded apps are never one colour with a seam between, and no hex
+  enters `Charts.tsx`. Other wears the neutral of "unaccounted".
+- **The phone's home screen leaves the opens stack**, as it leaves By App's
+  Most opened, and the card names it: on a real phone it stood nearly three
+  times taller than the next band. It keeps its band in the time stack.
+- **The opens axis is sized to its labels.** A day's opens across every app
+  reach four digits, and at the 44px the time axes use such a label lost
+  its first digit.
+- **Checked on a production build** of a scratch copy against the real
+  database: the tooltip's rows sum to the day's total, and all three phones
+  render, the Android 8.1 one included.
+
+**Every chart now names its headline figure in the top right**, through one
+`Callout` component: busiest hour on Shape of the day (the laptop had it in
+the sub text), and on the app pages the heaviest day, the day with most
+opens, and the busiest hour for time and for opens. `peakOf()` returns null
+when every value is zero, so no card announces "12 AM, 0 opens" -- the first
+bucket winning a tie.
+
+**The installed app is "Screen Time Dashboard"**, in the manifest and the iOS
+title. Page titles are unchanged. An app installed under the old name picks
+the new one up when the browser next checks the manifest; Chromium may ask
+first.
+
 ### An installable app (PWA)
 
 `app/manifest.ts` serves `/manifest.webmanifest` from `lib/pwa.ts`;

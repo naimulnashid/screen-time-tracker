@@ -40,7 +40,8 @@ import {
 import { hourTick, niceHourAxis, niceCountAxis } from '../src/lib/axis';
 import { queryString } from '../src/lib/scope';
 import { isHomeSurface } from '../src/lib/home-surface';
-import { stitchVisits, visitStats, visitCounts, openBuckets } from '../src/lib/visits';
+import { stitchVisits, visitStats, visitCounts, openBuckets, opensByDay } from '../src/lib/visits';
+import { stackByApp, peakOf, OTHER } from '../src/lib/stack';
 import { isListed, splitForList, listRule, LIST_MIN_MS, LIST_MIN_OPENS, LIST_MIN_DAYS } from '../src/lib/app-list';
 import { fillDays, heaviestDay } from '../src/lib/trend';
 import { headlineSource, unionMs, unionByHour } from '../src/lib/android-source';
@@ -770,6 +771,71 @@ section('trend line');
   check('heaviest day', heaviestDay(filled), { date: '2026-09-02', ms: 9 });
   // A recorded zero is not a heaviest day.
   check('an empty range has no heaviest day', heaviestDay([{ date: '2026-09-01', ms: 0 }, { date: '2026-09-02', ms: null }]), null);
+}
+
+/* ------------------------------------------------------------------ */
+section('stacked by-app charts');
+
+{
+  const rows = [
+    { date: '2026-09-01', id: 'a', value: 50 },
+    { date: '2026-09-01', id: 'b', value: 30 },
+    { date: '2026-09-01', id: 'c', value: 5 },
+    { date: '2026-09-03', id: 'a', value: 10 },
+    { date: '2026-09-03', id: 'd', value: 4 },
+    // Two rows for one app and day -- two exe paths resolving to one app --
+    // are one value in the band, not two.
+    { date: '2026-09-03', id: 'b', value: 3 },
+    { date: '2026-09-03', id: 'b', value: 3 },
+    { date: '2026-09-03', id: 'z', value: 0 },
+  ];
+  const { series, points } = stackByApp(rows, ['2026-09-01', '2026-09-03'], 2);
+  check('the top apps by total, then Other',
+    series.map((s) => [s.key, s.id, s.total]), [['s0', 'a', 60], ['s1', 'b', 36], [OTHER, null, 9]]);
+  // Keys are synthetic: Recharts reads a dotted dataKey as a PATH, so a
+  // package like com.android.chrome must never become one.
+  check('no key carries a dot', series.every((s) => !s.key.includes('.')), true);
+  check('every calendar day, the gap included', points.map((p) => p.date),
+    ['2026-09-01', '2026-09-02', '2026-09-03']);
+  check('an unrecorded day is flagged, not dropped', points.map((p) => p.recorded), [true, false, true]);
+  check('a day folds its tail into Other', points[2]!.v, { s0: 10, s1: 6, other: 4 });
+  check('an unrecorded day plots at zero', points[1]!.v, { s0: 0, s1: 0, other: 0 });
+  // The bands must add up to what the apps held: nothing is lost to Other.
+  const sum = (v: Record<string, number>) => Object.values(v).reduce((a, b) => a + b, 0);
+  check('the stack conserves the total', points.reduce((n, p) => n + sum(p.v), 0), 105);
+
+  const few = stackByApp([{ date: '2026-09-01', id: 'a', value: 1 }], ['2026-09-01']);
+  check('no Other when nothing is left over', few.series.map((s) => s.key), ['s0']);
+  // A day holding app rows but no headline still gets its column.
+  check('app rows extend the calendar', stackByApp(
+    [{ date: '2026-09-02', id: 'a', value: 1 }], ['2026-09-01'],
+  ).points.map((p) => [p.date, p.recorded]), [['2026-09-01', true], ['2026-09-02', true]]);
+  check('nothing at all, no days', stackByApp([], []).points, []);
+
+  check('peak: the first strictly greatest', peakOf([{ h: 1, v: 2 }, { h: 2, v: 5 }, { h: 3, v: 5 }], (x) => x.v), { h: 2, v: 5 });
+  // "Busiest hour 12 AM, 0 opens" would be a tie-break, not a finding.
+  check('peak: nothing when everything is zero', peakOf([{ v: 0 }, { v: 0 }], (x) => x.v), null);
+
+  // Opens are filed on the day the visit BEGAN, one pass for every app.
+  const t = (h: number) => Date.UTC(2026, 8, 1, h);
+  const visits = stitchVisits([
+    { app: 'a', start: t(1), end: t(1) + 1000 },
+    { app: 'b', start: t(2), end: t(2) + 1000 },
+    { app: 'a', start: t(3), end: t(3) + 1000 },
+    { app: 'a', start: t(0) - 5000, end: t(0) - 4000 },
+  ]);
+  const bucketOf = new Map([
+    [t(1), { date: '2026-09-01', hour: 1 }],
+    [t(2), { date: '2026-09-01', hour: 2 }],
+    [t(3), { date: '2026-09-02', hour: 3 }],
+  ]);
+  check('opens by day, per app, pre-range visit dropped',
+    opensByDay(visits, bucketOf).sort((x, y) => (x.date + x.id).localeCompare(y.date + y.id)),
+    [
+      { date: '2026-09-01', id: 'a', value: 1 },
+      { date: '2026-09-01', id: 'b', value: 1 },
+      { date: '2026-09-02', id: 'a', value: 1 },
+    ]);
 }
 
 /* ------------------------------------------------------------------ */

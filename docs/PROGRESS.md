@@ -690,3 +690,17 @@ Edge and Chrome on the laptop now offer to install the dashboard from
 confirmed it installable with no errors, and no service worker was needed, so
 nothing is cached. The phone cannot install it over plain-HTTP LAN; that
 would need HTTPS.
+
+### 2026-10-01 - by-app charts by day, and callouts on every chart
+
+Both Overviews gained Top apps by day and Most opened by day after the heat
+map, stacked like the sibling's "Daily by app". Every chart on the Overviews
+and the app pages names its headline figure in its top right corner. The
+installed app is now called Screen Time Dashboard. The two new skeleton
+cards are derived (chart plus legend) rather than measured, because the
+browser pane was hidden during the check; re-measure them at 997 and 1680
+when next convenient.
+
+The self-test's logo-colour coverage check fails on four recently dropped
+logos that have no entry in the local `app-colours.json` yet. That predates
+this change.

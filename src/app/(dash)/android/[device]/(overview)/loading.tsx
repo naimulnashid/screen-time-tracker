@@ -1,5 +1,5 @@
 import {
-  SkeletonPageHead, SkeletonCard, SkeletonStatGrid, HEATMAP_HEIGHT,
+  SkeletonPageHead, SkeletonCard, SkeletonStatGrid, HEATMAP_HEIGHT, STACKED_HEIGHT,
 } from '@/components/Skeleton';
 
 /**
@@ -22,6 +22,12 @@ export default function Loading() {
       <SkeletonStatGrid columns={3} />
       <SkeletonCard contentHeight={280} />
       <SkeletonCard contentHeight={HEATMAP_HEIGHT} titleHeight={79} />
+      {/* Top apps by day and Most opened by day: a 300px chart, then the
+          legend's 1rem margin and one or two ~20px rows, depending on the
+          app names and the width -> 350. DERIVED from those parts, not yet
+          measured at the two reference widths. */}
+      <SkeletonCard contentHeight={STACKED_HEIGHT} />
+      <SkeletonCard contentHeight={STACKED_HEIGHT} />
       <SkeletonCard contentHeight={240} />
       {/* Attributed bar: 12px bar + legend + the explanatory note.
           Card measured 268 @997 / 243 @1680 -> 130 of content. */}

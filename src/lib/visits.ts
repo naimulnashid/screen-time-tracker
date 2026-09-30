@@ -190,3 +190,25 @@ export function visitCounts(visits: Visit[]): Map<string, number> {
   for (const v of visits) counts.set(v.app, (counts.get(v.app) ?? 0) + 1);
   return counts;
 }
+
+/**
+ * Opens per local day for EVERY app at once, for the Overview's stacked
+ * chart. The same rule as `openBuckets()` -- an open is filed under the day
+ * its visit BEGAN, and a visit whose start is not in `bucketOf` began before
+ * the range and is dropped -- applied in one pass rather than once per app.
+ */
+export function opensByDay(
+  visits: Visit[],
+  bucketOf: Map<number, SessionBucket>,
+): { date: string; id: string; value: number }[] {
+  const counts = new Map<string, Map<string, number>>();
+  for (const v of visits) {
+    const at = bucketOf.get(v.start);
+    if (!at) continue;
+    const day = counts.get(at.date) ?? new Map<string, number>();
+    day.set(v.app, (day.get(v.app) ?? 0) + 1);
+    counts.set(at.date, day);
+  }
+  return [...counts.entries()].flatMap(([date, apps]) =>
+    [...apps.entries()].map(([id, value]) => ({ date, id, value })));
+}

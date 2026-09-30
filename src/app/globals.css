@@ -800,6 +800,22 @@ select.chip {
   color: var(--text-faint);
 }
 
+/* ------------------------------------------------------ stacked legend */
+
+/* The key under a stacked chart: logo or swatch, then the name. */
+.legend {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 0.5rem 1.1rem; margin-top: 1rem;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 0.45rem;
+  font-size: var(--fs-small); color: var(--text-dim);
+}
+.legend-swatch {
+  width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
 /* ------------------------------------------------- card title + callouts */
 
 .card-title {
