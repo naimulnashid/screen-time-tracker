@@ -1117,6 +1117,50 @@ select.chip {
 
 .sync-label .spin { animation: spin 900ms linear infinite; transform-origin: 50% 50%; }
 
+/* ---------------------------------------------------------------- rename */
+
+/* A detail page's title carries the app's logo and the rename pencil, so it
+   aligns as a row rather than inheriting the block layout other h1s use. */
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+/* The pencil beside an app's name. Quiet until wanted: in a table it shows on
+   row hover or keyboard focus only, so a hundred rows are not a column of
+   pencils -- but a touch screen has no hover, so there it always shows. */
+.rename-btn {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border-radius: 999px; border: 1px solid transparent;
+  background: transparent; color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.rename-btn:hover, .rename-btn:focus-visible { color: var(--text); border-color: var(--border-strong); }
+.app-table .rename-btn { opacity: 0; }
+.app-table tr:hover .rename-btn, .app-table .rename-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .app-table .rename-btn { opacity: 1; } }
+.app-title .rename-btn { width: 32px; height: 32px; }
+
+.rename-form {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.4rem; flex: 1; min-width: 0;
+}
+.rename-input {
+  flex: 1 1 10rem; min-width: 0; max-width: 26rem;
+  font: inherit; font-size: var(--fs-small); color: var(--text);
+  background: var(--bg-inset); border: 1px solid var(--border-input);
+  border-radius: 8px; padding: 0.35rem 0.6rem;
+}
+.rename-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.app-title .rename-input { font-size: 1.5rem; font-weight: 600; padding: 0.3rem 0.7rem; }
+.chip--small { padding: 0.28rem 0.7rem; font-size: 0.8125rem; }
+.rename-error { flex-basis: 100%; color: var(--danger); font-size: 0.8125rem; }
+
 /* ------------------------------------------------------------ theme menu */
 
 .theme-menu { position: relative; }

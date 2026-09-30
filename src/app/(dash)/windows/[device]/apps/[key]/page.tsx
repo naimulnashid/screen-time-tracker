@@ -9,7 +9,8 @@ import { AppIcon } from '@/components/AppIcon';
 import { Callout } from '@/components/Callout';
 import { heaviestDay } from '@/lib/trend';
 import { peakOf } from '@/lib/stack';
-import { logoUrl, needsLightPlate } from '@/lib/app-logo';
+import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
+import { RenameApp } from '@/components/RenameApp';
 import { windowsSlug } from '@/lib/config';
 import { decodeSegment } from '@/lib/slug';
 import { parseDays } from '@/lib/scope';
@@ -107,15 +108,17 @@ export default async function AppDetailPage({
   const mostOpens = detail.dailyOpens.length > 1 ? peakOf(detail.dailyOpens, (d) => d.opens) : null;
   const busiest = peakOf(detail.hourly, (h) => h.ms);
   const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
+  const look = lookName(detail.name, detail.baseName, laptop);
 
   return (
     <>
       <div className="page-head">
         <Link href={backHref} className="back-link">&larr; All apps</Link>
-        <h1 className="app-cell" style={{ gap: '0.7rem' }}>
-          <AppIcon name={detail.name} src={logoUrl(detail.name, laptop)} plate={needsLightPlate(detail.name, laptop)} size={32} />
-          {detail.name}
-        </h1>
+        <RenameApp
+          variant="title" platform="windows" device={slug}
+          appKey={detail.key} name={detail.name} baseName={detail.baseName}
+          icon={<AppIcon name={detail.name} src={logoUrl(look, laptop)} plate={needsLightPlate(look, laptop)} size={32} />}
+        />
         <p>
           {formatPercent(detail.share, 1)} of active time in this range
           {detail.system ? ' · Windows component' : ''}

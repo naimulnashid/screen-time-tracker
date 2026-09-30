@@ -37,6 +37,7 @@ import {
   type RawSession, type SessionBucket,
 } from './visits';
 import type { StackInput } from './stack';
+import { readRenames, type AppNames } from './app-renames';
 import {
   headlineSource, unionByHour, type HeadlineSource, type HourBucket,
 } from './android-source';
@@ -360,7 +361,10 @@ function allSessions(db: DatabaseSync, deviceId: string, from: string, to: strin
 
 export interface AndroidAppRow {
   packageName: string;
+  /** What the app is shown as: the user's rename, or the phone's label. */
   label: string;
+  /** The phone's label (or the package), without the rename. */
+  baseLabel: string;
   system: boolean;
   ms: number;
   opens: number;
@@ -397,9 +401,11 @@ export function getAndroidApps(deviceId: string, scope: AndroidScope): AndroidAp
     const opens = visitCounts(stitchVisits(allSessions(db, deviceId, from, latest)));
 
     const total = rows.reduce((a, r) => a + r.ms, 0);
+    const renames = readRenames(db, deviceId);
     return rows.map((r) => ({
       packageName: r.pkg,
-      label: r.label,
+      label: renames.get(r.pkg) ?? r.label,
+      baseLabel: r.label,
       system: r.sys === 1,
       ms: r.ms,
       opens: opens.get(r.pkg) ?? 0,
@@ -497,8 +503,8 @@ export interface AndroidDailyByApp {
   time: StackInput[];
   /** Opens (visits) per local day per package, filed where each BEGAN. */
   opens: StackInput[];
-  /** Package -> the label the phone reported, for every id above. */
-  labels: Map<string, string>;
+  /** Package -> shown label (rename applied) and the phone's label, for every id above. */
+  labels: Map<string, { name: string; base: string }>;
 }
 
 /**
@@ -510,9 +516,10 @@ export interface AndroidDailyByApp {
  */
 export function getAndroidDailyByApp(deviceId: string, scope: AndroidScope): AndroidDailyByApp {
   return withDb((db) => {
-    const labels = new Map<string, string>();
+    const labels = new Map<string, { name: string; base: string }>();
     const latest = latestDate(db, deviceId);
     if (!latest) return { time: [], opens: [], labels };
+    const renames = readRenames(db, deviceId);
     const from = rangeStart(latest, scope.days);
 
     const rows = db
@@ -530,7 +537,7 @@ export function getAndroidDailyByApp(deviceId: string, scope: AndroidScope): And
 
     const time: StackInput[] = [];
     for (const r of rows) {
-      labels.set(r.pkg, r.label);
+      labels.set(r.pkg, { name: renames.get(r.pkg) ?? r.label, base: r.label });
       time.push({ date: r.d, id: r.pkg, value: r.ms });
     }
 
@@ -600,7 +607,10 @@ export function getAndroidSyncInfo(deviceId: string): AndroidSyncInfo {
 
 export interface AndroidAppDetail {
   packageName: string;
+  /** What the app is shown as: the user's rename, or the phone's label. */
   label: string;
+  /** The phone's label (or the package), without the rename. */
+  baseLabel: string;
   system: boolean;
   ms: number;
   opens: number;
@@ -705,9 +715,11 @@ export function getAndroidAppDetail(
     // what an "open" means, not about which device recorded it.
     const opens = openBuckets(visits, packageName, sessionBucket);
 
+    const baseLabel = meta?.label ?? packageName;
     return {
       packageName,
-      label: meta?.label ?? packageName,
+      label: readRenames(db, deviceId).get(packageName) ?? baseLabel,
+      baseLabel,
       system: meta?.sys === 1,
       ms,
       opens: stats.visits,
@@ -733,10 +745,12 @@ export function getAndroidAppDetail(
 }
 
 /** Does this package exist for this device at all, ignoring the range? */
-/** The label the phone reported for a package, for the page title. */
+/** What a package is shown as -- the rename, else the phone's label -- for the page title. */
 export function androidAppLabel(deviceId: string, packageName: string): string | null {
   try {
     return withDb((db) => {
+      const renamed = readRenames(db, deviceId).get(packageName);
+      if (renamed) return renamed;
       const r = db
         .prepare('SELECT label FROM android_apps WHERE device_id = ? AND package_name = ?')
         .get(deviceId, packageName) as { label: string } | undefined;
@@ -745,6 +759,32 @@ export function androidAppLabel(deviceId: string, packageName: string): string |
   } catch {
     return null;
   }
+}
+
+/**
+ * Every app this phone has recorded time for, as shown now and as the phone
+ * labels it, keyed by package. What a rename is checked against -- all
+ * history, not the range on screen, so widening the range can never reveal
+ * two apps showing one name.
+ */
+export function getAndroidAppNames(deviceId: string): AppNames {
+  const out: AppNames = new Map();
+  if (!databaseExists()) return out;
+  return withDb((db) => {
+    const rows = db
+      .prepare(
+        `SELECT g.package_name AS pkg, COALESCE(a.label, g.package_name) AS label
+           FROM (SELECT DISTINCT package_name FROM android_segments WHERE device_id = ?) g
+           LEFT JOIN android_apps a
+             ON a.device_id = ? AND a.package_name = g.package_name`,
+      )
+      .all(deviceId, deviceId) as { pkg: string; label: string }[];
+    const renames = readRenames(db, deviceId);
+    for (const r of rows) {
+      out.set(String(r.pkg), { name: renames.get(r.pkg) ?? String(r.label), base: String(r.label) });
+    }
+    return out;
+  });
 }
 
 export function androidAppExists(deviceId: string, packageName: string): boolean {

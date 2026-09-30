@@ -129,7 +129,7 @@ export default async function AndroidOverviewPage({
   // headline, which the last card explains.
   const byApp = getAndroidDailyByApp(device.deviceId, scope);
   const recordedDays = daily.map((d) => d.date);
-  const nameOf = (id: string) => byApp.labels.get(id) ?? id;
+  const nameOf = (id: string) => byApp.labels.get(id) ?? { name: id, base: id };
   const timeStack = stackByApp(byApp.time, recordedDays);
   // The home screen leaves the OPENS stack only, as it leaves By App's Most
   // opened: it is passed through, not opened, and would be the tallest band

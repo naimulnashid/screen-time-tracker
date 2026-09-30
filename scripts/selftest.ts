@@ -29,11 +29,14 @@ import { slugify, decodeSegment } from '../src/lib/slug';
 import { windowsPages, androidPages, pagesForPath } from '../src/lib/nav';
 import { deviceOf, ACCENTS, LIGHT_ACCENTS, accentStyleSheet } from '../src/lib/accent';
 import { ink } from '../src/lib/ink';
+import { cleanName, planRename, saveRename, readRenames, type AppNames } from '../src/lib/app-renames';
+import { DatabaseSync } from 'node:sqlite';
 import { THEME_SCRIPT, THEME_KEY, THEME_COLORS } from '../src/lib/theme';
 import { getSamplerStatus } from '../src/lib/sampler-status';
 import {
   logoDir, logoKey, logoUrl, needsLightPlate, allLogoFiles, deviceScopeKeys, logoIdentity,
   logoFileForKey,
+  lookName,
 } from '../src/lib/app-logo';
 import { resolveApp, knownApps } from '../src/lib/app-name';
 import {
@@ -1537,6 +1540,66 @@ section('light theme');
   check('dark is the default', THEME_SCRIPT.includes(`||'dark'`), true);
   // It runs before anything else, as plain ES5: no arrows, no let/const.
   check('the theme script is ES5', /=>|let|const|`/.test(THEME_SCRIPT), false);
+}
+
+/* ------------------------------------------------------------------ */
+section('app renames');
+{
+  // Tidying: what reaches the database and every page is one clean line.
+  check('a name is trimmed', cleanName('  Edge  '), 'Edge');
+  check('inner whitespace collapses', cleanName('Visual 	 Studio   Code'), 'Visual Studio Code');
+  check('control characters go', cleanName('Ed ge'), 'Edge');
+  check('an empty name is refused', cleanName('   '), null);
+  check('60 characters pass', cleanName('x'.repeat(60)), 'x'.repeat(60));
+  check('61 do not', cleanName('x'.repeat(61)), null);
+  check('a non-string is refused', cleanName(42), null);
+
+  const apps: AppNames = new Map([
+    ['msedge', { name: 'Microsoft Edge', base: 'Microsoft Edge' }],
+    ['code', { name: 'Editor', base: 'VS Code' }],
+  ]);
+  check('an unknown app is refused', planRename(apps, 'nope', 'X'), { ok: false, error: 'unknown-app' });
+  check('a new name is planned', planRename(apps, 'msedge', 'Edge'), { ok: true, name: 'Edge', clear: false });
+  check('an empty name clears it', planRename(apps, 'code', ''), { ok: true, name: 'VS Code', clear: true });
+  check('the base name clears it', planRename(apps, 'code', 'VS Code'), { ok: true, name: 'VS Code', clear: true });
+  // Another app's SHOWN name is taken, whatever its case. Its base is not:
+  // nothing on screen says "VS Code" any more.
+  check('a shown name is taken', planRename(apps, 'msedge', 'editor'), { ok: false, error: 'taken' });
+  check('a renamed-away base is free', planRename(apps, 'msedge', 'VS Code').ok, true);
+  check('an app may keep its own name', planRename(apps, 'code', 'Editor').ok, true);
+  check('Other is reserved', planRename(apps, 'msedge', 'other'), { ok: false, error: 'reserved' });
+  check('a bad name is refused', planRename(apps, 'msedge', 'x'.repeat(61)), { ok: false, error: 'bad-name' });
+
+  // The real write path, on a temp database: set, overwrite, clear.
+  const rdir = mkdtempSync(join(tmpdir(), 'screentime-renames-'));
+  try {
+    const file = join(rdir, 'r.db');
+    const save = (key: string, name: string) =>
+      saveRename({ dbFile: file, deviceId: 'zephyrus', key, name, apps, allowSystemDrive: true });
+    const read = () => {
+      const db = openDatabase(file, { allowSystemDrive: true });
+      try { return [...readRenames(db, 'zephyrus')]; } finally { db.close(); }
+    };
+    check('a rename is stored', (save('msedge', 'Edge'), read()), [['msedge', 'Edge']]);
+    check('and overwritten', (save('msedge', 'Browser'), read()), [['msedge', 'Browser']]);
+    check('and cleared, leaving no row', (save('msedge', ''), read()), []);
+    check('a refused rename writes nothing', (save('msedge', 'Other'), read()), []);
+
+    // A page can open a database whose last writer predates the table.
+    const bare = new DatabaseSync(join(rdir, 'bare.db'));
+    try {
+      check('no table reads as no renames', readRenames(bare, 'zephyrus').size, 0);
+    } finally {
+      bare.close();
+    }
+  } finally {
+    rmSync(rdir, { recursive: true, force: true });
+  }
+
+  // A renamed app keeps the look of its ORIGINAL name unless a logo answers
+  // to the new one. No logo file is called this, on any device.
+  check('an unrenamed app looks like itself', lookName('Qx Nothing', 'Qx Nothing'), 'Qx Nothing');
+  check('a rename with no logo keeps the base look', lookName('Qx Renamed', 'Qx Base'), 'Qx Base');
 }
 
 /* ------------------------------------------------------------------ */

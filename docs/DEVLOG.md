@@ -6,6 +6,37 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Renaming apps
+
+Ported from the sibling's renames. `app_renames (device_id, app_key, name)`
+is schema 5; the laptop's key is the resolved app key, a phone's is the
+package name. Both are what the detail URLs already carry, so a rename never
+touches a recorded row.
+
+- **One resolver per side.** `resolver(db)` in `queries.ts` wraps
+  `resolveApp()` and applies the laptop's renames; the phone's queries read
+  `readRenames()` over the label the phone sent. Every function that names an
+  app goes through them, so the By App table, both bar charts, the stacked
+  charts' legends, the Top app callouts, the detail heading and the page
+  title all move together.
+- **`lookName()` keeps the artwork.** A renamed app looks itself up by its
+  OLD name unless a logo file answers to the new one, and uses that one name
+  for the logo, the plate and the colour -- three lookups by different names
+  is the mismatch `logoIdentity` exists to stop.
+- **Checked against all history**, not the range on screen:
+  `getWindowsAppNames()` / `getAndroidAppNames()`. Widening the range must
+  never reveal two apps showing one name.
+- **Validation is pure** (`planRename()`), so the self-test covers it, and the
+  write path is exercised for real on a temp database: set, overwrite, clear,
+  and a refused rename writing nothing.
+- **Found in the browser, not by reasoning:** after a refused save, Escape
+  did nothing. The field is disabled while a save is in flight, a disabled
+  field loses focus, and so the key reached nothing. Focus now returns to the
+  field when a save fails.
+- **The drill expects `app_renames`** in a schema-5 backup, and treats an
+  older backup's lack of it the way it treats the version: it self-heals on
+  the next open.
+
 ### Light theme
 
 Ported from the sibling Data Usage Tracker, which shipped it on 2026-09-30

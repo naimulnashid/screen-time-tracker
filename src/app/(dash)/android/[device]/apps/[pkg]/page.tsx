@@ -12,7 +12,8 @@ import { AppIcon } from '@/components/AppIcon';
 import { Callout } from '@/components/Callout';
 import { heaviestDay } from '@/lib/trend';
 import { peakOf } from '@/lib/stack';
-import { logoUrl, needsLightPlate } from '@/lib/app-logo';
+import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
+import { RenameApp } from '@/components/RenameApp';
 import { parseDays } from '@/lib/scope';
 import { decodeSegment } from '@/lib/slug';
 import {
@@ -104,15 +105,17 @@ export default async function AndroidAppDetailPage({
   const mostOpens = detail.dailyOpens.length > 1 ? peakOf(detail.dailyOpens, (d) => d.opens) : null;
   const busiest = peakOf(detail.hourly, (h) => h.ms);
   const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
+  const look = lookName(detail.label, detail.baseLabel, slug);
 
   return (
     <>
       <div className="page-head">
         <Link href={backHref} className="back-link">&larr; All apps</Link>
-        <h1 className="app-cell" style={{ gap: '0.7rem' }}>
-          <AppIcon name={detail.label} src={logoUrl(detail.label, slug)} plate={needsLightPlate(detail.label, slug)} size={32} />
-          {detail.label}
-        </h1>
+        <RenameApp
+          variant="title" platform="android" device={slug}
+          appKey={detail.packageName} name={detail.label} baseName={detail.baseLabel}
+          icon={<AppIcon name={detail.label} src={logoUrl(look, slug)} plate={needsLightPlate(look, slug)} size={32} />}
+        />
         <p className="mono" style={{ fontSize: '0.8rem' }}>
           {detail.packageName}
           {detail.system ? ' · system' : ''}

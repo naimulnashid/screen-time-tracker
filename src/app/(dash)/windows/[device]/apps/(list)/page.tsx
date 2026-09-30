@@ -7,7 +7,8 @@ import { AppListTable } from '@/components/AppListTable';
 import { getApps, getOverview, hasWindowsData, earnsDetailPage, windowsLogoScope } from '@/lib/queries';
 import { AppIcon } from '@/components/AppIcon';
 import { brandColour } from '@/lib/app-colour';
-import { logoUrl, needsLightPlate } from '@/lib/app-logo';
+import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
+import { RenameApp } from '@/components/RenameApp';
 import { splitForList, listRule } from '@/lib/app-list';
 import { windowsSlug } from '@/lib/config';
 import { parseDays } from '@/lib/scope';
@@ -54,6 +55,9 @@ export default async function AppsPage({
   // The bar charts carry the click-through the app name does in the table, so
   // the detail-page rule is resolved HERE: `earnsDetailPage` lives in
   // `queries.ts`, which is server-only and unimportable from a client chart.
+  // The logo, plate and colour follow the name BEFORE any rename, unless a
+  // logo answers to the new one -- see lookName().
+  const look = (a: (typeof apps)[number]) => lookName(a.name, a.baseName, laptop);
   const datum = (a: (typeof apps)[number]) => ({
     name: a.name,
     ms: a.ms,
@@ -61,9 +65,9 @@ export default async function AppsPage({
     opens: a.sessions,
     system: a.system,
     href: earnsDetailPage(a.ms) ? `/windows/${slug}/apps/${encodeURIComponent(a.key)}` : undefined,
-    icon: logoUrl(a.name, laptop),
-    plate: needsLightPlate(a.name, laptop),
-    colour: brandColour(a.name, laptop),
+    icon: logoUrl(look(a), laptop),
+    plate: needsLightPlate(look(a), laptop),
+    colour: brandColour(look(a), laptop),
   });
 
   // `apps` arrives sorted by time, so the second ranking has to be built from
@@ -85,15 +89,20 @@ export default async function AppsPage({
     <tr key={a.key}>
       <td>
         <span className="app-cell">
-          <AppIcon name={a.name} src={logoUrl(a.name, laptop)} plate={needsLightPlate(a.name, laptop)} />
-          {earnsDetailPage(a.ms) ? (
-            <Link href={`/windows/${slug}/apps/${encodeURIComponent(a.key)}`} className="app-link">
-              {a.name}
-            </Link>
-          ) : (
-            <span className="app-name">{a.name}</span>
-          )}
-          {a.system && <span className="app-kind">system</span>}
+          <AppIcon name={a.name} src={logoUrl(look(a), laptop)} plate={needsLightPlate(look(a), laptop)} />
+          <RenameApp
+            variant="row" platform="windows" device={slug}
+            appKey={a.key} name={a.name} baseName={a.baseName}
+          >
+            {earnsDetailPage(a.ms) ? (
+              <Link href={`/windows/${slug}/apps/${encodeURIComponent(a.key)}`} className="app-link">
+                {a.name}
+              </Link>
+            ) : (
+              <span className="app-name">{a.name}</span>
+            )}
+            {a.system && <span className="app-kind">system</span>}
+          </RenameApp>
         </span>
       </td>
       <td className="num mono">{formatDuration(a.ms)}</td>

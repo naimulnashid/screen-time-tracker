@@ -116,6 +116,9 @@ try {
         const expected = [
           'meta', 'sync_log', 'windows_segments',
           'android_devices', 'android_apps', 'android_segments', 'android_screen',
+          // Renames are history too (schema 5). A backup written before that
+          // lacks the table and gains it on the next open, like the version.
+          ...(Number(version?.value) >= 5 ? ['app_renames'] : []),
         ];
         const present = new Set(
           (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[])

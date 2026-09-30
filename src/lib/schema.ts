@@ -52,7 +52,7 @@
  * ===========================================================================
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -367,4 +367,31 @@ CREATE TABLE IF NOT EXISTS android_screen (
 
 CREATE INDEX IF NOT EXISTS idx_android_screen_date
   ON android_screen(device_id, local_date, kind);
+
+/* ======================================================================
+   BOTH DEVICES
+   ====================================================================== */
+
+-- ---------------------------------------------------------------------------
+-- Display names chosen in the dashboard (schema 5, 2026-10-01).
+--
+-- Here rather than in config because a rename is part of the history this
+-- file preserves: it is on D:, backed up, and survives the reset. One table
+-- for both platforms, keyed by what already identifies an app on each side:
+--
+--   device_id 'zephyrus',  app_key = the resolved key (lib/app-name.ts)
+--   device_id <phone>,     app_key = the package name
+--
+-- Display names are otherwise resolved in code, or reported by the phone, and
+-- never stored; this holds only the user's overrides. See lib/app-renames.ts.
+-- Readers must tolerate its absence: a read-only page can open a file whose
+-- last writer predates it.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_renames (
+  device_id   TEXT NOT NULL,
+  app_key     TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (device_id, app_key)
+);
 `;

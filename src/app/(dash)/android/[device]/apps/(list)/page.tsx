@@ -9,7 +9,8 @@ import {
 } from '@/lib/android-queries';
 import { AppIcon } from '@/components/AppIcon';
 import { brandColour } from '@/lib/app-colour';
-import { logoUrl, needsLightPlate } from '@/lib/app-logo';
+import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
+import { RenameApp } from '@/components/RenameApp';
 import { splitForList, listRule } from '@/lib/app-list';
 import { isHomeSurface } from '@/lib/home-surface';
 import { parseDays } from '@/lib/scope';
@@ -46,6 +47,9 @@ export default async function AndroidAppsPage({
   // Resolved here rather than in the chart: `androidEarnsDetailPage` comes from
   // `android-queries.ts`, which is server-only and unimportable from a client
   // component. The chart just receives an href, or does not.
+  // The logo, plate and colour follow the phone's own label unless a logo
+  // answers to the rename -- see lookName().
+  const look = (a: (typeof apps)[number]) => lookName(a.label, a.baseLabel, slug);
   const datum = (a: (typeof apps)[number]) => ({
     name: a.label,
     ms: a.ms,
@@ -55,9 +59,9 @@ export default async function AndroidAppsPage({
     href: androidEarnsDetailPage(a.ms)
       ? `/android/${slug}/apps/${encodeURIComponent(a.packageName)}`
       : undefined,
-    icon: logoUrl(a.label, slug),
-    plate: needsLightPlate(a.label, slug),
-    colour: brandColour(a.label, slug),
+    icon: logoUrl(look(a), slug),
+    plate: needsLightPlate(look(a), slug),
+    colour: brandColour(look(a), slug),
   });
 
   // `apps` arrives sorted by time, so the second ranking needs its own sort:
@@ -88,18 +92,23 @@ export default async function AndroidAppsPage({
     <tr key={a.packageName}>
       <td>
         <span className="app-cell">
-          <AppIcon name={a.label} src={logoUrl(a.label, slug)} plate={needsLightPlate(a.label, slug)} />
-          {androidEarnsDetailPage(a.ms) ? (
-            <Link
-              href={`/android/${slug}/apps/${encodeURIComponent(a.packageName)}`}
-              className="app-link"
-            >
-              {a.label}
-            </Link>
-          ) : (
-            <span className="app-name">{a.label}</span>
-          )}
-          {a.system && <span className="app-kind">system</span>}
+          <AppIcon name={a.label} src={logoUrl(look(a), slug)} plate={needsLightPlate(look(a), slug)} />
+          <RenameApp
+            variant="row" platform="android" device={slug}
+            appKey={a.packageName} name={a.label} baseName={a.baseLabel}
+          >
+            {androidEarnsDetailPage(a.ms) ? (
+              <Link
+                href={`/android/${slug}/apps/${encodeURIComponent(a.packageName)}`}
+                className="app-link"
+              >
+                {a.label}
+              </Link>
+            ) : (
+              <span className="app-name">{a.label}</span>
+            )}
+            {a.system && <span className="app-kind">system</span>}
+          </RenameApp>
         </span>
         {/* The package name is the only stable identifier, and
             two apps can share a label. Kept visible, quietly. */}

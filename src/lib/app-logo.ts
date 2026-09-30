@@ -381,6 +381,22 @@ export function logoIdentity(name: string, device?: string | string[]): string {
   return hit.scope ? `${hit.scope}/${hit.key}` : hit.key;
 }
 
+/**
+ * The name to look an app up by for its logo, plate and colour, once the user
+ * may have renamed it (lib/app-renames.ts).
+ *
+ * The NEW name when a logo file answers to it -- renaming an app to what its
+ * artwork is called should pick that artwork up -- and otherwise the name it
+ * had before the rename, so renaming "Microsoft Edge" to "Edge" keeps the
+ * Edge mark and its colour rather than dropping to an initial and the
+ * device accent. One answer for all three, because a logo, a plate and a
+ * colour keyed by different names is exactly the mismatch `logoIdentity`
+ * exists to prevent.
+ */
+export function lookName(name: string, base: string, device?: string | string[]): string {
+  return name === base || resolveLogo(name, device) ? name : base;
+}
+
 export function logoUrl(name: string, device?: string | string[]): string | null {
   const hit = resolveLogo(name, device);
   if (!hit) return null;

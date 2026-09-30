@@ -27,7 +27,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { dbPath, databaseExists, loadConfig } from './config';
-import { resolveApp } from './app-name';
+import { resolveApp, type ResolvedApp } from './app-name';
+import { readRenames, type AppNames } from './app-renames';
 import {
   stitchVisits, visitStats, visitCounts, openBuckets, opensByDay,
   type RawSession, type SessionBucket,
@@ -76,6 +77,24 @@ function withDb<T>(fn: (db: DatabaseSync) => T): T {
 }
 
 /** True when there is a database with at least one recorded segment. */
+/** A resolved app, with the user's rename applied and the name it had before. */
+type Named = ResolvedApp & { base: string };
+
+/**
+ * `resolveApp`, with the user's renames (lib/app-renames.ts) applied. Every
+ * query below that shows an app name goes through this, so a rename reaches
+ * tables, charts, legends, callouts and the page title from one place.
+ * `base` is kept because the logo, plate and colour stay keyed by it unless
+ * a logo matches the new name -- see `lookName()`.
+ */
+function resolver(db: DatabaseSync): (path: string) => Named {
+  const renames = readRenames(db, WINDOWS_DEVICE_ID);
+  return (path) => {
+    const r = resolveApp(path);
+    return { ...r, base: r.name, name: renames.get(r.key) ?? r.name };
+  };
+}
+
 export function hasWindowsData(): boolean {
   if (!databaseExists()) return false;
   try {
@@ -237,6 +256,8 @@ function allSessions(db: DatabaseSync, from: string, to: string): RawSession[] {
 export interface AppRow {
   key: string;
   name: string;
+  /** The name without the user's rename; equal to `name` when there is none. */
+  baseName: string;
   system: boolean;
   ms: number;
   sessions: number;
@@ -276,10 +297,11 @@ export function getApps(scope: Scope): AppRow[] {
     const opens = visitCounts(stitchVisits(allSessions(db, from, latest)));
 
     const merged = new Map<string, AppRow>();
+    const resolve = resolver(db);
     for (const r of rows) {
-      const app = resolveApp(r.app_path);
+      const app = resolve(r.app_path);
       const e = merged.get(app.key) ?? {
-        key: app.key, name: app.name, system: app.system,
+        key: app.key, name: app.name, baseName: app.base, system: app.system,
         ms: 0, sessions: 0, days: 0, share: 0,
       };
       e.ms += r.ms;
@@ -381,8 +403,8 @@ export interface DailyByApp {
   time: StackInput[];
   /** Opens (visits) per local day per resolved app, filed where each BEGAN. */
   opens: StackInput[];
-  /** Resolved key -> display name, for every id above. */
-  names: Map<string, string>;
+  /** Resolved key -> display name (rename applied) and base name, for every id above. */
+  names: Map<string, { name: string; base: string }>;
 }
 
 /**
@@ -394,9 +416,10 @@ export interface DailyByApp {
  */
 export function getDailyByApp(scope: Scope): DailyByApp {
   return withDb((db) => {
-    const names = new Map<string, string>();
+    const names = new Map<string, { name: string; base: string }>();
     const latest = latestDate(db);
     if (!latest) return { time: [], opens: [], names };
+    const resolve = resolver(db);
     const from = rangeStart(db, scope.days);
 
     const rows = db
@@ -411,8 +434,8 @@ export function getDailyByApp(scope: Scope): DailyByApp {
 
     const time: StackInput[] = [];
     for (const r of rows) {
-      const app = resolveApp(r.app_path);
-      names.set(app.key, app.name);
+      const app = resolve(r.app_path);
+      names.set(app.key, { name: app.name, base: app.base });
       time.push({ date: r.d, id: app.key, value: r.ms });
     }
 
@@ -573,6 +596,8 @@ export interface AppIdentity {
 export interface AppDetail {
   key: string;
   name: string;
+  /** The name without the user's rename; equal to `name` when there is none. */
+  baseName: string;
   system: boolean;
   ms: number;
   sessions: number;
@@ -643,6 +668,7 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
     }[];
 
     let name = '';
+    let baseName = '';
     let system = false;
     let ms = 0;
     const byDate = new Map<string, number>();
@@ -659,10 +685,12 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
     // this process ever ran under a different offset than the sampler did.
     const sessionBucket = new Map<number, SessionBucket>();
 
+    const resolve = resolver(db);
     for (const r of rows) {
-      const app = resolveApp(r.app_path);
+      const app = resolve(r.app_path);
       if (app.key !== key) continue;
       name = app.name;
+      baseName = app.base;
       system = app.system;
       ms += r.duration_ms;
       dates.add(r.local_date);
@@ -691,6 +719,7 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
     return {
       key,
       name,
+      baseName,
       system,
       ms,
       sessions: stats.visits,
@@ -740,13 +769,53 @@ export function appNameForKey(key: string): string | null {
             WHERE device_id = ? AND kind = 'app'`,
         )
         .all(WINDOWS_DEVICE_ID) as { app_path: string }[];
+      const resolve = resolver(db);
       for (const r of rows) {
-        const app = resolveApp(r.app_path);
+        const app = resolve(r.app_path);
         if (app.key === key) return app.name;
       }
       return null;
     });
   } catch {
     return null;
+  }
+}
+
+/**
+ * Every app the laptop has ever recorded, as shown now and as resolved, keyed
+ * by resolved key. What a rename is checked against: a new name must not be
+ * one another app already shows, across ALL history rather than the range on
+ * screen, or widening the range would reveal two apps with one name.
+ */
+export function getWindowsAppNames(): AppNames {
+  const out: AppNames = new Map();
+  if (!databaseExists()) return out;
+  return withDb((db) => {
+    const rows = db
+      .prepare(
+        `SELECT DISTINCT app_path FROM windows_segments
+          WHERE device_id = ? AND kind = 'app'`,
+      )
+      .all(WINDOWS_DEVICE_ID) as { app_path: string }[];
+    const resolve = resolver(db);
+    for (const r of rows) {
+      const app = resolve(r.app_path);
+      out.set(app.key, { name: app.name, base: app.base });
+    }
+    return out;
+  });
+}
+
+/**
+ * The display name for one raw identity, rename applied. For the Sync page's
+ * "currently in", which names the sampler's in-flight app outside any query.
+ */
+export function windowsDisplayName(path: string): string {
+  const r = resolveApp(path);
+  if (!databaseExists()) return r.name;
+  try {
+    return withDb((db) => readRenames(db, WINDOWS_DEVICE_ID).get(r.key) ?? r.name);
+  } catch {
+    return r.name;
   }
 }

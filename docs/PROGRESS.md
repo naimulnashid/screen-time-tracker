@@ -69,6 +69,14 @@ now shows up before you switch away from it.
 
 ## Log
 
+### 2026-10-01 - renaming apps
+
+Ported from the sibling. Tried on the demo: renamed in the table, refused a
+duplicate (any case), kept the brand colour, reached the Overview callout,
+the legend, the detail heading and the tab title, reset from the heading.
+The route answered 400 / 404 / 413 / 422 for each bad request, 401 without a
+session and 403 from a foreign origin. 22 new self-tests.
+
 ### 2026-10-01 - light theme
 
 Ported from the sibling. Checked in the browser on the synthetic demo

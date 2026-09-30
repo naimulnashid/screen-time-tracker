@@ -112,7 +112,7 @@ export default async function OverviewPage({
   // are not the ones you open most -- the same reason By App has two charts.
   const byApp = getDailyByApp(scope);
   const recordedDays = daily.map((d) => d.date);
-  const nameOf = (id: string) => byApp.names.get(id) ?? id;
+  const nameOf = (id: string) => byApp.names.get(id) ?? { name: id, base: id };
   const timeStack = stackByApp(byApp.time, recordedDays);
   const opensStack = stackByApp(byApp.opens, recordedDays);
   const laptop = windowsLogoScope();

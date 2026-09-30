@@ -599,6 +599,7 @@ src/
   lib/
     accent.ts        the ONLY place an accent hex exists (both themes)
     theme.ts, ink.ts the light/dark switch, and app colours per theme
+    app-renames.ts   names the user chose, stored in app_renames
     auth.ts          Web Crypto only - pulled into the proxy
     login-throttle.ts, safe-next.ts   the sign-in hardening
     config.ts        reads collector.json, once
@@ -1206,6 +1207,30 @@ Added 2026-10-01, ported from the sibling. `data-theme` on `<html>` is
 - **The manifest stays black.** `theme_color` / `background_color` in the
   manifest are static; the page's `theme-color` meta is what follows the
   theme, and the installed window's title bar reads that.
+
+## Apps can be renamed, and the rename is HISTORY
+
+Added 2026-10-01, from the sibling. `app_renames` (schema 5) holds only the
+user's overrides; every other name is still resolved in code or reported by
+the phone, never stored.
+
+- **Keyed by what the URL already carries**: the resolved key on the laptop,
+  the package on a phone. A rename never touches a recorded row, and a
+  laptop rename covers every path that resolves to the key.
+- **Every name goes through the resolver.** `resolver(db)` in `queries.ts`
+  and `readRenames()` in `android-queries.ts`. A new query that shows an app
+  name and skips them will show the old name on one card of a renamed app,
+  which reads as a caching bug.
+- **Logos, plates and colours follow `lookName()`**: the new name when a logo
+  answers to it, else the old one. Never look any of the three up by the
+  shown name directly.
+- **The database is on D:, so a rename is written through `openDatabase()`**
+  and the system-drive guard applies. The demo's database is on C:, so the
+  scratch server that tests renames runs with `SystemDrive=Z:` in its own
+  environment -- never change the guard for it.
+- **The route is `/api/apps/name`**, behind the proxy's session and
+  cross-origin checks like every other `/api/*` write. Names are checked
+  against ALL history, not the range on screen.
 
 ## It installs as an app, on the laptop only
 

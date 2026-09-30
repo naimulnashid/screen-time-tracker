@@ -9,6 +9,15 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Added
+- **Rename any app from the dashboard.** A pencil beside the name on each
+  app's page, and on hover in the By App tables, opens an inline field:
+  Enter saves, Escape cancels, Reset returns to the original name. The new
+  name reaches every table, chart, legend, callout and page title. Stored in
+  a new `app_renames` table (schema 5) in the database, so it is backed up
+  and survives a reset. The laptop renames the resolved app; a phone renames
+  the package. A renamed app keeps its logo and bar colour unless a logo file
+  matches the new name. Refused: a name another app on the same device
+  already shows, `Other`, and anything outside 1-60 characters.
 - **Light theme.** A Dark / Light / System menu in the top bar, shown as a
   sun or a moon. It is its own design rather than the dark one inverted: a
   pale grey page under white cards, real borders and soft shadows, hover as

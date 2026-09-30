@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
-import { getSyncRuns, getSamplerStatus, getOverview, hasWindowsData } from '@/lib/queries';
+import { getSyncRuns, getSamplerStatus, getOverview, hasWindowsData, windowsDisplayName } from '@/lib/queries';
 import { windowsSlug } from '@/lib/config';
-import { resolveApp } from '@/lib/app-name';
 import { formatDateTime, formatDuration, formatElapsed, formatCount } from '@/lib/format';
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
@@ -50,7 +49,7 @@ export default async function SyncPage({
 
   const inFlightApp =
     status.inFlight && status.inFlight.kind === 'app'
-      ? resolveApp(status.inFlight.app).name
+      ? windowsDisplayName(status.inFlight.app)
       : null;
 
   return (
