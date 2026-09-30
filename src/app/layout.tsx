@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // The manifest (app/manifest.ts) covers installing on Chromium. iOS reads
   // neither it nor its icons, and wants this and app/apple-icon.tsx instead.
   // NOT `icons` here: that replaces the file-based favicon.
-  appleWebApp: { capable: true, title: 'Screen Time', statusBarStyle: 'black' },
+  appleWebApp: { capable: true, title: 'Screen Time Dashboard', statusBarStyle: 'black' },
 };
 
 /**

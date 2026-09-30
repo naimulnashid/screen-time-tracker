@@ -76,8 +76,8 @@ export const PWA_MANIFEST = {
   // dashboard on 7843 install as two separate apps even though both are
   // `localhost`, unlike their cookies.
   id: '/',
-  name: 'Screen Time',
-  short_name: 'Screen Time',
+  name: 'Screen Time Dashboard',
+  short_name: 'Screen Time Dashboard',
   description: 'Local dashboard over per-app screen time history, across a laptop and a phone.',
   // `/` is the one address guaranteed to mean "home" however the devices are
   // named; it redirects to the laptop's Overview.

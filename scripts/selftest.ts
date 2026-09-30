@@ -1378,6 +1378,8 @@ section('installable app');
   // still served, still parses, and simply never offers the install button.
   const m = PWA_MANIFEST;
   check('manifest has a name', m.name.length > 0 && m.short_name.length > 0, true);
+  // What the Start menu, the taskbar and the install prompt call it.
+  check('it installs as Screen Time Dashboard', [m.name, m.short_name], ['Screen Time Dashboard', 'Screen Time Dashboard']);
   check('it opens standalone', m.display, 'standalone');
   check('start_url sits inside the scope', m.start_url.startsWith(m.scope), true);
   const sizes = m.icons.filter((i) => i.type === 'image/png').map((i) => i.sizes);
