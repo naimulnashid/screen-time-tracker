@@ -259,7 +259,7 @@ in [`docs/DEVLOG.md`](docs/DEVLOG.md).
 `scripts/research/` holds the measurements that shaped the design. Nothing
 there is needed to run the tracker.
 
-This is a personal project. Issues are welcome. For pull requests, please open
+This is a personal project. Issues are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md). For pull requests, please open
 an issue first, since the design is deliberately narrow.
 
 ## Licence

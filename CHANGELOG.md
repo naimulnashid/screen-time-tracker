@@ -14,6 +14,10 @@ each change -- what was measured, and what it overturned -- is in
   opens on a month of outlined, never-recorded days. The days before it in
   its week are hidden. Both the laptop's and the phones' pages.
 
+### Added
+- **`CONTRIBUTING.md`**: how to report, what to run before a change, and the
+  rules a change must keep.
+
 ## [1.2.0] - 2026-10-01
 
 The phone app is unchanged: 1.1 (`versionCode 2`), from the
