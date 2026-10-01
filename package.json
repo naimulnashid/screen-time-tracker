@@ -22,6 +22,7 @@
     "selftest": "tsx scripts/selftest.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",
     "demo": "cd demo && node ../node_modules/next/dist/bin/next start .. -p 7849",
+    "demo:shots": "tsx scripts/capture-screenshots.ts",
     "logo:vacuum": "powershell -ExecutionPolicy Bypass -File scripts/vacuum-svg-defs.ps1",
     "logo:distribute": "tsx scripts/distribute-logos.ts",
     "drill": "tsx scripts/reset-drill.ts",

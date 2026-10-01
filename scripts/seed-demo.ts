@@ -25,6 +25,14 @@ import { ingestAndroid, type AndroidPayload } from '../src/lib/android-ingest';
 
 const OUT = resolve(process.argv[2] ?? 'demo');
 const DAYS = 28;
+/**
+ * The moment the demo is seeded AS OF. Normally now; `DEMO_NOW` (an ISO time)
+ * pins it, so screenshots taken just after midnight do not show a phone whose
+ * "today" is four minutes long and a trend line that crashes to zero at the
+ * end. capture-screenshots.ts sets it.
+ */
+const NOW = process.env['DEMO_NOW'] ? Date.parse(process.env['DEMO_NOW']) : Date.now();
+if (!Number.isFinite(NOW)) throw new Error('DEMO_NOW is not a date');
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 
@@ -50,7 +58,7 @@ function pick<T>(items: [T, number][]): T {
 
 /** Local midnight `n` days before today. */
 function dayStart(n: number): number {
-  const d = new Date();
+  const d = new Date(NOW);
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - n);
   return d.getTime();
@@ -204,7 +212,7 @@ writeFileSync(join(OUT, 'config', 'app-colours.json'), JSON.stringify({
 
 const db = openDatabase(dbPath, { allowSystemDrive: true });
 try {
-  const now = Date.now();
+  const now = NOW;
   const insert = db.prepare(SEGMENT_INSERT_SQL);
   const sessions: NonNullable<AndroidPayload['sessions']> = [];
   const screen: NonNullable<AndroidPayload['screen']> = [];
@@ -247,11 +255,23 @@ try {
   // hourly, the phone every six hours -- so the Sync pages read like a live
   // installation rather than twelve runs stamped the same minute.
   // startSyncRun() stamps "now", so each run is backdated afterwards.
+  //
+  // Inserted in TIME order across both collectors, as a live installation
+  // writes them: the run history sorts by id, and inserting one collector's
+  // runs after the other's put a day-old phone push above the laptop's
+  // latest ingest. Anchored to the real clock even when DEMO_NOW pins the
+  // data, so the pages read "collected minutes ago" rather than as stale.
   const backdate = db.prepare('UPDATE sync_log SET started_at = ?, finished_at = ? WHERE id = ?');
   const cadence = [['zephyrus', 'win-sampler', 1, 10], ['demo-phone', 'android-events', 6, 8]] as const;
+  const runNow = Date.now();
+  const planned: { device: string; source: (typeof cadence)[number][1]; at: number }[] = [];
   for (const [device, source, everyHours, runs] of cadence) {
     for (let i = runs - 1; i >= 0; i--) {
-      const at = now - (i * everyHours + between(0.05, 0.3)) * HOUR;
+      planned.push({ device, source, at: runNow - (i * everyHours + between(0.05, 0.3)) * HOUR });
+    }
+  }
+  for (const { device, source, at } of planned.sort((a, b) => a.at - b.at)) {
+    {
       const took = Math.round(between(120, 900));
       const stored = Math.round(source === 'win-sampler' ? between(20, 90) : between(300, 900));
       const id = startSyncRun(db, device, source);

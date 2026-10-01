@@ -667,6 +667,7 @@ npm run typecheck
 npm run selftest
 npm run demo:seed  # synthetic data into demo/ (gitignored)
 npm run demo       # serve it on 7849 -- needs a build
+npm run demo:shots # retake every README screenshot from the demo
 ```
 
 **Ports on this machine are crowded.** 7842, 7843 and 7845 are the owner's
@@ -676,13 +677,31 @@ taken. Check with `Get-NetTCPConnection -State Listen` before picking a port.
 
 **The README's screenshots are of the DEMO**, never of real data: "My
 Laptop" and "My Phone", generic apps, and brand colours from the demo's own
-`app-colours.json` (bars are coloured by name even with no logo files). To
-redo them: seed, build and serve a scratch copy (never build over the live
-`.next`), mint a session cookie with `issueSession()` and the scratch
-server's throwaway password, and capture with headless Edge over the
-DevTools protocol. `docs/screenshots/` holds three one-screen hero shots, and
-`tour/` holds a full-page shot of every page, taken by growing the viewport to
-`scrollHeight`, not by stitching. Three traps, all hit on 2026-09-23:
+`app-colours.json` (bars are coloured by name even with no logo files).
+**`npm run demo:shots` redoes all of them** (`scripts/capture-screenshots.ts`):
+it builds a scratch copy in TEMP (never over the live `.next`), leaving out
+the logos and the real configs, seeds the demo beside it, serves it with a
+throwaway password, mints a session cookie with `issueSession()`, and drives
+headless Edge over the DevTools protocol. `docs/screenshots/` holds one
+one-screen opener and `tour/`, a full-page shot of every page, taken by
+growing the viewport to `scrollHeight`, not by stitching. The README shows the
+tour in full, not collapsed. **Look at every image before committing it.**
+
+Two traps from 2026-10-01, both handled by the script:
+
+- **Turbopack refuses a `node_modules` junction pointing outside the
+  project** ("points out of the filesystem root"). The scratch copy's own
+  `next.config.mjs` widens `turbopack.root` to the folder holding both; the
+  real config is never touched.
+- **The demo follows the wall clock**, so a capture just after midnight drew
+  a phone whose "today" was four minutes long and a trend crashing to zero.
+  Before noon the script seeds with `DEMO_NOW` at 9 PM yesterday; the sync
+  history stays on the real clock, so pages still read "collected minutes
+  ago". The seeder also inserts runs in TIME order across both collectors:
+  the history sorts by id, and one collector after the other put a day-old
+  phone push on top.
+
+And three from 2026-09-23:
 
 - **A fixed sleep is not a wait.** On a slow render the old document was still
   up, so three different pages came out the same height, measured from the

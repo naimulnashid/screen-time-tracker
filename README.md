@@ -20,67 +20,55 @@ reset.**
   such as Android's Digital Wellbeing. The traps found along the way are
   documented in [`CLAUDE.md`](CLAUDE.md).
 
-| By App | A phone |
-|---|---|
-| ![Top apps ranked by time, as horizontal bars in each app's brand colour](docs/screenshots/laptop-by-app.png) | ![A phone's Overview: screen time and unlocks, with a daily trend](docs/screenshots/phone-overview.png) |
+## Every page, in full
 
-## A tour of every page
+Each page top to bottom, at 1440px wide, in the default dark theme. A
+Dark / Light / System menu in the top bar switches every page to a light
+theme. Retake them all with `npm run demo:shots`.
 
-Full-page screenshots, top to bottom. Click a page to open it.
+### The laptop
 
-**The laptop**
-
-<details><summary>Overview: today, the daily trend, a six-month heat map, the shape of the day, and where every minute went</summary>
+**Overview**: today, the daily trend, a six-month heat map, the top apps and the most opened by day, the shape of the day, and where every minute went.
 
 ![The laptop's Overview, full page](docs/screenshots/tour/laptop-1-overview.png)
-</details>
 
-<details><summary>By App: ranked by time and by opens, in each app's brand colour, above the full app table</summary>
+**By App**: ranked by time and by opens, in each app's brand colour, above the full app table.
 
 ![The laptop's By App page, full page](docs/screenshots/tour/laptop-2-by-app.png)
-</details>
 
-<details><summary>App detail: one app's total, opens, typical session and longest session, per day and per hour</summary>
+**App detail**: one app's total, opens, typical session and longest session, per day and per hour, and the paths it was merged from.
 
 ![An app's detail page on the laptop, full page](docs/screenshots/tour/laptop-3-app-detail.png)
-</details>
 
-<details><summary>Activity: the heat map, expanded to every recorded day</summary>
+**Activity**: the heat map, expanded to every recorded day.
 
-![The laptop's Activity page](docs/screenshots/tour/laptop-4-activity.png)
-</details>
+![The laptop's Activity page, full page](docs/screenshots/tour/laptop-4-activity.png)
 
-<details><summary>Sync Status: whether the sampler is running, what is stored, and every ingest run</summary>
+**Sync Status**: whether the sampler is running, what is stored, and every ingest run.
 
 ![The laptop's Sync Status page, full page](docs/screenshots/tour/laptop-5-sync.png)
-</details>
 
-**A phone**
+### A phone
 
-<details><summary>Overview: screen-on time and unlocks, the trend, the heat map, and how much of it any app accounts for</summary>
+**Overview**: screen-on time and unlocks, the trend, the heat map, the top apps and the most opened by day, and how much of it any app accounts for.
 
 ![The phone's Overview, full page](docs/screenshots/tour/phone-1-overview.png)
-</details>
 
-<details><summary>By App: ranked by time and by opens, above every app the phone reported</summary>
+**By App**: ranked by time and by opens, above every app the phone reported.
 
 ![The phone's By App page, full page](docs/screenshots/tour/phone-2-by-app.png)
-</details>
 
-<details><summary>App detail: one app, per day and per hour</summary>
+**App detail**: one app, per day and per hour.
 
 ![An app's detail page on the phone, full page](docs/screenshots/tour/phone-3-app-detail.png)
-</details>
 
-<details><summary>Activity: the phone's heat map, expanded</summary>
+**Activity**: the phone's heat map, expanded.
 
-![The phone's Activity page](docs/screenshots/tour/phone-4-activity.png)
-</details>
+![The phone's Activity page, full page](docs/screenshots/tour/phone-4-activity.png)
 
-<details><summary>Sync Status: how far back Android's history reaches, and every push from the phone</summary>
+**Sync Status**: how far back Android's history reaches, and every push from the phone.
 
 ![The phone's Sync Status page, full page](docs/screenshots/tour/phone-5-sync.png)
-</details>
 
 ## How it works
 

@@ -69,6 +69,12 @@ now shows up before you switch away from it.
 
 ## Log
 
+### 2026-10-01 - every page in the README, in full
+
+All ten tour shots and the opener retaken from the demo with
+`npm run demo:shots`, each looked at before committing; the tour is shown
+open. Fixed on the way: the laptop run history's clipped Backup column.
+
 ### 2026-10-01 - exact skeletons
 
 All ten loading screens rebuilt from the pages' own markup and measured in

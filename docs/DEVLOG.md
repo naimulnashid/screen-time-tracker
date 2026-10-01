@@ -6,6 +6,21 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Screenshots in one command, and a column the screenshots found
+
+`scripts/capture-screenshots.ts` (`npm run demo:shots`) turns CLAUDE.md's
+manual recipe into a script: scratch copy, scratch build, demo seed, a
+throwaway password, a minted session, headless Edge over the DevTools
+protocol with Node's own WebSocket. Looking at its output found two things:
+
+- **The laptop's run history had no Backup column**, on the real dashboard
+  too. `.app-table` fixes six column widths that sum to 100%, and the run
+  history has seven, so the last got nothing and was clipped. The run
+  histories no longer take that class.
+- **The demo drifted with the clock**: captured at 2 AM, the phone's
+  "today" held four minutes. `DEMO_NOW` pins the seed, and runs are now
+  inserted in time order so the history reads like a live one.
+
 ### Skeletons that render the page's own markup
 
 Ported from the sibling. The old skeletons carried one height per section,
