@@ -1,5 +1,9 @@
 # Screen Time Tracker
 
+[![CI](https://github.com/naimulnashid/screen-time-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/screen-time-tracker/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/naimulnashid/screen-time-tracker)](https://github.com/naimulnashid/screen-time-tracker/releases/latest)
+[![MIT license](https://img.shields.io/github/license/naimulnashid/screen-time-tracker)](LICENSE)
+
 **How long each app was actually in the foreground — on a Windows PC and your
 Android phones — kept on your own machine, and built to survive a Windows
 reset.**
