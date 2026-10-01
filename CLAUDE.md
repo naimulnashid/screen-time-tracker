@@ -564,11 +564,16 @@ Matches the sibling deliberately, so the two projects stay legible together.
     `.next/dev/types/**/*.ts` is missing from `include`, and reformats every
     array while it is there. Both values are now in the file, so it is left
     alone.
-  - **TypeScript stays on 5.** Dependabot ignores its major versions:
-    TypeScript 7 failed CI on 2026-09-23 (it rejects the untyped
-    `import './globals.css'`), and `next build` type-checks through the
-    compiler's JS API, which 7 may not provide yet. Move by hand, together
-    with Next.
+  - **TypeScript stays on 5.** Dependency updates are told to skip its
+    major versions: TypeScript 7 failed CI on 2026-09-23 (it rejects the
+    untyped `import './globals.css'`), and `next build` type-checks through
+    the compiler's JS API, which 7 may not provide yet. Move by hand,
+    together with Next.
+  - **Dependency updates are made upstream, not in this repo.** Since
+    2026-10-01 there is no `.github/dependabot.yml` here: dependency and
+    security updates are applied in the maintainer's own copy and arrive in
+    this repository as ordinary commits. A Dependabot PR opened here would
+    duplicate that work.
 - **Recharts** for charts, **Geist** for type
 - **`node:sqlite`** — Node's *built-in* SQLite. **Not `better-sqlite3`.** A
   native module with a node-gyp build step is the most likely thing to break on
