@@ -302,7 +302,7 @@ export default async function AndroidOverviewPage({
         )}
         {home.size > 0 && (
           <p className="prose-note" style={{ marginTop: '0.9rem' }}>
-            {[...home.keys()].map(nameOf).join(', ')}{' '}
+            {[...home.keys()].map((id) => nameOf(id).name).join(', ')}{' '}
             {home.size === 1 ? 'is' : 'are'} left out, with{' '}
             {formatCount([...home.values()].reduce((a, b) => a + b, 0))} opens:
             the home screen is what you pass through between apps, not
