@@ -6,9 +6,11 @@
     The database already has a backup. This covers the things that do NOT,
     both found by `npm run drill`:
 
-      1. THE CODE. The repo lives on C:\ with no remote, so a reset destroys
-         it -- and a database backup nobody can read is not a backup. A git
-         bundle is the whole history in one file, restored with `git clone`.
+      1. THE CODE. A repo with no remote dies with its disk -- and a database
+         backup nobody can read is not a backup. A git bundle is the whole
+         history in one file, restored with `git clone`. It is written ONLY
+         while the branch is not pushed: once a remote holds every commit,
+         the bundle is a third copy of it, and a stale one is removed.
 
       2. THE SECRETS. `.env.local` is gitignored, so restoring the repo gives
          you everything except the two values that make it run. Worse, the
@@ -18,13 +20,14 @@
       3. THE LOCAL-ONLY FILES. config\collector.json, config\app-colours.json
          and the logos in public\apps_logo\ are gitignored because they
          describe this installation (its drives, its devices, every app on
-         them). Nothing else keeps a copy, and a clone without collector.json
-         cannot even find the database backup to restore.
+         them). A clone without collector.json cannot even find the database
+         backup to restore. Only the ones git does NOT hold are copied: a
+         private fork that commits them and pushes needs no copy at all.
 
-      4. THE APK SIGNING KEY. The .jks is created in the secrets folder below,
-         so it already survives a reset; android\keystore.properties, which
-         names it and holds its passwords, is gitignored and copied there
-         too. Without the key a new release cannot install over the old one.
+      4. THE APK SIGNING KEY. The .jks must sit off the system drive (the
+         drill checks); android\keystore.properties, which names it and holds
+         its passwords, is gitignored and copied to the secrets folder. Without
+         the key a new release cannot install over the old one.
 
     ------------------------------------------------------------------------
     THE DESTINATIONS ARE DIFFERENT ON PURPOSE.
@@ -33,11 +36,10 @@
       local-files -> beside backupPath   (a synced folder) is exactly what you
                                          want. Personal, but not a credential.
 
-      secrets -> D:\ScreenTime-scratch\  NOT Drive-synced (that is why the
-                                         scratch dir lives outside
-                                         PersistentData). The values survive a
-                                         C:\ reset without being uploaded to
-                                         anyone's cloud.
+      secrets -> <scratchDir>\recovery\  NOT synced (that is why the scratch
+                                         dir lives outside the synced folder).
+                                         The values survive a C:\ reset without
+                                         being uploaded to anyone's cloud.
 
     The secrets copy is PLAINTEXT on a local disk -- the same protection the
     original has, and no worse. If that is not good enough for you, put them in
@@ -102,15 +104,30 @@ $bundleDir = Split-Path $cfg.backupPath -Parent
 if (-not (Test-Path $bundleDir)) { New-Item -ItemType Directory -Path $bundleDir -Force | Out-Null }
 $bundle = Join-Path $bundleDir 'screen-time-repo.bundle'
 
+# Pushed means the branch has an upstream and no commit the upstream lacks.
+# No upstream at all (a clone with no remote, or a branch never pushed with
+# -u) counts as NOT pushed, so the bundle is still written.
+$ahead = Invoke-Native git @('rev-list', '--count', '@{u}..HEAD')
+$pushed = $ahead.ExitCode -eq 0 -and (($ahead.Output -join '').Trim() -eq '0')
+$remoteUrl = ((Invoke-Native git @('remote', 'get-url', 'origin')).Output -join '').Trim()
+
 Write-Host "`n=== Code ===" -ForegroundColor Cyan
 $dirty = (Invoke-Native git @('status', '--porcelain')).Output -join "`n"
 if ($dirty) {
-    # A bundle contains COMMITS. Uncommitted work is simply not in it, and
-    # saying so beats a green tick that quietly excludes your last hour.
-    Write-Host "  [WARN] uncommitted changes are NOT included in the bundle:" -ForegroundColor Yellow
+    # Uncommitted work is in neither a bundle nor a push, and saying so beats
+    # a green tick that quietly excludes your last hour.
+    Write-Host "  [WARN] uncommitted changes are NOT backed up until committed:" -ForegroundColor Yellow
     foreach ($line in ($dirty -split "`n")) { Write-Info $line }
 }
 
+if ($pushed) {
+    Write-Ok "every commit is on the remote; no bundle needed"
+    Write-Info $remoteUrl
+    if (Test-Path $bundle) {
+        Remove-Item $bundle -Force
+        Write-Info "removed the old bundle, now a stale third copy: $bundle"
+    }
+} else {
 $create = Invoke-Native git @('bundle', 'create', $bundle, '--all')
 foreach ($line in $create.Output) { Write-Info $line }
 if ($create.ExitCode -ne 0) { Write-Bad "git bundle create failed (exit $($create.ExitCode))" }
@@ -130,6 +147,7 @@ if (Test-Path $bundle) {
 } else {
     Write-Bad "bundle was not created"
 }
+}
 
 # --- 2. The secrets ----------------------------------------------------
 Write-Host "`n=== Secrets ===" -ForegroundColor Cyan
@@ -148,8 +166,8 @@ if ($SkipSecrets) {
         Write-Info "plaintext, local disk only -- not uploaded anywhere"
     }
 
-    # The APK signing properties. The key itself should already sit in the
-    # secrets folder; a key on C:\ would die with the reset, so say so.
+    # The APK signing properties. The key itself must already sit off the
+    # system drive; a key on C:\ would die with the reset, so say so.
     $ksProps = Join-Path $repo 'android\keystore.properties'
     if (Test-Path $ksProps) {
         $secretDir = Join-Path $cfg.scratchDir 'recovery'
@@ -159,7 +177,7 @@ if ($SkipSecrets) {
         if (-not $store -or -not (Test-Path $store)) {
             Write-Bad "APK signing key not found at '$store'"
         } elseif ($store -like "$($env:SystemDrive)*") {
-            Write-Bad "APK signing key is on the system drive ($store) -- move it to $secretDir"
+            Write-Bad "APK signing key is on the system drive ($store) -- move it to another drive and update storeFile"
         } else {
             Write-Ok "APK signing properties copied; key at $store"
         }
@@ -169,39 +187,59 @@ if ($SkipSecrets) {
 }
 
 # --- 3. The local-only files -------------------------------------------
-# A MIRROR, not an accumulation: the logo folder is replaced wholesale, so a
-# logo deleted here is deleted from the copy too. `npm run drill` compares the
-# two file by file, which is only meaningful if the copy is exactly this.
+# A MIRROR, not an accumulation: rebuilt from nothing each run, so a logo
+# deleted here is deleted from the copy too. `npm run drill` compares the two
+# file by file, which is only meaningful if the copy is exactly this.
+#
+# A file git already holds, unmodified, on a pushed branch is NOT copied: the
+# remote is its off-machine copy. That is every one of them in a private fork
+# that commits them, and none in a plain clone of the public repo, where
+# .gitignore keeps them out of git.
 Write-Host "`n=== Local-only files ===" -ForegroundColor Cyan
 $localDir = Join-Path $bundleDir 'local-files'
+$tracked = @{}
+foreach ($p in (Invoke-Native git @('ls-files')).Output) { $tracked[$p] = $true }
+$modified = @{}
+foreach ($p in (Invoke-Native git @('diff', '--name-only', 'HEAD')).Output) { $modified[$p] = $true }
+
+$candidates = @()
 foreach ($rel in @('config\collector.json', 'config\app-colours.json')) {
-    $src = Join-Path $repo $rel
-    if (-not (Test-Path $src)) { Write-Info "$rel absent -- nothing to copy"; continue }
-    $dst = Join-Path $localDir $rel
-    $dstDir = Split-Path $dst -Parent
-    if (-not (Test-Path $dstDir)) { New-Item -ItemType Directory -Path $dstDir -Force | Out-Null }
-    Copy-Item $src $dst -Force
-    Write-Ok "$rel copied"
+    if (Test-Path (Join-Path $repo $rel)) { $candidates += $rel } else { Write-Info "$rel absent -- nothing to copy" }
 }
 $logoSrc = Join-Path $repo 'public\apps_logo'
-$logoDst = Join-Path $localDir 'public\apps_logo'
-if (Test-Path $logoDst) { Remove-Item $logoDst -Recurse -Force }
-New-Item -ItemType Directory -Path $logoDst -Force | Out-Null
-$logos = @(Get-ChildItem $logoSrc -Recurse -File | Where-Object { $_.Name -ne 'README.md' })
-foreach ($f in $logos) {
-    $rel = $f.FullName.Substring($logoSrc.Length + 1)
-    $dst = Join-Path $logoDst $rel
-    $dstDir = Split-Path $dst -Parent
-    if (-not (Test-Path $dstDir)) { New-Item -ItemType Directory -Path $dstDir -Force | Out-Null }
-    Copy-Item $f.FullName $dst -Force
+if (Test-Path $logoSrc) {
+    $candidates += @(Get-ChildItem $logoSrc -Recurse -File | Where-Object { $_.Name -ne 'README.md' } |
+        ForEach-Object { $_.FullName.Substring($repo.Length + 1) })
 }
-Write-Ok "$($logos.Count) logo file(s) mirrored"
-Write-Info $localDir
+$need = @($candidates | Where-Object {
+    $g = $_ -replace '\\', '/'
+    -not ($pushed -and $tracked.ContainsKey($g) -and -not $modified.ContainsKey($g))
+})
+
+if (Test-Path $localDir) { Remove-Item $localDir -Recurse -Force }
+if ($need.Count -eq 0) {
+    Write-Ok "all $($candidates.Count) local-only file(s) are committed and pushed; no copy needed"
+} else {
+    foreach ($rel in $need) {
+        $dst = Join-Path $localDir $rel
+        $dstDir = Split-Path $dst -Parent
+        if (-not (Test-Path $dstDir)) { New-Item -ItemType Directory -Path $dstDir -Force | Out-Null }
+        Copy-Item (Join-Path $repo $rel) $dst -Force
+    }
+    Write-Ok "$($need.Count) of $($candidates.Count) local-only file(s) copied (the rest are in the pushed repo)"
+    Write-Info $localDir
+}
 
 # --- 4. The instructions ----------------------------------------------
-# Written beside the bundle, because a recovery procedure that lives only in
-# the repo you are trying to restore is not a procedure.
+# Written beside the database backup, because a recovery procedure that lives
+# only in the repo you are trying to restore is not a procedure.
 $restoreDoc = Join-Path $bundleDir 'RESTORE.txt'
+$cloneFrom = if ($pushed -and $remoteUrl) { $remoteUrl } else { $bundle }
+$localStep = if ($need.Count -gt 0) {
+    "xcopy /E /I /Y `"$localDir`" ."
+} else {
+    "nothing to do: they were committed and pushed, so the clone has them."
+}
 $doc = @"
 Screen Time Tracker -- recovery
 Generated $(Get-Date -Format 'yyyy-MM-dd HH:mm')
@@ -209,7 +247,7 @@ Generated $(Get-Date -Format 'yyyy-MM-dd HH:mm')
 Everything below assumes C:\ is gone and D:\ survived.
 
 1. CODE
-   git clone "$bundle" "C:\Users\<you>\Claude Code\Screen Time Tracker"
+   git clone "$cloneFrom" "Screen Time Tracker"
    cd "Screen Time Tracker"
    npm install
 
@@ -223,8 +261,8 @@ Everything below assumes C:\ is gone and D:\ survived.
    copy "$($cfg.scratchDir)\recovery\keystore.properties" android\keystore.properties
 
    LOCAL-ONLY FILES -- config, brand colours and logos; gitignored, so the
-   clone does not have them, and step 3 needs collector.json:
-   xcopy /E /I /Y "$localDir" .
+   clone may not have them, and step 3 needs collector.json:
+   $localStep
 
 3. DATABASE
    The live copy may be torn: in WAL mode it is three files that a sync client
@@ -250,9 +288,9 @@ syncs again.
 "@
 [System.IO.File]::WriteAllText($restoreDoc, $doc, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "`n=== Instructions ===" -ForegroundColor Cyan
-Write-Ok "RESTORE.txt written beside the bundle"
+Write-Ok "RESTORE.txt written beside the database backup"
 Write-Info $restoreDoc
 Write-Info "a procedure that lives only inside the repo you are restoring is not a procedure"
 
 Write-Host ""
-Write-Info "Re-run this after any meaningful commit, or add a git remote and stop needing it."
+Write-Info "Re-run this after changing .env.local or the signing setup; with a pushed remote, code and local-only files need nothing more."

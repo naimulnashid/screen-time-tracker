@@ -53,6 +53,27 @@ function section(name: string) {
   console.log(`\n=== ${name} ===`);
 }
 
+/** git's stdout, trimmed, or null when the command fails. */
+function git(args: string[]): string | null {
+  try {
+    return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+// Pushed means the branch has an upstream holding every commit. Then git is
+// the off-machine copy of whatever it tracks, and the kit copies nothing it
+// already holds -- see backup-recovery-kit.ps1. No upstream counts as NOT
+// pushed, which is the safe direction.
+const pushed = git(['rev-list', '--count', '@{u}..HEAD']) === '0';
+const tracked = new Set((git(['ls-files']) ?? '').split('\n').filter(Boolean));
+const modified = new Set((git(['diff', '--name-only', 'HEAD']) ?? '').split('\n').filter(Boolean));
+const inPushedGit = (f: string) => {
+  const g = f.replace(/\\/g, '/');
+  return pushed && tracked.has(g) && !modified.has(g);
+};
+
 interface Config {
   databasePath?: string;
   backupPath?: string;
@@ -202,6 +223,9 @@ try {
 
   if (remotes) {
     ok('git remote configured', remotes.split('\n')[0]);
+    const ahead = git(['rev-list', '--count', '@{u}..HEAD']);
+    if (ahead === null) note('the branch has no upstream', 'its commits are not on the remote -- git push -u');
+    else if (ahead !== '0') note('commits not pushed', `${ahead} commit(s) exist only here -- git push`);
   } else if (bundlePath) {
     const age = (Date.now() - statSync(bundlePath).mtimeMs) / 86_400_000;
     if (age < 7) ok('no remote, but a repo bundle exists off C:\\', `${age.toFixed(1)} days old`);
@@ -256,8 +280,8 @@ try {
   // The APK signing key. Losing it does not lose data, but every later
   // release stops installing over the published one: the phones would have
   // to uninstall the app, re-grant usage access and re-enter the token. The
-  // .jks is created in the recovery dir, so it must NOT be on C:\, and the
-  // properties file naming it (gitignored, with the passwords) needs its copy.
+  // .jks must NOT be on C:\, and the properties file naming it (gitignored,
+  // with the passwords) needs its copy in the recovery dir.
   const ksProps = join('android', 'keystore.properties');
   if (existsSync(ksProps)) {
     const text = readFileSync(ksProps, 'utf8');
@@ -268,7 +292,7 @@ try {
     if (!store || !existsSync(store)) {
       bad('APK signing key is MISSING', `${ksProps} names ${store || 'nothing'}, which does not exist`);
     } else if (onSystemDrive(store)) {
-      bad('APK signing key lives on the system drive', `${store} -- move it to <scratchDir>\\recovery\\ and update ${ksProps}`);
+      bad('APK signing key lives on the system drive', `${store} -- move it to another drive and update ${ksProps}`);
     } else if (!propsCopy || !existsSync(propsCopy)) {
       bad('APK signing passwords live only on C:\\', `${ksProps} has no copy -- run npm run backup:kit`);
     } else if (readFileSync(propsCopy, 'utf8').trim() !== text.trim()) {
@@ -280,10 +304,12 @@ try {
     note('no APK signing key configured', 'assembleRelease would build UNSIGNED');
   }
 
-  // The local-only files: gitignored, so the repo's remote does not have them
-  // and only the kit's mirror survives a reset. Compared BYTE FOR BYTE, for the
-  // same reason as the secrets above: a copy taken before the last logo was
-  // added looks like protection and is not.
+  // The local-only files: gitignored in the public repo, so its remote does
+  // not have them and only the kit's mirror survives a reset. A private fork
+  // that commits and pushes them has its copy on the remote instead, and the
+  // kit no longer mirrors those. Mirrored ones are compared BYTE FOR BYTE, for
+  // the same reason as the secrets above: a copy taken before the last logo
+  // was added looks like protection and is not.
   const localCopy = backupDir ? join(backupDir, 'local-files') : '';
   const localFiles = ['config/collector.json', 'config/app-colours.json'].filter((f) => existsSync(f));
   const walk = (dir: string): string[] => {
@@ -294,9 +320,11 @@ try {
     });
   };
   const logoFiles = walk(join('public', 'apps_logo'));
+  const all = [...localFiles, ...logoFiles];
+  const inGit = all.filter(inPushedGit);
   const missing: string[] = [];
   const stale: string[] = [];
-  for (const f of [...localFiles, ...logoFiles]) {
+  for (const f of all.filter((f) => !inPushedGit(f))) {
     const copy = join(localCopy, f);
     if (!localCopy || !existsSync(copy)) missing.push(f);
     else if (!readFileSync(copy).equals(readFileSync(f))) stale.push(f);
@@ -308,11 +336,17 @@ try {
     : [];
   const what = `${localFiles.length} config file(s) + ${logoFiles.length} logo(s)`;
   if (missing.length === 0 && stale.length === 0) {
-    ok('local-only files have a current copy off the system drive', `${what} in ${localCopy}`);
+    const where =
+      inGit.length === all.length
+        ? 'all committed and pushed'
+        : inGit.length === 0
+          ? `in ${localCopy}`
+          : `${inGit.length} committed and pushed, ${all.length - inGit.length} in ${localCopy}`;
+    ok('local-only files have a current copy off the system drive', `${what}, ${where}`);
   } else {
     bad(
       'local-only files are NOT all backed up',
-      `${missing.length} missing, ${stale.length} stale (e.g. ${[...missing, ...stale].slice(0, 3).join(', ')}). They are gitignored, so a reset loses them. Run: npm run backup:kit`,
+      `${missing.length} missing, ${stale.length} stale (e.g. ${[...missing, ...stale].slice(0, 3).join(', ')}). Commit and push them, or run: npm run backup:kit`,
     );
   }
   if (extra.length > 0) note('the copy holds files deleted here', `${extra.length} -- re-run npm run backup:kit to mirror`);
