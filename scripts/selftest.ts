@@ -59,7 +59,6 @@ import {
   recentBlock, expandedBlocks, blockLabel, heatmapColor, HEATMAP_RAMP, WEEKS, DAY_LABELS,
 } from '../src/lib/heatmap';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { basename, extname } from 'node:path';
 
 let passed = 0;
 let failed = 0;

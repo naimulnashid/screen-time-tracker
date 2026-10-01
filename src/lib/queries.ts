@@ -24,9 +24,7 @@ import { deviceLabel } from './config';
  */
 
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { dbPath, databaseExists, loadConfig } from './config';
+import { dbPath, databaseExists } from './config';
 import { resolveApp, type ResolvedApp } from './app-name';
 import { readRenames, type AppNames } from './app-renames';
 import { readColourOverrides } from './app-colour-overrides';
