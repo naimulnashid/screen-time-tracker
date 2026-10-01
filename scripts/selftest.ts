@@ -876,19 +876,19 @@ section('activity heat map');
   check('the busiest day is the top step', heatmapColor(100, 100), HEATMAP_RAMP[5]);
   check('a fifth is the first lit step', heatmapColor(20, 100), HEATMAP_RAMP[1]);
 
-  // The expanded page starts on the 1st of the month the data begins in -- not
-  // on a fixed January that would open on months of outlined days.
+  // The expanded page starts on the first recorded day -- not on a fixed
+  // January, nor on the 1st of its month, both of which opened on outlined days.
   const blocks = expandedBlocks([{ date: '2026-08-31', ms: 1 }], '2026-08-31', today);
-  check('expanded starts at the data month', blocks[0]!.first, '2026-08-01');
+  check('expanded starts at the first recorded day', blocks[0]!.first, '2026-08-31');
   check('one block while history is short', blocks.length, 1);
-  // 1 October 2026 is a Thursday, so its week column opens on Saturday 26
-  // September -- and those five September days are hidden, not outlined.
+  // 15 October 2026 is a Thursday, so its week column opens on Saturday 10
+  // October -- and those five earlier days are hidden, not outlined.
   const oct = expandedBlocks([], '2026-10-15', new Date(Date.UTC(2026, 10, 10)))[0]!;
-  check('the column opens on the Saturday before', oct.cells[0]!.date, '2026-09-26');
-  check('days before the 1st are hidden', oct.cells.find((c) => c.date === '2026-09-30')!.hidden, true);
-  check('the 1st itself is drawn', oct.cells.find((c) => c.date === '2026-10-01')!.hidden, false);
-  check('a clipped block is labelled from the 1st', oct.first, '2026-10-01');
-  check('the block is labelled across the year', blockLabel(blocks[0]!), 'Aug 1, 2026 – Jan 29, 2027');
+  check('the column opens on the Saturday before', oct.cells[0]!.date, '2026-10-10');
+  check('days before the first are hidden', oct.cells.find((c) => c.date === '2026-10-14')!.hidden, true);
+  check('the first day itself is drawn', oct.cells.find((c) => c.date === '2026-10-15')!.hidden, false);
+  check('a clipped block is labelled from the first day', oct.first, '2026-10-15');
+  check('the block is labelled across the year', blockLabel(blocks[0]!), 'Aug 31, 2026 – Feb 26, 2027');
 }
 
 /* ------------------------------------------------------------------ */

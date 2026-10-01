@@ -142,8 +142,8 @@ function buildBlock(
     const weekStart = addDays(firstWeek, column * 7);
 
     // Label a column by the first day it actually draws, so a block clipped
-    // to the 1st of a month opens on that month rather than on the days it
-    // hides.
+    // to the first recorded day opens on that day's month rather than on the
+    // days it hides.
     const labelDay = from && weekStart < from ? from : weekStart;
     const month = labelDay.getUTCMonth();
     if (month !== lastMonth) {
@@ -191,17 +191,17 @@ export function recentBlock(daily: HeatmapDay[], today = localToday()): HeatmapB
 }
 
 /**
- * Every block from the 1st of the month the data begins in, to today, oldest
- * first. Consecutive blocks are contiguous weeks, so no week is split or drawn
- * twice where one block meets the next.
+ * Every block from the first recorded day to today, oldest first.
+ * Consecutive blocks are contiguous weeks, so no week is split or drawn twice
+ * where one block meets the next.
  *
- * ⚠️ Starts at the data, NOT at a fixed date. The sibling opens its page on
- * 1 January 2026, which suits a collector that inherited months of SRUM
- * history. Here the laptop's history begins 2026-08-31 and cannot be
- * backfilled (see CLAUDE.md), so a fixed January start would open the page on
- * a full block of outlined, never-recorded days. The 1st of the month keeps
- * the sibling's point -- a calendar that opens mid-month reads as truncated --
- * without drawing seven empty months first.
+ * ⚠️ Starts at the data, NOT at a fixed date or the 1st of its month. The
+ * laptop's history begins 2026-08-31 and cannot be backfilled (see CLAUDE.md),
+ * so a fixed January start opened the page on a full block of outlined,
+ * never-recorded days. Until 2026-10-01 it began on the 1st of the data's
+ * month, which still outlined up to a month of days before anything existed;
+ * Data Usage Native made the same change the same day. The days before the
+ * first in its week are hidden, not outlined.
  */
 export function expandedBlocks(
   daily: HeatmapDay[],
@@ -209,8 +209,7 @@ export function expandedBlocks(
   today = localToday(),
 ): HeatmapBlock[] {
   const byDate = toMap(daily);
-  const first = earliest ? parseDay(earliest) : today;
-  const from = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1));
+  const from = earliest ? parseDay(earliest) : today;
 
   const blocks: HeatmapBlock[] = [];
   for (let week = weekStartOf(from); week <= today; week = addDays(week, WEEKS * 7)) {

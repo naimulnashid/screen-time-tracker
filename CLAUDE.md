@@ -2005,11 +2005,14 @@ selector, as the sibling's does.
   torrent days are an order of magnitude above the rest. A day of screen time
   cannot pass 24 hours; borrow the skewed steps and nearly every day lands in
   the top two shades.
-- **Expand is always offered, and the expanded page starts at the 1st of the
-  data's first month.** The sibling hides Expand until data is older than six
-  months and opens its page on a fixed 1 January. Here that would hide the
-  button until 2027 and open the page on seven months of outlined days before
-  the sampler existed.
+- **Expand is always offered, and the expanded page starts on the first
+  recorded day.** The sibling hid Expand until data was older than six months
+  and opened its page on a fixed 1 January; here that would hide the button
+  until 2027 and open the page on seven months of outlined days before the
+  sampler existed. Until 2026-10-01 it started on the 1st of the data's first
+  month, which still outlined a month of days before anything was recorded;
+  Data Usage Native moved to the first day the same day, and so did this. The
+  days before it in its week are hidden, not outlined.
 
 ## Apps merged by key, and the ones deliberately left apart
 

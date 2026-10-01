@@ -6,6 +6,18 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### The expanded heat map starts on the first recorded day
+
+`expandedBlocks()` began on the 1st of the data's first month, which kept a
+calendar from opening mid-month but drew up to a month of outlined days
+before anything existed: the laptop's history starts on 31 August, so the
+page opened on thirty outlined days. Data Usage Native moved to the first
+recorded day on 2026-10-01 and this follows it. The first week's earlier
+days are hidden, not outlined, so the block still opens on a full Saturday
+column. Checked on the demo: the block now reads "Sep 11, 2026 – Mar 5,
+2027". The Activity skeleton's stand-in label moved with it; it had kept the
+old "Aug 1" shape.
+
 ### Screenshots in one command, and a column the screenshots found
 
 `scripts/capture-screenshots.ts` (`npm run demo:shots`) turns CLAUDE.md's

@@ -282,12 +282,12 @@ export function SkActivityPage({ device, cardSub }: { device: string; cardSub: s
         <div>
           <section className="heatmap-block">
             <h3 className="heatmap-block-head">
-              <span><SkText>Aug 1 – Jan 29, 2027</SkText></span>
+              <span><SkText>Sep 11, 2026 – Mar 5, 2027</SkText></span>
               <span className="heatmap-block-total"><SkText>165h 35m</SkText></span>
             </h3>
             <SkHeatmapPlot />
           </section>
-          <SkHeatmapLegend summary="165h 35m across 20 active days since Aug 1, 2026" expand={false} />
+          <SkHeatmapLegend summary="165h 35m across 20 active days since Sep 11, 2026" expand={false} />
         </div>
       </div>
     </>

@@ -8,6 +8,12 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Changed
+- **The expanded Activity page opens on the first recorded day**, not on the
+  1st of that month: a laptop whose history began on the 31st no longer
+  opens on a month of outlined, never-recorded days. The days before it in
+  its week are hidden. Both the laptop's and the phones' pages.
+
 ## [1.2.0] - 2026-10-01
 
 The phone app is unchanged: 1.1 (`versionCode 2`), from the
