@@ -110,8 +110,3 @@ config/collector.json
 config/app-colours.json
 public/apps_logo/*
 !public/apps_logo/README.md
-
-# The design notes, private since 2026-10-01 (the owner's call: no public repo
-# carries them). They live on the private repo's branch, force-added there
-# like the files above.
-CLAUDE.md
