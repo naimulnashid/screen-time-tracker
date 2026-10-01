@@ -13,7 +13,7 @@
  * It is deliberately NOT wired into the running dashboard, and `sharp` is
  * deliberately NOT added to package.json.
  *
- * `CLAUDE.md` picks `node:sqlite` over `better-sqlite3` on the grounds that a
+ * The project picks `node:sqlite` over `better-sqlite3` on the grounds that a
  * native module with a build step is the most likely thing to break on a clean
  * `npm install` years from now -- which is precisely the reset-recovery
  * scenario this whole project exists for. `npm run restore` runs that install.

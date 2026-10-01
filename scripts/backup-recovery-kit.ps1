@@ -44,7 +44,7 @@
     a password manager instead and delete the copy; the drill will then warn
     rather than fail, which is the honest state.
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]

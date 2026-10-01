@@ -288,7 +288,7 @@ function main(): void {
   }
 
   console.log(
-    '\nCompare the top few against the UserAssist baseline in CLAUDE.md\n' +
+    '\nCompare the top few against the UserAssist baseline\n' +
       '(per-app focus minutes, cumulative since install).\n' +
       'If these are wildly larger for a 7-day window, that is another sign\n' +
       'DurationMs measures presence rather than attention.',

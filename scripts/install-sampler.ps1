@@ -19,7 +19,7 @@
       .\install-sampler.ps1 -Remove    unregister both
       .\install-sampler.ps1 -RunNow    register, then start the sampler
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]

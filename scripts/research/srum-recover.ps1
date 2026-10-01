@@ -8,7 +8,7 @@
     replaying the journals is not an optional nicety here: without it there is
     no CSV at all, and the collector fails with "produced no NetworkUsage CSV".
 
-    That is a narrower claim than the one CLAUDE.md used to make. "Do not fix
+    That is a narrower claim than the one this project used to make. "Do not fix
     the dirty shutdown by replaying the SRU*.log journals" was about chasing
     the last uncommitted hour, which is not worth a line of code because SRUM
     retains 30+ days. It was never about the parse itself, which depends on

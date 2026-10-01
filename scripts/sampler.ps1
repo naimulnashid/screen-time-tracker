@@ -3,7 +3,7 @@
 
     Phase 1a settled that SRUM cannot answer this question: its
     AppTimelineProvider table measures process PRESENCE, not focus, summing to
-    79x wall clock with svchost.exe on top. See CLAUDE.md. So Windows screen
+    79x wall clock with svchost.exe on top. So Windows screen
     time is sampled directly, and that turned out to be the better position:
 
       - NO ELEVATION. No VSS, no esentutl, no dirty-shutdown recovery, no
@@ -73,7 +73,7 @@
        This all happens at STARTUP, so it costs nothing at sign-out or
        shutdown.
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]
@@ -214,7 +214,7 @@ function Resolve-OutDir {
         try {
             $raw = [System.IO.File]::ReadAllText($cfgPath)
             # Set-Content -Encoding utf8 writes a BOM under PS 5.1 and
-            # ConvertFrom-Json throws on it. Strip it. See CLAUDE.md.
+            # ConvertFrom-Json throws on it. Strip it.
             if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 65279) { $raw = $raw.Substring(1) }
             $cfg = $raw | ConvertFrom-Json
             if ($cfg.samplerLogDir) { return $cfg.samplerLogDir }

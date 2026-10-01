@@ -19,7 +19,7 @@
     changes nothing about collection -- which is the right way round, because
     collection is the half that cannot be caught up later.
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]
@@ -141,7 +141,7 @@ Write-Host ""
 # SINGLE quotes on purpose. In a double-quoted PowerShell string a backtick is
 # the escape character, so "`npm" renders as a NEWLINE followed by "pm" -- the
 # markdown habit of quoting a command in backticks silently mangles the output.
-# Same family as the em-dash trap in CLAUDE.md: punctuation that is inert in
+# Same family as the em-dash trap: punctuation that is inert in
 # every other language and load-bearing here.
 Write-Info 'Before `npm run dev` or `next build` by hand: scripts\dashboard-stop.ps1'
 Write-Info 'They share .next, and a build under a live server breaks both.' 

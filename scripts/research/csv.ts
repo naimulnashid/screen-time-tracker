@@ -106,7 +106,7 @@ export function requireColumns(
     throw new Error(
       `CSV is missing expected column(s): ${missing.join(', ')}\n` +
         `Columns present: ${[...present].join(', ')}\n` +
-        `SrumECmd may have renamed them; update src/lib/srum.ts and CLAUDE.md.`,
+        `SrumECmd may have renamed them; update src/lib/srum.ts.`,
     );
   }
 }

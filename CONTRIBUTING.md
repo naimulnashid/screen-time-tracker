@@ -19,9 +19,9 @@ npm run selftest     # no device or database needed
 ```
 
 CI runs both, plus a production build, a PowerShell 5.1 check and the APK
-build. **Read [`CLAUDE.md`](CLAUDE.md) before changing anything**: it records
-why the numbers are computed the way they are, and which parts are rules
-rather than taste.
+build. **Read [`docs/DEVLOG.md`](docs/DEVLOG.md) before changing anything**:
+it records why the numbers are computed the way they are, and which parts are
+rules rather than taste.
 
 ## Conventions
 

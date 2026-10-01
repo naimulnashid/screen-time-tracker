@@ -2,7 +2,8 @@
 
 What changed, why, and what was measured to decide it -- newest first. This
 was the project's CHANGELOG.md until v1.0.0; the release log is now
-[`../CHANGELOG.md`](../CHANGELOG.md), and `CLAUDE.md` is the orientation doc.
+[`../CHANGELOG.md`](../CHANGELOG.md), and the maintainer keeps the orientation
+doc privately.
 
 ## After 1.0.0
 
@@ -20,7 +21,7 @@ old "Aug 1" shape.
 
 ### Screenshots in one command, and a column the screenshots found
 
-`scripts/capture-screenshots.ts` (`npm run demo:shots`) turns CLAUDE.md's
+`scripts/capture-screenshots.ts` (`npm run demo:shots`) turns the design notes'
 manual recipe into a script: scratch copy, scratch build, demo seed, a
 throwaway password, a minted session, headless Edge over the DevTools
 protocol with Node's own WebSocket. Looking at its output found two things:
@@ -450,7 +451,7 @@ src/app/icon.svg.
 
 **Removed**
 - Unused exports: `NoDataInScope`, `SkeletonGap`, `kindLabel`, `SpanKind` and
-  `formatHours` (CLAUDE.md said chart axes used it; they use `hourTick`), plus
+  `formatHours` (the design notes said chart axes used it; they use `hourTick`), plus
   an orphaned doc comment for a component that no longer exists.
 - **283 lines of CSS** (1,313 -> 1,030):
   - 35 unused classes, mostly carried over from Data Usage Tracker (`net-*`,
@@ -477,7 +478,7 @@ src/app/icon.svg.
   drill's pure-ASCII check now recurses into subfolders and covers `.vbs` too.
 
 **Corrected**
-- CLAUDE.md's Layout section, which still described Phase 0 ("NO usage
+- The design notes' Layout section, which still described Phase 0 ("NO usage
   tables yet"), and stale retention comments in the phone app's `Prefs.kt`.
 
 ### Accessibility: WCAG 2.1 AA
@@ -737,7 +738,7 @@ because the distributor copies rather than shares. Two scoped entries holding
 one hex is the drift the `systemui` exception exists to prevent, so the scoped
 one is gone.
 
-Two corrections, both the failures CLAUDE.md already names:
+Two corrections, both the failures the design notes already name:
 
 - **Photos & videos** came back `#00133f`, which is **not a paint in the
   file**: at the 64px the script samples, the navy mark blends into the pale
@@ -1376,7 +1377,7 @@ which *should* share a logo — plus `Camera Photos Settings`, which should not.
 - **`X.svg` is gone, replaced by `X.png`.** It was a single `<path>` with no
   `fill`, and SVG defaults that to black: on this near-black page it drew
   nothing, so a logo that had loaded fine read as a failed lookup. This is the
-  file the trap in `CLAUDE.md` was written about.
+  file the trap in the design notes was written about.
 - **`Uber.svg` had the same defect in a different costume** — not a missing
   fill but an explicit `fill="#000203"`, which is black in all but name.
   Replaced with the app icon, whose glyph is white.
@@ -1395,7 +1396,7 @@ days of laptop history are missing. Every source that might hold them was
 probed on this machine. None can.
 
 **Documented**
-- `CLAUDE.md` gains *There is NO Windows backfill*, with the full table of
+- The design notes gain *There is NO Windows backfill*, with the full table of
   what was tried and how each one fails. The question is obvious enough to be
   asked again, and re-running these probes costs an hour.
 - **`ActivitiesCache.db` (Windows Timeline) is dead, not empty.** It is a live
@@ -1412,7 +1413,7 @@ probed on this machine. None can.
 
 **⚠️ Corrected**
 - **UserAssist is not a durable cumulative.** Re-read 2026-09-02, every figure
-  `CLAUDE.md` quoted from 2026-08-31 had shrunk ~10x, the session counter
+  the design notes quoted from 2026-08-31 had shrunk ~10x, the session counter
   `UEME_CTLSESSION` included. Entry count GREW while the times fell, so it is a
   reset rather than a pruning. It was described as a usable one-time sanity
   baseline; it is not one, and the note now says so.
@@ -1689,8 +1690,8 @@ probed on this machine. None can.
 
 **Two judgement calls worth keeping**
 - `sharp` is used by the measurement script but deliberately NOT added to
-  package.json, and the derived colours are committed by hand. `CLAUDE.md`
-  rejects native modules precisely because `npm run restore` runs
+  package.json, and the derived colours are committed by hand. The design
+  notes reject native modules precisely because `npm run restore` runs
   `npm install`, and a native dep that fails to build would fail the restore
   the whole project exists for.
 - The script's output is a starting point, not the answer: it counts paint
@@ -1840,7 +1841,7 @@ SUM over apps - but for the opposite reason, and the real overshoot risk is
 `totalTimeFS`, which summed to 2.07x screen-on. One volume widget
 reported 16h18m of foreground-service time with zero foreground time.
 
-**Four `dumpsys usagestats` format traps**, all documented in CLAUDE.md:
+**Four `dumpsys usagestats` format traps**, all documented in the design notes:
 durations render as `MM:SS` or `HH:MM:SS` so field count decides the unit (a
 60x error in the flattering direction); the field is `totalTimeUsed`, while
 `totalTime=` matches 14 configuration rows and misses all 645 package rows;

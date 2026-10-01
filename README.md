@@ -18,7 +18,7 @@ reset.**
   wiped `C:\` would cost nothing.
 - **Honest numbers.** Every figure was checked against something external,
   such as Android's Digital Wellbeing. The traps found along the way are
-  documented in [`CLAUDE.md`](CLAUDE.md).
+  recorded in [`docs/DEVLOG.md`](docs/DEVLOG.md).
 
 ## Every page, in full
 
@@ -94,8 +94,8 @@ differently for each. On Windows the sampler produces an exclusive timeline, so
 per-app time adds up to the total. On Android, per-app time adds up to only
 about 0.76 of screen-on time, because the lock screen, the launcher and system
 surfaces claim the rest. So the phone's headline figure comes from screen-on
-events, never from a sum over apps. [`CLAUDE.md`](CLAUDE.md) explains why, with
-the measurements.
+events, never from a sum over apps. [`docs/DEVLOG.md`](docs/DEVLOG.md) records
+why, with the measurements.
 
 ## Requirements
 
@@ -252,10 +252,9 @@ npm run drill        # the reset drill, against your real backup
 CI runs the typecheck, the self-test, a production build, a PowerShell 5.1
 check and the APK build on every push.
 
-**Before changing anything, read [`CLAUDE.md`](CLAUDE.md).** It is the design
-record: every measurement behind a decision, and every trap that was found by
-running things rather than by reasoning about them. The day-by-day history is
-in [`docs/DEVLOG.md`](docs/DEVLOG.md).
+**Before changing anything, read [`docs/DEVLOG.md`](docs/DEVLOG.md).** It is
+the day-by-day design record: every measurement behind a decision, and every
+trap that was found by running things rather than by reasoning about them.
 `scripts/research/` holds the measurements that shaped the design. Nothing
 there is needed to run the tracker.
 

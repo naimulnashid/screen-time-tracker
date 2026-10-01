@@ -231,7 +231,7 @@ function pairedIntervals(
     eight minutes while screen-on stayed frozen. A figure that does not
     move while its components do is the tell.
 
-    This is the same question flagged in CLAUDE.md for the Windows sampler --
+    This is the same question flagged for the Windows sampler --
     whether the in-flight session is persisted or only written on focus change
     -- and the answer is now measured rather than guessed: it MUST be counted,
     clipped to the moment of observation.

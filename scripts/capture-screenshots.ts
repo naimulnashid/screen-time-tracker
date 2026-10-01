@@ -3,11 +3,11 @@
  *
  *   npm run demo:shots            writes docs/screenshots/ (the opener + tour/)
  *
- * Every step CLAUDE.md lists for redoing them by hand, in one command:
+ * Every step of redoing them by hand, in one command:
  *
  *   1. A SCRATCH COPY of the repo is built, in TEMP. Never over the live
  *      `.next`: the dashboard serves from it, and a build underneath a running
- *      server breaks it (CLAUDE.md, "NEVER run next build while...").
+ *      server breaks it: never run next build while a dev server is up.
  *      The copy leaves out everything local-only -- the logos, the real
  *      config -- so a real app inventory cannot reach a screenshot.
  *   2. The demo is seeded beside it (scripts/seed-demo.ts) and served on
@@ -16,7 +16,7 @@
  *      driven over the DevTools protocol (Node's own WebSocket, no
  *      dependency).
  *
- * Three traps CLAUDE.md records, each handled below:
+ * Three traps, each handled below:
  *
  *   - A fixed sleep is not a wait: wait for the URL, readyState, and the
  *     page height to stop changing.

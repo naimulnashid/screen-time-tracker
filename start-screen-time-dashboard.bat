@@ -44,7 +44,7 @@ REM This check earns its place twice over. Beyond the obvious "the logon task
 REM already started it", `npm run dev` also binds 7844 - and a `next build`
 REM underneath a live dev server replaces chunks it holds open, killing it with
 REM "Cannot find module './331.js'" on the next request. Exiting here means this
-REM window can never do that to a dev server. See CLAUDE.md.
+REM window can never do that to a dev server.
 netstat -ano | findstr /r /c:"LISTENING" | findstr /c:":%PORT% " >nul 2>&1
 if not errorlevel 1 (
     echo The dashboard is already running on port %PORT%.

@@ -32,7 +32,7 @@
     script only runs at logon, when no dev server exists, but if you are
     debugging it by hand: stop `npm run dev` first.
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]

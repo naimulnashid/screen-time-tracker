@@ -196,7 +196,7 @@ export function recentBlock(daily: HeatmapDay[], today = localToday()): HeatmapB
  * where one block meets the next.
  *
  * ⚠️ Starts at the data, NOT at a fixed date or the 1st of its month. The
- * laptop's history begins 2026-08-31 and cannot be backfilled (see CLAUDE.md),
+ * laptop's history begins 2026-08-31 and cannot be backfilled,
  * so a fixed January start opened the page on a full block of outlined,
  * never-recorded days. Until 2026-10-01 it began on the 1st of the data's
  * month, which still outlined up to a month of days before anything existed;

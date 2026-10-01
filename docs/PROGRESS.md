@@ -1,6 +1,7 @@
 # Progress
 
-Working notes. `CLAUDE.md` is the orientation doc; this is the running log.
+Working notes. The maintainer keeps the orientation doc privately; this is the
+running log.
 
 ## Now
 
@@ -32,7 +33,7 @@ Working notes. `CLAUDE.md` is the orientation doc; this is the running log.
       reconcile. This is the only external check the project has - re-run it
       after any change to the event reconstruction.
 - [x] Per-app sum vs screen-on: **0.76x - it UNDERSHOOTS**, which corrects the
-      assumption written into CLAUDE.md during Phase 0. The overshoot risk is
+      assumption written into the design notes during Phase 0. The overshoot risk is
       `totalTimeFS` (2.07x screen-on), not overlapping apps.
 - [x] Which packages are not "apps": the launcher accrues 57m across 355
       sessions, and `com.niksatyr.volumecontroller` reports 16h18m of
@@ -145,7 +146,7 @@ script now proposes nothing for a file that looks unchanged.
 ### 2026-09-04 - the laptop gets an address that names it
 
 `/windows/zephyrus-g16`, the same shape as `/android/nothing-a001`. The
-laptop had kept the bare `/`, `/apps` and `/sync`, and CLAUDE.md argued for
+laptop had kept the bare `/`, `/apps` and `/sync`, and the design notes argued for
 that on the grounds that moving it would break bookmarks for no visible gain.
 The gain showed up when the sidebar reached three devices: **`/apps` cannot
 say whose apps it means.**
@@ -195,7 +196,7 @@ Scaffolded, builds clean, typechecks clean, serves on 7844.
 Chased two Windows-specific dead ends worth remembering: `npm --prefix` with a
 spaced path mangles through `cmd.exe`, and the obvious workaround - an 8.3
 short path - makes Next's file watcher assert and die *after* printing "Ready".
-Both are written up in CLAUDE.md.
+Both are written up in the design notes.
 
 Also confirmed the two dashboards would have shared a session cookie, since
 cookies ignore the port. Renamed before it could bite.
@@ -256,7 +257,7 @@ Foundation done and verified end to end against the running server; the
 reporter APK is the remaining piece.
 
 Writing the schema surfaced a contradiction in something I had already
-written down as settled. CLAUDE.md said Android event sessions were
+written down as settled. The design notes said Android event sessions were
 "completed, immutable -> INSERT OR IGNORE". That is wrong, and it is the
 exact bug the Digital Wellbeing check had just caught: the phone must ship its
 IN-FLIGHT session inside the payload, and that span comes back longer next
@@ -481,7 +482,7 @@ do.
 
 Found while re-checking: the claim in `app-colour.ts` that no colour tripped
 the readability floor was already false. About one entry in seven trips it
-now. Corrected there and in `CLAUDE.md`, and a self-test now asserts on
+now. Corrected there and in the design notes, and a self-test now asserts on
 `brandColour()`'s output rather than on the map, which is what the chart draws.
 
 ### 2026-09-03 - Chrome goes back to yellow

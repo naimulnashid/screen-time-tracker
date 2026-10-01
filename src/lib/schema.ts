@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS sync_log (
   -- Which collector wrote this run: win-sampler | android-events. Named
   -- rather than inferred from device_id so a device CAN have more than one;
   -- the SRUM reader and the Android daily-rollup API that once made it two
-  -- per device were both measured and dropped (see CLAUDE.md).
+  -- per device were both measured and dropped.
   source            TEXT    NOT NULL,
 
   started_at        TEXT    NOT NULL,

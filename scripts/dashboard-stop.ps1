@@ -19,7 +19,7 @@
         -WhatIf    show which process would be stopped, and stop nothing
         -Port      try the rule on a spare port; the dashboard is on 7844
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]

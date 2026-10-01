@@ -24,7 +24,7 @@
 ' The output goes to logs\ingest.log, because after this change there is no
 ' window for it to go to at all. cmd.exe's own redirection is byte-level and
 ' writes the child's UTF-8 through unchanged -- this is NOT the PowerShell
-' ">> writes UTF-16LE" trap in CLAUDE.md, which applies to PowerShell's
+' ">> writes UTF-16LE" trap, which applies to PowerShell's
 ' redirection operator and not to cmd's.
 
 Option Explicit

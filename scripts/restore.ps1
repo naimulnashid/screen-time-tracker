@@ -20,7 +20,7 @@
     guarding: reaching for restore.ps1 after a scare and silently throwing away
     the newer data you still had.
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]

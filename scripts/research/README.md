@@ -1,7 +1,7 @@
 # Phase 1 research scripts
 
 **Nothing here is needed to run the tracker.** These are the measurements that
-decided how it was built, kept because `CLAUDE.md` quotes their results and
+decided how it was built, kept because the design notes quote their results and
 someone re-checking a claim should be able to reproduce it.
 
 | Script | Answers | Run |

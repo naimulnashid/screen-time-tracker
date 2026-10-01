@@ -33,7 +33,7 @@
     network > Network profile type > Private. Then run this again. Use
     -Force only if you really mean to block on the network you are on.
 
-    Keep this file pure ASCII. See CLAUDE.md.
+    Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
 
 [CmdletBinding()]
