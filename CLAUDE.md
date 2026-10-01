@@ -2023,3 +2023,22 @@ The sidebar is **collapsed by default** (`Sidebar.tsx`): only a stored `'0'`,
 written when someone opens it with the hamburger, expands it. On a 1024px
 canvas a 232px sidebar is a fifth of a phone's screen spent on device names.
 Skeletons are measured with it collapsed for the same reason.
+
+## Skeletons render the page's own markup
+
+Since 2026-10-01 (from the sibling): `components/Skeleton.tsx` has `Sk*`
+blocks that render the real classes, grids and headings, with the words as
+transparent shimmering text, so a skeleton wraps where its page wraps at
+every width. **A page that changes a heading, a sub, a fixed sentence or a
+card's shape must change its `loading.tsx` to match**, and a fixed paragraph
+both render belongs in `components/Notes.tsx`.
+
+Stand-ins are data only -- figures, legend names, table lengths -- and are
+generic or the public demo's: the repo is public, so never a real app
+inventory or a real figure. A legend stand-in must match the LENGTH of real
+names, because the legend wraps by width.
+
+To re-measure: a temporary route that imports each `loading.tsx` and
+renders it in the shell, open beside the real page in a second tab at 997px
+and 1680px, comparing `.container > *` heights. Not iframes: the frame-
+blocking header refuses them, correctly. Never commit the route.

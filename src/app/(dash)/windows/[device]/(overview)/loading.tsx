@@ -1,39 +1,64 @@
 import {
-  SkeletonPageHead, SkeletonCard, SkeletonStatGrid, HEATMAP_HEIGHT, STACKED_HEIGHT,
+  SkPageHead, SkStats, SkStat, SkDuration, SkCard, SkCallout, SkPlot, SkHeatmap,
+  SkStacked, SkSplitBar, STACK_LEGEND,
 } from '@/components/Skeleton';
+import { deviceLabel } from '@/lib/config';
 
 /**
- * Windows Overview skeleton.
+ * Laptop Overview skeleton: the page's own markup and headings
+ * (components/Skeleton.tsx), so it wraps where the page wraps at every width.
  *
- * Heights here are DERIVED rather than eyeballed, because most of this page
- * has a known size: the trend is `ResponsiveContainer height={280}` and the
- * hourly chart `{240}`. Only the page head and the stat values use the
- * measured constants baked into Skeleton.tsx.
- *
- * The heat map is the one width-sensitive panel; see `HEATMAP_HEIGHT`.
- *
- * `SkeletonCard`'s own chrome (title block + its 1.15rem margin + card
- * padding) is added by the component, so these numbers are content only.
+ * Stand-ins, because a loading boundary has no data: the figures and the
+ * stacked legends' app names, sized to what the page usually shows. The
+ * "unattributed" warning under Where the time went is left out: it shows
+ * only above 10%, and the card is the last on the page.
  */
 export default function Loading() {
   return (
     <>
-      <SkeletonPageHead />
-      <SkeletonStatGrid columns={3} />
-      {/* The trend's title carries the Heaviest day callout. With the
-          sidebar collapsed it fits beside the sub at both widths: 405. */}
-      <SkeletonCard contentHeight={280} />
-      <SkeletonCard contentHeight={HEATMAP_HEIGHT} titleHeight={79} />
-      {/* Top apps by day and Most opened by day: a 300px chart, then the
-          legend's 1rem margin and one or two ~20px rows, depending on the
-          app names and the width -> 350. DERIVED from those parts, not yet
-          measured at the two reference widths. */}
-      <SkeletonCard contentHeight={STACKED_HEIGHT} />
-      <SkeletonCard contentHeight={STACKED_HEIGHT} />
-      <SkeletonCard contentHeight={240} />
-      {/* KindBar: 12px bar + 0.85rem + one legend row. Measured 176 for the
-          card at both widths -> 50 of content. */}
-      <SkeletonCard contentHeight={50} />
+      <SkPageHead title={deviceLabel()} sub="Latest data Wednesday, 30 September 2026 · collected 10 min ago" />
+      <SkStats columns={3}>
+        <SkStat label="Today" value={<SkDuration value="9" unit="h" sub="37" subUnit="m" />} sub="so far" />
+        <SkStat label="Daily average" value={<SkDuration value="8" unit="h" sub="16" subUnit="m" />} sub="over 20 days with data" />
+        <SkStat label="Range total" value={<SkDuration value="165" unit="h" sub="35" subUnit="m" />} sub="10 apps" />
+      </SkStats>
+      <SkCard
+        title="Daily trend"
+        sub="Active time per day across 20 days with data. Asleep time is deliberately not drawn."
+        aside={<SkCallout label="Heaviest day" detail="Sep 15" value="10h 42m" />}
+      >
+        <SkPlot height={280} />
+      </SkCard>
+      <SkCard
+        title="Activity"
+        sub="Active time per day, whatever the range above. Outlined days were never recorded - before the sampler existed, or while it was not running - which is not the same as a quiet day."
+      >
+        <SkHeatmap />
+      </SkCard>
+      <SkCard
+        title="Top apps by day"
+        sub="Active time per day, top 8 apps stacked; everything else grouped as Other."
+        aside={<SkCallout label="Top app" detail="Code Editor" value="57h 43m" />}
+      >
+        <SkStacked items={STACK_LEGEND} />
+      </SkCard>
+      <SkCard
+        title="Most opened by day"
+        sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
+        aside={<SkCallout label="Most opened" detail="Code Editor" value="122 opens" />}
+      >
+        <SkStacked items={STACK_LEGEND} />
+      </SkCard>
+      <SkCard
+        title="Shape of the day"
+        sub="Active time by hour of day, summed across the range."
+        aside={<SkCallout label="Busiest hour" detail="2 PM" value="19h 41m" />}
+      >
+        <SkPlot height={240} />
+      </SkCard>
+      <SkCard title="Where the time went" sub="Every millisecond the sampler accounted for, and how.">
+        <SkSplitBar items={['■ Active 165h 35m', '■ Locked 89h 6m', '■ Unattributed 0s', '■ Asleep 225h 17m']} />
+      </SkCard>
     </>
   );
 }

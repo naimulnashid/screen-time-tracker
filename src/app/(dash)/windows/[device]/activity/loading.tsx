@@ -1,17 +1,12 @@
-import { SkeletonPageHead, SkeletonCard } from '@/components/Skeleton';
+import { SkActivityPage } from '@/components/Skeleton';
+import { deviceLabel } from '@/lib/config';
 
-/**
- * Activity skeleton: a back link, then one block of the heat map. A second
- * block appears once history outgrows six months; this covers the first.
- *
- * One block with its date heading: card measured 446 @997 / 518 @1680,
- * title 79 / 55 -> 67, content 344.
- */
+/** Expanded heat map skeleton: the page's own markup (components/Skeleton.tsx). */
 export default function Loading() {
   return (
-    <>
-      <SkeletonPageHead backLink />
-      <SkeletonCard contentHeight={344} titleHeight={67} />
-    </>
+    <SkActivityPage
+      device={deviceLabel()}
+      cardSub="Active time per day. Outlined days were never recorded - before the sampler existed, or while it was not running - which is not the same as a quiet day."
+    />
   );
 }

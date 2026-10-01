@@ -69,6 +69,12 @@ now shows up before you switch away from it.
 
 ## Log
 
+### 2026-10-01 - exact skeletons
+
+All ten loading screens rebuilt from the pages' own markup and measured in
+two tabs at 997px and 1680px: every section matches, apart from table and
+run-history lengths, which are data and sit below the first screen.
+
 ### 2026-10-01 - run history pager
 
 Ported from the sibling, with the phone's history now filtered in SQL.

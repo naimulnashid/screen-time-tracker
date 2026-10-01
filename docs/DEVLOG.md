@@ -6,6 +6,31 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Skeletons that render the page's own markup
+
+Ported from the sibling. The old skeletons carried one height per section,
+the mid-range of two reference widths, so a section that reflows was wrong
+at both: measured on the laptop Overview at 997px, the heat map +47px and
+the two stacked charts -23px each. The new `Sk*` blocks in
+`components/Skeleton.tsx` render the real markup with the real words as
+transparent shimmering text, so they wrap exactly where the page wraps.
+
+- **Measured, not reasoned.** A temporary route rendered each `loading.tsx`
+  inside the shell, beside the real page in a second tab, at 997px and
+  1680px, comparing every `.container > *` height. Iframes were the first
+  idea and the dashboard's own frame-blocking header refused them, which is
+  the header doing its job. All ten pages land to the pixel in every
+  section except the deliberately fixed table lengths.
+- **Legend stand-ins have to be the right LENGTH.** The legend wraps by the
+  names' widths, and phone app names are shorter than a laptop's: with the
+  laptop's stand-ins the phone Overview's legends wrapped to a third row at
+  997px, 33px too tall. The phone draws the public demo's names instead.
+- **Fixed notes are shared**: `components/Notes.tsx` holds the paragraphs a
+  page and its skeleton both render, so the skeleton cannot drift a line.
+- **A bug found on the way**: renames made the phone Overview's `nameOf()`
+  return a name and a base, and the "launcher is left out" note still
+  joined the objects. Fixed and pushed on its own before this landed.
+
 ### The run history pages, and a phone's history stops being crowded out
 
 Ported the sibling's pager (`lib/pager.ts`, `components/Pager.tsx`): 25 runs

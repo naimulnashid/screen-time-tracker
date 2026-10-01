@@ -1,3 +1,4 @@
+import { AttributedNote, HomeOpensNote } from '@/components/Notes';
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
@@ -301,13 +302,11 @@ export default async function AndroidOverviewPage({
           <p className="prose-note">One day of data so far.</p>
         )}
         {home.size > 0 && (
-          <p className="prose-note" style={{ marginTop: '0.9rem' }}>
-            {[...home.keys()].map((id) => nameOf(id).name).join(', ')}{' '}
-            {home.size === 1 ? 'is' : 'are'} left out, with{' '}
-            {formatCount([...home.values()].reduce((a, b) => a + b, 0))} opens:
-            the home screen is what you pass through between apps, not
-            something you open. It keeps its band in Top apps by day above.
-          </p>
+          <HomeOpensNote
+            names={[...home.keys()].map((id) => nameOf(id).name).join(', ')}
+            verb={home.size === 1 ? 'is' : 'are'}
+            opens={formatCount([...home.values()].reduce((a, b) => a + b, 0))}
+          />
         )}
       </Card>
 
@@ -390,14 +389,7 @@ export default async function AndroidOverviewPage({
           without an explanation the obvious "fix" is to make the headline sum
           the apps instead, which would under-report every day.
         */}
-        <p className="prose-note" style={{ marginTop: '1rem' }}>
-          Per-app time never adds up to screen-on time, and that is expected:
-          the lock screen, the launcher between apps and system surfaces all
-          hold time no app claims. Measured here at{' '}
-          <strong>{(attributedPct / 100).toFixed(2)}&times;</strong>. The
-          headline above therefore comes from screen-on events, never from
-          summing the apps below.
-        </p>
+        <AttributedNote ratio={(attributedPct / 100).toFixed(2)} />
       </Card>
       )}
 

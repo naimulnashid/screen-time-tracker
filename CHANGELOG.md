@@ -8,6 +8,17 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Changed
+- **Loading skeletons match the page at every width.** They render each
+  page's own markup -- real classes and grids, the real headings and fixed
+  sentences as invisible shimmering text, score values at the real font,
+  the real heat-map grid -- instead of one averaged height per section.
+  Measured against all ten pages at 997px and 1680px: every section now
+  lands to the pixel, where the Overview's heat map used to be 47px off and
+  its stacked charts 23px. Only the long tables keep a fixed length, below
+  the first screen. The fixed explanatory notes they share with their
+  pages moved to `components/Notes.tsx`, so the two cannot drift.
+
 ### Added
 - **Page through the whole run history.** Both Sync pages show 25 runs at a
   time with a pager: Newest and Oldest at the ends, Newer and Older one step

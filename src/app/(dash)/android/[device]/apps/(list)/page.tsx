@@ -1,3 +1,4 @@
+import { HomeRankNote } from '@/components/Notes';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
@@ -176,15 +177,11 @@ export default async function AndroidAppsPage({
           <MostOpenedChart data={mostOpened} />
         )}
         {home.length > 0 && (
-          <p className="prose-note" style={{ marginTop: '0.9rem' }}>
-            {home.map((a) => a.label).join(', ')}{' '}
-            {home.length === 1 ? 'is' : 'are'} left out. The home screen is what
-            you pass through between apps, not something you open, and at{' '}
-            {formatCount(home.reduce((n, a) => n + a.opens, 0))} it stood
-            nearly three times taller than the biggest bar left, flattening
-            every one of them. It keeps its place in Top apps above, where the
-            time is real.
-          </p>
+          <HomeRankNote
+            names={home.map((a) => a.label).join(', ')}
+            verb={home.length === 1 ? 'is' : 'are'}
+            opens={formatCount(home.reduce((n, a) => n + a.opens, 0))}
+          />
         )}
       </Card>
 

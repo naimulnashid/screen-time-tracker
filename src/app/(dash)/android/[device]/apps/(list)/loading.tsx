@@ -1,26 +1,41 @@
-import {
-  SkeletonPageHead, SkeletonCard, SkeletonTable,
-} from '@/components/Skeleton';
+import { SkPageHead, SkCard, SkRanked, SkDataTable, SkMask } from '@/components/Skeleton';
+import { HomeRankNote } from '@/components/Notes';
+import { listRule } from '@/lib/app-list';
 
 /**
- * Android By App skeleton.
+ * Phone By App skeleton: the page's own markup (components/Skeleton.tsx).
  *
- * The charts are 320 each, as on the laptop's; Most opened adds the note
- * naming the home screen it leaves out. Measured 411 @997 / 386 @1680 -> 398.
- * No score cards: the totals are on the Overview.
- *
- * Rows are 58px, not the 42px default: each carries the package name on a
- * second line under the label, which the Windows table does not.
+ * Eight bars per ranking, and the note under Most opened that names the home
+ * screen, which every phone has. The table draws ten rows: its length is
+ * data, and it starts below the first viewport.
  */
 export default function Loading() {
   return (
     <>
-      <SkeletonPageHead />
-      <SkeletonCard contentHeight={320} />
-      <SkeletonCard contentHeight={398} />
-      <SkeletonCard contentHeight={0}>
-        <SkeletonTable rows={12} columns={5} rowHeight={58} />
-      </SkeletonCard>
+      <SkPageHead title="By App" sub="31 apps across 27 days" />
+      <SkCard title="Top apps" sub="Named by the phone itself. Hover a bar for time, share and opens.">
+        <SkRanked />
+      </SkCard>
+      <SkCard title="Most opened" sub="Ranked by how often you opened it. Hover a bar for share and time.">
+        <SkRanked />
+        <SkMask><HomeRankNote names="Launcher" verb="is" opens="1,108" /></SkMask>
+      </SkCard>
+      <SkCard
+        title="Apps · 14 of 31"
+        sub={
+          `${listRule()} ` +
+          'These rows do NOT sum to screen-on time, unlike the Windows side. ' +
+          'A phone session leaves gaps no app claims; the laptop sampler ' +
+          'partitions its time exclusively.'
+        }
+      >
+        <SkDataTable
+          icon
+          head={['App', 'Time', 'Share', 'Opens', 'Days']}
+          rows={10}
+          cells={[{ text: 'Video', sub: 'com.example.video' }, '41h 2m', '24.2%', '163', '27']}
+        />
+      </SkCard>
     </>
   );
 }
