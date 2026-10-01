@@ -334,16 +334,18 @@ export function SkRows({ rows }: { rows: [string, string][] }) {
  */
 export type SkCell = string | { text: string; sub?: string } | { badge: string };
 
-export function SkDataTable({ head, rows, cells, icon = false }: {
+export function SkDataTable({ head, rows, cells, icon = false, className = 'app-table' }: {
   head: string[];
   rows: number;
   cells: SkCell[];
   icon?: boolean;
+  /** The page's own table class: the app tables use `.app-table`, the run histories none. */
+  className?: string;
 }) {
   const right = (i: number) => (i > 0 && head[i] !== 'Status' && head[i] !== 'Source' && head[i] !== 'Backup');
   return (
     <div className="table-wrap">
-      <table className="app-table">
+      <table className={className || undefined}>
         <thead>
           <tr>
             {head.map((h, i) => (

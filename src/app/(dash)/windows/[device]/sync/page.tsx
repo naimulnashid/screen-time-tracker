@@ -149,7 +149,10 @@ export default async function SyncPage({
           <p className="prose-note">No runs recorded yet.</p>
         ) : (
           <div className="table-wrap">
-            <table className="app-table">
+            {/* Not .app-table: its fixed widths cover six columns, and the
+                laptop's run history has seven -- the seventh, Backup, got no
+                width at all and was clipped out of sight. */}
+            <table>
               <thead>
                 <tr>
                   <th>Started</th>

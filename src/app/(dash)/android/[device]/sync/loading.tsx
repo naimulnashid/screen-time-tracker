@@ -46,6 +46,7 @@ export default function Loading() {
         aside={<span className="pager-count"><SkText>1–25 of 120</SkText></span>}
       >
         <SkDataTable
+          className=""
           head={['Started', 'Status', 'Stored', 'Rejected', 'Took', 'Backup']}
           rows={10}
           cells={['01 Oct 2026, 00:59', { badge: 'success' }, '361', '0', '439 ms', 'ok']}
