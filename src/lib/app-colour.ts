@@ -233,6 +233,23 @@ export function brandColour(name: string, device?: string | string[]): string | 
 }
 
 /**
+ * The bar colour for an app once the user may have picked one: their colour
+ * when there is one, else the brand colour. Null still means "take the
+ * device accent".
+ *
+ * A picked colour goes through `ensureReadable()` exactly as a brand colour
+ * does, so a black chosen by hand stays visible on the dark theme; the light
+ * theme's band is applied later, in CSS, by `ink()`.
+ */
+export function colourFor(
+  override: string | undefined,
+  name: string,
+  device?: string | string[],
+): string | null {
+  return override ? ensureReadable(override) : brandColour(name, device);
+}
+
+/**
  * The colour for a resolved logo identity.
  *
  * `nothing-a001/gallery` falls back to `gallery`, so a device folder only

@@ -29,6 +29,7 @@ import { join } from 'node:path';
 import { dbPath, databaseExists, loadConfig } from './config';
 import { resolveApp, type ResolvedApp } from './app-name';
 import { readRenames, type AppNames } from './app-renames';
+import { readColourOverrides } from './app-colour-overrides';
 import {
   stitchVisits, visitStats, visitCounts, openBuckets, opensByDay,
   type RawSession, type SessionBucket,
@@ -804,6 +805,16 @@ export function getWindowsAppNames(): AppNames {
     }
     return out;
   });
+}
+
+/** Resolved key -> the colour the user chose for it (lib/app-colour-overrides.ts). */
+export function getWindowsColourOverrides(): Map<string, string> {
+  if (!databaseExists()) return new Map();
+  try {
+    return withDb((db) => readColourOverrides(db, WINDOWS_DEVICE_ID));
+  } catch {
+    return new Map();
+  }
 }
 
 /**

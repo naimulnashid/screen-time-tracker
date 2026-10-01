@@ -1161,6 +1161,25 @@ select.chip {
 .chip--small { padding: 0.28rem 0.7rem; font-size: 0.8125rem; }
 .rename-error { flex-basis: 100%; color: var(--danger); font-size: 0.8125rem; }
 
+/* The colour beside the name: the native picker for choosing by eye, a hex
+   field for pasting a brand's exact code. */
+.colour-field { display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
+.colour-swatch-input {
+  width: 34px; height: 30px; padding: 2px;
+  border: 1px solid var(--border-input); border-radius: 8px;
+  background: var(--bg-inset);
+  cursor: pointer;
+}
+.colour-swatch-input::-webkit-color-swatch-wrapper { padding: 0; }
+.colour-swatch-input::-webkit-color-swatch { border: 0; border-radius: 5px; }
+.rename-input.colour-hex-input {
+  flex: 0 0 6.6rem; width: 6.6rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+.app-title .rename-input.colour-hex-input { font-size: 0.95rem; font-weight: 500; }
+.rename-input[aria-invalid='true'] { border-color: var(--danger); }
+
 /* ------------------------------------------------------------ theme menu */
 
 .theme-menu { position: relative; }

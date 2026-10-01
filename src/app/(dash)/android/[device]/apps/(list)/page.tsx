@@ -5,10 +5,11 @@ import { TopAppsChart, MostOpenedChart } from '@/components/Charts';
 import { AppListTable } from '@/components/AppListTable';
 import {
   getAndroidDeviceBySlug, getAndroidApps, getAndroidOverview,
-  androidEarnsDetailPage,
+  androidEarnsDetailPage, getAndroidColourOverrides,
 } from '@/lib/android-queries';
 import { AppIcon } from '@/components/AppIcon';
-import { brandColour } from '@/lib/app-colour';
+import { brandColour, colourFor } from '@/lib/app-colour';
+import { ACCENTS } from '@/lib/accent';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
 import { RenameApp } from '@/components/RenameApp';
 import { splitForList, listRule } from '@/lib/app-list';
@@ -50,6 +51,12 @@ export default async function AndroidAppsPage({
   // The logo, plate and colour follow the phone's own label unless a logo
   // answers to the rename -- see lookName().
   const look = (a: (typeof apps)[number]) => lookName(a.label, a.baseLabel, slug);
+  // The user's own colours win over brand colours (lib/app-colour-overrides.ts).
+  // The picker starts from whatever the bar is drawn in now, which for an app
+  // with no brand colour is the device accent.
+  const picked = getAndroidColourOverrides(device.deviceId);
+  const pickerColour = (a: (typeof apps)[number]) =>
+    picked.get(a.packageName) ?? brandColour(look(a), slug) ?? ACCENTS.android.accent;
   const datum = (a: (typeof apps)[number]) => ({
     name: a.label,
     ms: a.ms,
@@ -61,7 +68,7 @@ export default async function AndroidAppsPage({
       : undefined,
     icon: logoUrl(look(a), slug),
     plate: needsLightPlate(look(a), slug),
-    colour: brandColour(look(a), slug),
+    colour: colourFor(picked.get(a.packageName), look(a), slug),
   });
 
   // `apps` arrives sorted by time, so the second ranking needs its own sort:
@@ -96,6 +103,7 @@ export default async function AndroidAppsPage({
           <RenameApp
             variant="row" platform="android" device={slug}
             appKey={a.packageName} name={a.label} baseName={a.baseLabel}
+            colour={pickerColour(a)} customColour={picked.has(a.packageName)}
           >
             {androidEarnsDetailPage(a.ms) ? (
               <Link

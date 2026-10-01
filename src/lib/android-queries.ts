@@ -38,6 +38,7 @@ import {
 } from './visits';
 import type { StackInput } from './stack';
 import { readRenames, type AppNames } from './app-renames';
+import { readColourOverrides } from './app-colour-overrides';
 import {
   headlineSource, unionByHour, type HeadlineSource, type HourBucket,
 } from './android-source';
@@ -758,6 +759,16 @@ export function androidAppLabel(deviceId: string, packageName: string): string |
     });
   } catch {
     return null;
+  }
+}
+
+/** Package -> the colour the user chose for it (lib/app-colour-overrides.ts). */
+export function getAndroidColourOverrides(deviceId: string): Map<string, string> {
+  if (!databaseExists()) return new Map();
+  try {
+    return withDb((db) => readColourOverrides(db, deviceId));
+  } catch {
+    return new Map();
   }
 }
 

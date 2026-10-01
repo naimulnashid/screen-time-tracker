@@ -30,6 +30,8 @@ import { windowsPages, androidPages, pagesForPath } from '../src/lib/nav';
 import { deviceOf, ACCENTS, LIGHT_ACCENTS, accentStyleSheet } from '../src/lib/accent';
 import { ink } from '../src/lib/ink';
 import { cleanName, planRename, saveRename, readRenames, type AppNames } from '../src/lib/app-renames';
+import { cleanColour } from '../src/lib/colour-hex';
+import { saveColourOverride, readColourOverrides } from '../src/lib/app-colour-overrides';
 import { DatabaseSync } from 'node:sqlite';
 import { THEME_SCRIPT, THEME_KEY, THEME_COLORS } from '../src/lib/theme';
 import { getSamplerStatus } from '../src/lib/sampler-status';
@@ -40,7 +42,7 @@ import {
 } from '../src/lib/app-logo';
 import { resolveApp, knownApps } from '../src/lib/app-name';
 import {
-  brandColour, brandColourForIdentity, ensureReadable, parseBrandColours,
+  brandColour, brandColourForIdentity, ensureReadable, parseBrandColours, colourFor,
 } from '../src/lib/app-colour';
 import { hourTick, niceHourAxis, niceCountAxis } from '../src/lib/axis';
 import { queryString } from '../src/lib/scope';
@@ -1600,6 +1602,59 @@ section('app renames');
   // to the new one. No logo file is called this, on any device.
   check('an unrenamed app looks like itself', lookName('Qx Nothing', 'Qx Nothing'), 'Qx Nothing');
   check('a rename with no logo keeps the base look', lookName('Qx Renamed', 'Qx Base'), 'Qx Base');
+}
+
+/* ------------------------------------------------------------------ */
+section('app colours');
+{
+  // What passes is written into style attributes and SVG fills, so nothing
+  // but a plain hex may get through.
+  check('a colour accepts #rrggbb, lowercased', cleanColour('#7C5CFF'), '#7c5cff');
+  check('a colour accepts #rgb, expanded', cleanColour('#abc'), '#aabbcc');
+  check('a colour accepts a bare hex', cleanColour(' 7c5cff '), '#7c5cff');
+  for (const bad of ['red', '#12345', '#1234567', 'url(x)', '#7c5cff;background:red', 'var(--accent)', '', 42, null]) {
+    check(`a colour rejects ${JSON.stringify(bad)}`, cleanColour(bad), null);
+  }
+
+  // A picked colour replaces the brand colour and is lifted like one, so a
+  // black chosen by hand still shows on the dark theme.
+  check('a picked colour wins', colourFor('#3366cc', 'Qx Nothing'), '#3366cc');
+  check('a picked black is lifted', colourFor('#000000', 'Qx Nothing') !== '#000000', true);
+  check('no pick and no brand means the accent', colourFor(undefined, 'Qx Nothing'), null);
+
+  const cdir = mkdtempSync(join(tmpdir(), 'screentime-colours-'));
+  try {
+    const file = join(cdir, 'c.db');
+    const known = new Set(['msedge']);
+    const save = (key: string, colour: unknown) =>
+      saveColourOverride({ dbFile: file, deviceId: 'zephyrus', key, colour, known, allowSystemDrive: true });
+    const read = () => {
+      const db = openDatabase(file, { allowSystemDrive: true });
+      try { return [...readColourOverrides(db, 'zephyrus')]; } finally { db.close(); }
+    };
+    check('a colour is stored, tidied', (save('msedge', '#ABC'), read()), [['msedge', '#aabbcc']]);
+    check('and cleared', (save('msedge', ''), read()), []);
+    check('a bad colour is refused', save('msedge', 'red'), { ok: false, error: 'bad-colour' });
+    check('an unknown app is refused', save('nope', '#abc'), { ok: false, error: 'unknown-app' });
+    check('a refused colour writes nothing', read(), []);
+
+    // A hand-edited row must not reach a style attribute.
+    const db = openDatabase(file, { allowSystemDrive: true });
+    try {
+      db.prepare("INSERT INTO app_colours VALUES ('zephyrus', 'msedge', 'red;x', '')").run();
+      check('a bad stored row is dropped on read', readColourOverrides(db, 'zephyrus').size, 0);
+    } finally {
+      db.close();
+    }
+    const bare = new DatabaseSync(join(cdir, 'bare.db'));
+    try {
+      check('no table reads as no colours', readColourOverrides(bare, 'zephyrus').size, 0);
+    } finally {
+      bare.close();
+    }
+  } finally {
+    rmSync(cdir, { recursive: true, force: true });
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -4,9 +4,12 @@ import { Card, CardTitle } from '@/components/Card';
 import { SamplerEmpty } from '@/components/EmptyState';
 import { TopAppsChart, MostOpenedChart } from '@/components/Charts';
 import { AppListTable } from '@/components/AppListTable';
-import { getApps, getOverview, hasWindowsData, earnsDetailPage, windowsLogoScope } from '@/lib/queries';
+import {
+  getApps, getOverview, hasWindowsData, earnsDetailPage, windowsLogoScope, getWindowsColourOverrides,
+} from '@/lib/queries';
 import { AppIcon } from '@/components/AppIcon';
-import { brandColour } from '@/lib/app-colour';
+import { brandColour, colourFor } from '@/lib/app-colour';
+import { ACCENTS } from '@/lib/accent';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
 import { RenameApp } from '@/components/RenameApp';
 import { splitForList, listRule } from '@/lib/app-list';
@@ -58,6 +61,12 @@ export default async function AppsPage({
   // The logo, plate and colour follow the name BEFORE any rename, unless a
   // logo answers to the new one -- see lookName().
   const look = (a: (typeof apps)[number]) => lookName(a.name, a.baseName, laptop);
+  // The user's own colours win over brand colours (lib/app-colour-overrides.ts).
+  // The picker starts from whatever the bar is drawn in now, which for an app
+  // with no brand colour is the device accent.
+  const picked = getWindowsColourOverrides();
+  const pickerColour = (a: (typeof apps)[number]) =>
+    picked.get(a.key) ?? brandColour(look(a), laptop) ?? ACCENTS.zephyrus.accent;
   const datum = (a: (typeof apps)[number]) => ({
     name: a.name,
     ms: a.ms,
@@ -67,7 +76,7 @@ export default async function AppsPage({
     href: earnsDetailPage(a.ms) ? `/windows/${slug}/apps/${encodeURIComponent(a.key)}` : undefined,
     icon: logoUrl(look(a), laptop),
     plate: needsLightPlate(look(a), laptop),
-    colour: brandColour(look(a), laptop),
+    colour: colourFor(picked.get(a.key), look(a), laptop),
   });
 
   // `apps` arrives sorted by time, so the second ranking has to be built from
@@ -93,6 +102,7 @@ export default async function AppsPage({
           <RenameApp
             variant="row" platform="windows" device={slug}
             appKey={a.key} name={a.name} baseName={a.baseName}
+            colour={pickerColour(a)} customColour={picked.has(a.key)}
           >
             {earnsDetailPage(a.ms) ? (
               <Link href={`/windows/${slug}/apps/${encodeURIComponent(a.key)}`} className="app-link">

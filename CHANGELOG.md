@@ -9,6 +9,14 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Added
+- **Choose any app's bar colour.** The rename pencil also edits the colour:
+  a colour picker and a hex field that stay in step, and "Default colour" to
+  go back to the brand colour (or the device accent, for an app without
+  one). Stored in a new `app_colours` table (schema 6) beside the renames,
+  so it is backed up and survives a reset. It wins everywhere the app's
+  colour is drawn, survives a rename, and is kept readable on both themes
+  the same way a brand colour is. Only `#rgb` / `#rrggbb` is accepted, and
+  it is checked again when read back.
 - **Rename any app from the dashboard.** A pencil beside the name on each
   app's page, and on hover in the By App tables, opens an inline field:
   Enter saves, Escape cancels, Reset returns to the original name. The new

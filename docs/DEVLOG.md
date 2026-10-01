@@ -6,6 +6,33 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### Picking an app's colour
+
+Ported from the sibling's colour editor, in the same form as the rename.
+`app_colours (device_id, app_key, colour)` is schema 6, keyed like
+`app_renames`, so a picked colour follows the app through a rename.
+
+- **A picked colour REPLACES the brand colour and is then treated as one.**
+  `colourFor()` in `app-colour.ts` runs it through `ensureReadable()`, and
+  `Charts.tsx` paints it through `ink()`. So a black chosen by hand is lifted
+  on the dark theme exactly as a black logo's brand colour is, and a white
+  one is pulled down on the light theme. One rule for both sources means
+  the two cannot drift apart.
+- **The picker starts from what the bar shows**: the user's colour, else the
+  brand colour, else the device accent -- not a blank, which would make
+  "Save" quietly change an unbranded app's colour.
+- **`cleanColour()` is its own client-safe module** (`colour-hex.ts`), used
+  by the field as you type, by the route on the way in, and by
+  `readColourOverrides()` on the way out, so a hand-edited row cannot put an
+  arbitrary string into a style attribute. An injection like
+  `#fff;background:url(x)` was refused by the route in the browser test.
+- **Spelled `colour`, route and all** (`/api/apps/colour`): this project
+  says colour everywhere else, and one spelling per project is what makes a
+  grep find everything.
+- **Hidden-tab trap, in testing only:** in a background tab React hydrated
+  the page body many seconds after the shell, so clicks on the pencils did
+  nothing for a while and looked like a broken button. It was only slow.
+
 ### Renaming apps
 
 Ported from the sibling's renames. `app_renames (device_id, app_key, name)`

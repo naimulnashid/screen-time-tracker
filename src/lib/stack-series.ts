@@ -1,6 +1,6 @@
 import 'server-only';
 import type { StackSeriesDatum } from '@/components/Charts';
-import { brandColour } from './app-colour';
+import { colourFor } from './app-colour';
 import { logoUrl, needsLightPlate, lookName } from './app-logo';
 import { OTHER, type StackSeries } from './stack';
 
@@ -17,6 +17,8 @@ export function stackSeries(
   series: StackSeries[],
   nameOf: (id: string) => { name: string; base: string },
   device: string | string[],
+  /** App key -> the user's colour for it; the band's id is that key. */
+  overrides: Map<string, string> = new Map(),
 ): StackSeriesDatum[] {
   return series.map((s) => {
     if (s.id === null) return { key: OTHER, name: 'Other', total: s.total };
@@ -26,7 +28,7 @@ export function stackSeries(
       key: s.key,
       name,
       total: s.total,
-      colour: brandColour(look, device),
+      colour: colourFor(overrides.get(s.id), look, device),
       icon: logoUrl(look, device),
       plate: needsLightPlate(look, device),
     };

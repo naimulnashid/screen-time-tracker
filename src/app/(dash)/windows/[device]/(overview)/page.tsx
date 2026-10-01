@@ -10,6 +10,7 @@ import { deviceLabel, windowsSlug } from '@/lib/config';
 import {
   getOverview, getApps, getDaily, getHourly, getDailyByApp, hasWindowsData,
   collectedAgo, windowsLogoScope, WINDOWS_DEVICE_ID,
+  getWindowsColourOverrides,
 } from '@/lib/queries';
 import { stackByApp, peakOf } from '@/lib/stack';
 import { stackSeries } from '@/lib/stack-series';
@@ -116,8 +117,9 @@ export default async function OverviewPage({
   const timeStack = stackByApp(byApp.time, recordedDays);
   const opensStack = stackByApp(byApp.opens, recordedDays);
   const laptop = windowsLogoScope();
-  const timeSeries = stackSeries(timeStack.series, nameOf, laptop);
-  const opensSeries = stackSeries(opensStack.series, nameOf, laptop);
+  const picked = getWindowsColourOverrides();
+  const timeSeries = stackSeries(timeStack.series, nameOf, laptop, picked);
+  const opensSeries = stackSeries(opensStack.series, nameOf, laptop, picked);
   const topByTime = timeSeries.find((s) => s.key !== 'other');
   const topByOpens = opensSeries.find((s) => s.key !== 'other');
 

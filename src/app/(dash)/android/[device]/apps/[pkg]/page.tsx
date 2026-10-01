@@ -6,7 +6,7 @@ import {
 } from '@/components/Charts';
 import {
   getAndroidDeviceBySlug, getAndroidAppDetail, androidAppExists,
-  androidEarnsDetailPage,
+  androidEarnsDetailPage, getAndroidColourOverrides,
 } from '@/lib/android-queries';
 import { AppIcon } from '@/components/AppIcon';
 import { Callout } from '@/components/Callout';
@@ -14,6 +14,8 @@ import { heaviestDay } from '@/lib/trend';
 import { peakOf } from '@/lib/stack';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
 import { RenameApp } from '@/components/RenameApp';
+import { brandColour } from '@/lib/app-colour';
+import { ACCENTS } from '@/lib/accent';
 import { parseDays } from '@/lib/scope';
 import { decodeSegment } from '@/lib/slug';
 import {
@@ -106,6 +108,7 @@ export default async function AndroidAppDetailPage({
   const busiest = peakOf(detail.hourly, (h) => h.ms);
   const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
   const look = lookName(detail.label, detail.baseLabel, slug);
+  const ownColour = getAndroidColourOverrides(device.deviceId).get(detail.packageName);
 
   return (
     <>
@@ -114,6 +117,8 @@ export default async function AndroidAppDetailPage({
         <RenameApp
           variant="title" platform="android" device={slug}
           appKey={detail.packageName} name={detail.label} baseName={detail.baseLabel}
+          colour={ownColour ?? brandColour(look, slug) ?? ACCENTS.android.accent}
+          customColour={ownColour !== undefined}
           icon={<AppIcon name={detail.label} src={logoUrl(look, slug)} plate={needsLightPlate(look, slug)} size={32} />}
         />
         <p className="mono" style={{ fontSize: '0.8rem' }}>

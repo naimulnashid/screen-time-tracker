@@ -69,6 +69,15 @@ now shows up before you switch away from it.
 
 ## Log
 
+### 2026-10-01 - picking app colours
+
+Ported from the sibling. Tried on the demo: the picker started from
+Chrome's brand colour, flagged a half-typed hex, saved; the colour reached
+By App and both Overview stacks, survived a rename, and Default colour
+brought the brand colour back. A phone app took a colour too. The route
+refused a name, an injection, an unknown app or device, and an oversized
+body. 21 new self-tests.
+
 ### 2026-10-01 - renaming apps
 
 Ported from the sibling. Tried on the demo: renamed in the table, refused a

@@ -7,6 +7,7 @@ import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import {
   getAndroidDeviceBySlug, getAndroidOverview, getAndroidDaily, getAndroidHourly,
   getAndroidDailyByApp,
+  getAndroidColourOverrides,
 } from '@/lib/android-queries';
 import { stackByApp, peakOf } from '@/lib/stack';
 import { stackSeries } from '@/lib/stack-series';
@@ -140,8 +141,9 @@ export default async function AndroidOverviewPage({
     if (isHomeSurface(r.id)) home.set(r.id, (home.get(r.id) ?? 0) + r.value);
   }
   const opensStack = stackByApp(byApp.opens.filter((r) => !home.has(r.id)), recordedDays);
-  const timeSeries = stackSeries(timeStack.series, nameOf, slug);
-  const opensSeries = stackSeries(opensStack.series, nameOf, slug);
+  const picked = getAndroidColourOverrides(device.deviceId);
+  const timeSeries = stackSeries(timeStack.series, nameOf, slug, picked);
+  const opensSeries = stackSeries(opensStack.series, nameOf, slug, picked);
   const topByTime = timeSeries.find((s) => s.key !== 'other');
   const topByOpens = opensSeries.find((s) => s.key !== 'other');
 

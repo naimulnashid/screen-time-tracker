@@ -4,13 +4,17 @@ import { Card, CardTitle } from '@/components/Card';
 import {
   DailyTrendChart, HourlyChart, DailyOpensChart, HourlyOpensChart,
 } from '@/components/Charts';
-import { getAppDetail, appExists, earnsDetailPage, windowsLogoScope } from '@/lib/queries';
+import {
+  getAppDetail, appExists, earnsDetailPage, windowsLogoScope, getWindowsColourOverrides,
+} from '@/lib/queries';
 import { AppIcon } from '@/components/AppIcon';
 import { Callout } from '@/components/Callout';
 import { heaviestDay } from '@/lib/trend';
 import { peakOf } from '@/lib/stack';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
 import { RenameApp } from '@/components/RenameApp';
+import { brandColour } from '@/lib/app-colour';
+import { ACCENTS } from '@/lib/accent';
 import { windowsSlug } from '@/lib/config';
 import { decodeSegment } from '@/lib/slug';
 import { parseDays } from '@/lib/scope';
@@ -109,6 +113,7 @@ export default async function AppDetailPage({
   const busiest = peakOf(detail.hourly, (h) => h.ms);
   const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
   const look = lookName(detail.name, detail.baseName, laptop);
+  const ownColour = getWindowsColourOverrides().get(detail.key);
 
   return (
     <>
@@ -117,6 +122,8 @@ export default async function AppDetailPage({
         <RenameApp
           variant="title" platform="windows" device={slug}
           appKey={detail.key} name={detail.name} baseName={detail.baseName}
+          colour={ownColour ?? brandColour(look, laptop) ?? ACCENTS.zephyrus.accent}
+          customColour={ownColour !== undefined}
           icon={<AppIcon name={detail.name} src={logoUrl(look, laptop)} plate={needsLightPlate(look, laptop)} size={32} />}
         />
         <p>

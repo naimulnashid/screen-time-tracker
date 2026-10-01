@@ -52,7 +52,7 @@
  * ===========================================================================
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -391,6 +391,21 @@ CREATE TABLE IF NOT EXISTS app_renames (
   device_id   TEXT NOT NULL,
   app_key     TEXT NOT NULL,
   name        TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (device_id, app_key)
+);
+
+-- ---------------------------------------------------------------------------
+-- Bar colours chosen in the dashboard (schema 6, 2026-10-01). Keyed exactly
+-- like app_renames, and for the same reason kept here rather than in config.
+-- Holds only the user's overrides, as lowercase #rrggbb; every other colour
+-- still comes from config/app-colours.json or the device accent. See
+-- lib/app-colour-overrides.ts.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_colours (
+  device_id   TEXT NOT NULL,
+  app_key     TEXT NOT NULL,
+  colour      TEXT NOT NULL,
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (device_id, app_key)
 );

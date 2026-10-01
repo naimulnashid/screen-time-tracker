@@ -600,6 +600,7 @@ src/
     accent.ts        the ONLY place an accent hex exists (both themes)
     theme.ts, ink.ts the light/dark switch, and app colours per theme
     app-renames.ts   names the user chose, stored in app_renames
+    app-colour-overrides.ts, colour-hex.ts   colours the user chose
     auth.ts          Web Crypto only - pulled into the proxy
     login-throttle.ts, safe-next.ts   the sign-in hardening
     config.ts        reads collector.json, once
@@ -1231,6 +1232,15 @@ the phone, never stored.
 - **The route is `/api/apps/name`**, behind the proxy's session and
   cross-origin checks like every other `/api/*` write. Names are checked
   against ALL history, not the range on screen.
+
+### Picked colours ride the same rails
+
+`app_colours` (schema 6), keyed exactly like `app_renames`, written by
+`/api/apps/colour` from the same pencil. A picked colour REPLACES the brand
+colour inside `colourFor()` and then goes through `ensureReadable()` and
+`ink()` like any brand colour -- never paint one raw. `cleanColour()` guards
+it on the way in AND on the way out. The drill expects the table in a
+schema-6 backup.
 
 ## It installs as an app, on the laptop only
 
