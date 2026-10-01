@@ -502,6 +502,21 @@ export function collectedAgo(deviceId: string): string | null {
   return formatRelative(Math.max(0, Date.now() - then) / 3_600_000);
 }
 
+/** How many runs the history holds, for the pager. Same `deviceId` rule as getSyncRuns. */
+export function countSyncRuns(deviceId?: string): number {
+  if (!databaseExists()) return 0;
+  try {
+    return withDb((db) => {
+      const r = (deviceId
+        ? db.prepare('SELECT COUNT(*) AS n FROM sync_log WHERE device_id = ?').get(deviceId)
+        : db.prepare('SELECT COUNT(*) AS n FROM sync_log').get()) as { n: number };
+      return Number(r.n);
+    });
+  } catch {
+    return 0;
+  }
+}
+
 export interface SyncRun {
   id: number;
   deviceId: string;
@@ -516,17 +531,28 @@ export interface SyncRun {
   error: string | null;
 }
 
-export function getSyncRuns(limit = 40): SyncRun[] {
+/**
+ * One page of the run history, newest first.
+ *
+ * `deviceId` narrows it to one device's runs -- in SQL, not afterwards: a
+ * phone's page used to take the newest 60 runs across every device and
+ * filter them, so a busy laptop could push a phone's own syncs off its page.
+ */
+export function getSyncRuns(
+  { limit = 25, offset = 0, deviceId }: { limit?: number; offset?: number; deviceId?: string } = {},
+): SyncRun[] {
   if (!databaseExists()) return [];
   try {
+    const where = deviceId ? 'WHERE device_id = ?' : '';
+    const args = deviceId ? [deviceId, limit, offset] : [limit, offset];
     return withDb((db) =>
       (db
         .prepare(
           `SELECT id, device_id, source, started_at, finished_at, status,
                   rows_inserted, rows_skipped, backup_status, duration_ms, error
-             FROM sync_log ORDER BY id DESC LIMIT ?`,
+             FROM sync_log ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
         )
-        .all(limit) as Record<string, never>[]).map((r) => ({
+        .all(...args) as Record<string, never>[]).map((r) => ({
         id: r['id'] as unknown as number,
         deviceId: r['device_id'] as unknown as string,
         source: r['source'] as unknown as string,

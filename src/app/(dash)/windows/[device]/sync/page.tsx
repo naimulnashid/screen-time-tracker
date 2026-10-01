@@ -1,6 +1,10 @@
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
-import { getSyncRuns, getSamplerStatus, getOverview, hasWindowsData, windowsDisplayName } from '@/lib/queries';
+import {
+  getSyncRuns, countSyncRuns, getSamplerStatus, getOverview, hasWindowsData, windowsDisplayName,
+} from '@/lib/queries';
+import { Pager } from '@/components/Pager';
+import { clampPage } from '@/lib/pager';
 import { windowsSlug } from '@/lib/config';
 import { formatDateTime, formatDuration, formatElapsed, formatCount } from '@/lib/format';
 import type { Metadata } from 'next';
@@ -35,16 +39,25 @@ function SourceBadge({ source }: { source: string }) {
   return <span className="app-kind">{label}</span>;
 }
 
+/** Run history page size, on both Sync pages. */
+const PAGE_SIZE = 25;
+
 export default async function SyncPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ device: string }>;
+  searchParams: Promise<{ runs?: string }>;
 }) {
   const { device: slug } = await params;
   if (slug !== windowsSlug()) notFound();
 
   const status = getSamplerStatus();
-  const runs = getSyncRuns(40);
+  // Paged, because the log grows by an ingest an hour and a push per phone
+  // sync, and a page is a URL. A number past the end lands on the last page.
+  const totalRuns = countSyncRuns();
+  const pageCount = Math.max(1, Math.ceil(totalRuns / PAGE_SIZE));
+  const page = clampPage((await searchParams).runs, pageCount);
+  const runs = getSyncRuns({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
   const overview = hasWindowsData() ? getOverview({ days: 36500 }) : null;
 
   const inFlightApp =
@@ -122,7 +135,14 @@ export default async function SyncPage({
       </div>
 
       <Card delay={120}>
-        <CardTitle sub="Newest first. Both collectors write here, filtered by source.">
+        <CardTitle
+          sub="Newest first. Both collectors write here, filtered by source."
+          aside={totalRuns > 0 ? (
+            <span className="pager-count">
+              {(page - 1) * PAGE_SIZE + 1}&ndash;{Math.min(page * PAGE_SIZE, totalRuns)} of {totalRuns}
+            </span>
+          ) : undefined}
+        >
           Run history
         </CardTitle>
         {runs.length === 0 ? (
@@ -180,6 +200,7 @@ export default async function SyncPage({
             </table>
           </div>
         )}
+        <Pager page={page} count={pageCount} path={`/windows/${slug}/sync`} param="runs" />
       </Card>
     </>
   );

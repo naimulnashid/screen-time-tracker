@@ -31,6 +31,7 @@ import { deviceOf, ACCENTS, LIGHT_ACCENTS, accentStyleSheet } from '../src/lib/a
 import { ink } from '../src/lib/ink';
 import { cleanName, planRename, saveRename, readRenames, type AppNames } from '../src/lib/app-renames';
 import { cleanColour } from '../src/lib/colour-hex';
+import { pageItems, clampPage } from '../src/lib/pager';
 import { saveColourOverride, readColourOverrides } from '../src/lib/app-colour-overrides';
 import { DatabaseSync } from 'node:sqlite';
 import { THEME_SCRIPT, THEME_KEY, THEME_COLORS } from '../src/lib/theme';
@@ -1655,6 +1656,23 @@ section('app colours');
   } finally {
     rmSync(cdir, { recursive: true, force: true });
   }
+}
+
+/* ------------------------------------------------------------------ */
+section('history pager');
+{
+  const items = (p: number, c: number) => pageItems(p, c).map((x) => (x === 'gap' ? '…' : x)).join(' ');
+  check('a middle page', items(6, 12), '1 … 4 5 6 7 8 … 12');
+  check('near the start', items(2, 12), '1 2 3 4 … 12');
+  check('near the end', items(12, 12), '1 … 10 11 12');
+  check('no gap hides a single page', items(4, 12), '1 2 3 4 5 6 … 12');
+  check('few pages, no gaps', items(3, 5), '1 2 3 4 5');
+  check('one page', items(1, 1), '1');
+  // The page number arrives from the URL, so anything can.
+  check('a page past the end is the last', clampPage('99', 12), 12);
+  check('junk is page 1', [clampPage('abc', 12), clampPage(undefined, 12), clampPage('-3', 12)], [1, 1, 1]);
+  check('a fraction is floored', clampPage('4.7', 12), 4);
+  check('an empty history still has page 1', clampPage('3', 1), 1);
 }
 
 /* ------------------------------------------------------------------ */

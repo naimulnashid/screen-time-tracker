@@ -1180,6 +1180,43 @@ select.chip {
 .app-title .rename-input.colour-hex-input { font-size: 0.95rem; font-weight: 500; }
 .rename-input[aria-invalid='true'] { border-color: var(--danger); }
 
+/* ------------------------------------------------------------------ pager */
+
+/* Pages of the Sync run history (components/Pager.tsx). */
+.pager {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.45rem;
+  margin-top: 1.2rem;
+}
+/* Ends of the range stay visible but inert, so the control does not jump
+   around as you page through. */
+.pager .chip[data-disabled='true'] { opacity: 0.4; pointer-events: none; }
+.pager .chip { text-decoration: none; }
+/* The numbers sit between the step buttons with a little more air either
+   side, so they read as their own group. */
+.pager-pages { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0 0.35rem; }
+.pager-number { min-width: 2.4rem; text-align: center; padding-inline: 0.55rem; }
+.pager-gap { color: var(--text-faint); padding: 0 0.15rem; }
+/* Straight to any page: the number box, not a walk through the ones between. */
+.pager-jump {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  margin-left: 0.6rem;
+  font-size: var(--fs-small); color: var(--text-dim);
+}
+.pager-jump label { white-space: nowrap; }
+.pager-input {
+  width: 4.2rem;
+  font: inherit; font-size: var(--fs-small); color: var(--text);
+  background: var(--bg-inset); border: 1px solid var(--border-input);
+  border-radius: 8px; padding: 0.3rem 0.5rem;
+  text-align: center;
+}
+.pager-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.pager-of { white-space: nowrap; }
+/* "26-50 of 312" in the card title's right slot. */
+.pager-count { font-size: var(--fs-small); color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 /* ------------------------------------------------------------ theme menu */
 
 .theme-menu { position: relative; }

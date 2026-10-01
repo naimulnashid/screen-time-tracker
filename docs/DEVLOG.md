@@ -6,6 +6,20 @@ was the project's CHANGELOG.md until v1.0.0; the release log is now
 
 ## After 1.0.0
 
+### The run history pages, and a phone's history stops being crowded out
+
+Ported the sibling's pager (`lib/pager.ts`, `components/Pager.tsx`): 25 runs
+a page, `?runs=` in the URL, links and a GET form rather than client state.
+`clampPage()` takes whatever the URL says -- past the end lands on the last
+page, junk on the first.
+
+Writing it found a real bug. The phone's Sync page called
+`getSyncRuns(60)` and filtered the result to its own device. `sync_log`
+holds every device's runs, and the laptop adds one an hour, so the newest 60
+could easily be all laptop. On the demo with 300 extra laptop runs, the old
+query would have shown the phone none of its 8. `getSyncRuns()` now takes a
+`deviceId` and filters in SQL, and `countSyncRuns()` counts the same way.
+
 ### Picking an app's colour
 
 Ported from the sibling's colour editor, in the same form as the rename.

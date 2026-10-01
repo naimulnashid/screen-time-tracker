@@ -9,6 +9,19 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Added
+- **Page through the whole run history.** Both Sync pages show 25 runs at a
+  time with a pager: Newest and Oldest at the ends, Newer and Older one step
+  each, the page numbers around the current one (`1 … 4 5 [6] 7 8 … 13`),
+  and a "Go to page" box. The card title says which runs are showing
+  ("26-50 of 318"). Links and a plain form, so every page is a URL
+  (`?runs=`). The history used to stop at the newest 40 runs on the laptop
+  and 60 on a phone.
+
+### Fixed
+- **A phone's run history could be crowded out by the other devices.** It
+  took the newest 60 runs across every device and only then kept this
+  phone's, so with the laptop ingesting hourly a phone could show few of its
+  own syncs, or none. It now asks for this phone's runs directly.
 - **Choose any app's bar colour.** The rename pencil also edits the colour:
   a colour picker and a hex field that stay in step, and "Default colour" to
   go back to the brand colour (or the device accent, for an app without

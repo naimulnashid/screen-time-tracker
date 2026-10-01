@@ -69,6 +69,13 @@ now shows up before you switch away from it.
 
 ## Log
 
+### 2026-10-01 - run history pager
+
+Ported from the sibling, with the phone's history now filtered in SQL.
+Checked on the demo with 318 runs: page 1, page 7 (`1 … 5 6 [7] 8 9 … 13`),
+past the end, junk, and the phone still showing its own 8. 10 new
+self-tests.
+
 ### 2026-10-01 - picking app colours
 
 Ported from the sibling. Tried on the demo: the picker started from

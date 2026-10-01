@@ -3,7 +3,9 @@ import { Card, CardTitle } from '@/components/Card';
 import {
   getAndroidDeviceBySlug, getAndroidSyncInfo, getAndroidOverview,
 } from '@/lib/android-queries';
-import { getSyncRuns } from '@/lib/queries';
+import { getSyncRuns, countSyncRuns } from '@/lib/queries';
+import { Pager } from '@/components/Pager';
+import { clampPage } from '@/lib/pager';
 import {
   formatDateTime, formatDuration, formatElapsed, formatCount, formatPercent,
 } from '@/lib/format';
@@ -21,10 +23,14 @@ export async function generateMetadata({
 
 export const dynamic = 'force-dynamic';
 
+/** Run history page size, as on the laptop's Sync page. */
+const PAGE_SIZE = 25;
+
 export default async function AndroidSyncPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ device: string }>;
+  searchParams: Promise<{ runs?: string }>;
 }) {
   const { device: slug } = await params;
   const device = getAndroidDeviceBySlug(slug);
@@ -32,7 +38,11 @@ export default async function AndroidSyncPage({
 
   const info = getAndroidSyncInfo(device.deviceId);
   const overview = getAndroidOverview(device.deviceId, { days: 36500 });
-  const runs = getSyncRuns(60).filter((r) => r.deviceId === device.deviceId);
+  // Paged like the laptop's run history, and filtered to this phone in SQL.
+  const totalRuns = countSyncRuns(device.deviceId);
+  const pageCount = Math.max(1, Math.ceil(totalRuns / PAGE_SIZE));
+  const page = clampPage((await searchParams).runs, pageCount);
+  const runs = getSyncRuns({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, deviceId: device.deviceId });
 
   // Hours, not days -- the same unit `splitDuration` uses for every other
   // span on this dashboard, and it keeps "days" meaning "calendar days with
@@ -124,7 +134,16 @@ export default async function AndroidSyncPage({
       </div>
 
       <Card delay={120}>
-        <CardTitle sub="Newest first. Only this phone's pushes.">Run history</CardTitle>
+        <CardTitle
+          sub="Newest first. Only this phone's pushes."
+          aside={totalRuns > 0 ? (
+            <span className="pager-count">
+              {(page - 1) * PAGE_SIZE + 1}&ndash;{Math.min(page * PAGE_SIZE, totalRuns)} of {totalRuns}
+            </span>
+          ) : undefined}
+        >
+          Run history
+        </CardTitle>
         {runs.length === 0 ? (
           <p className="prose-note">No syncs recorded yet.</p>
         ) : (
@@ -187,6 +206,7 @@ export default async function AndroidSyncPage({
             </table>
           </div>
         )}
+        <Pager page={page} count={pageCount} path={`/android/${slug}/sync`} param="runs" />
       </Card>
     </>
   );
