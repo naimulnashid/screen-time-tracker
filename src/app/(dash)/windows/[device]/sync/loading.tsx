@@ -1,4 +1,6 @@
 import { SkPageHead, SkCard, SkRows, SkDataTable, SkMask, SkText } from '@/components/Skeleton';
+import { samplerSub, InFlightTail } from '@/components/Notes';
+import { nativeSource } from '@/lib/config';
 
 /**
  * Laptop Sync Status skeleton: the page's own markup (components/Skeleton.tsx).
@@ -8,11 +10,12 @@ import { SkPageHead, SkCard, SkRows, SkDataTable, SkMask, SkText } from '@/compo
  * draws ten rows of its 25: it starts below the first viewport.
  */
 export default function Loading() {
+  const native = nativeSource() !== null;
   return (
     <>
       <SkPageHead title="Sync Status" sub="Whether the collectors are running, and what they have stored." />
       <div className="grid grid--2">
-        <SkCard title="Sampler" sub="Read from the heartbeat file, not the task state.">
+        <SkCard title="Sampler" sub={samplerSub(native)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span className="badge" style={{ borderColor: 'transparent' }}><SkText>Running</SkText></span>
             <span style={{ fontSize: 'var(--fs-small)' }}><SkText>last tick 1s ago</SkText></span>
@@ -20,9 +23,8 @@ export default function Loading() {
           <div style={{ marginTop: '1rem' }}>
             <SkMask>
               <p className="prose-note">
-                Currently in <strong>Code Editor</strong> for 12m 4s. This span is
-                not in the database yet &mdash; it is written when the foreground
-                changes, so today&rsquo;s totals below exclude it.
+                Currently in <strong>Code Editor</strong> for 12m 4s.{' '}
+                <InFlightTail native={native} />
               </p>
             </SkMask>
           </div>

@@ -25,9 +25,11 @@
 
 import { readFileSync, readdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import {
   openDatabase, checkpointWal, backupDatabase, startSyncRun, finishSyncRun,
 } from '@/lib/db';
+import { nativeSource, type NativeSource } from '@/lib/config';
 
 const HOUR_MS = 3_600_000;
 
@@ -47,18 +49,26 @@ interface Config {
   backupPath?: string;
   scratchDir?: string;
   samplerLogDir?: string;
+  nativeDatabasePath?: string;
+  nativeFrom?: string;
+  nativeSamplerDir?: string;
   backupEnabled?: boolean;
 }
 
 export interface WindowsIngestResult {
   /** Set when there was nothing to read at all; every count is then zero. */
   note?: string;
+  /** The sampler's JSONL, or Screen Time Native's database. */
+  source: 'jsonl' | 'native';
   files: number;
   read: number;
   inserted: number;
   skipped: number;
   malformed: number;
+  /** JSONL day files pruned after the run. */
   removed: number;
+  /** Rows past the seam that Screen Time Native did not record: the other sampler's. */
+  replaced: number;
   oldest: string | null;
   newest: string | null;
   backupStatus: string | null;
@@ -134,13 +144,16 @@ export function splitIntoHours(
   return out;
 }
 
-function empty(note: string): WindowsIngestResult {
+function empty(note: string, source: WindowsIngestResult['source'] = 'jsonl'): WindowsIngestResult {
   return {
-    note,
-    files: 0, read: 0, inserted: 0, skipped: 0, malformed: 0, removed: 0,
+    note, source,
+    files: 0, read: 0, inserted: 0, skipped: 0, malformed: 0, removed: 0, replaced: 0,
     oldest: null, newest: null, backupStatus: null, durationMs: 0, totals: [],
   };
 }
+
+/** The laptop's device id. There is one laptop, so it is a constant. */
+const DEVICE_ID = 'zephyrus';
 
 /**
  * In-flight run, if any.
@@ -192,6 +205,9 @@ async function runIngest({ keep = false }: { keep?: boolean }): Promise<WindowsI
   const cfg = loadConfig();
   if (!cfg.databasePath) throw new Error('No databasePath in config/collector.json');
 
+  const native = nativeSource(cfg);
+  if (native) return runNativeIngest(cfg, cfg.databasePath, native);
+
   const dir = logDir(cfg);
   if (!existsSync(dir)) return empty(`No sampler output at ${dir}`);
 
@@ -206,7 +222,7 @@ async function runIngest({ keep = false }: { keep?: boolean }): Promise<WindowsI
   const todayFile = `sessions-${localBuckets(Date.now()).date}.jsonl`;
 
   const db = openDatabase(cfg.databasePath);
-  const deviceId = 'zephyrus';
+  const deviceId = DEVICE_ID;
   const runId = startSyncRun(db, deviceId, 'win-sampler');
   const began = Date.now();
 
@@ -267,6 +283,31 @@ async function runIngest({ keep = false }: { keep?: boolean }): Promise<WindowsI
     throw err;
   }
 
+  const result = await finishRun(db, runId, cfg, began, {
+    source: 'jsonl', files: files.length,
+    read, inserted, skipped, malformed, removed: 0, replaced: 0, oldest, newest,
+  });
+
+  // Only remove files that can no longer be appended to. The sampler holds
+  // today's file open for more spans; deleting it would lose the rest of today.
+  if (!keep) {
+    for (const file of files) {
+      if (file === todayFile) continue;
+      try { unlinkSync(join(dir, file)); result.removed++; } catch { /* keep going */ }
+    }
+  }
+  return result;
+}
+
+type RunCounts = Omit<WindowsIngestResult, 'note' | 'backupStatus' | 'durationMs' | 'totals'>;
+
+/**
+ * The tail every successful run shares: checkpoint, backup, the run's row in
+ * `sync_log`, and the stored totals. Closes the database.
+ */
+async function finishRun(
+  db: DatabaseSync, runId: number, cfg: Config, began: number, counts: RunCounts,
+): Promise<WindowsIngestResult> {
   checkpointWal(db);
 
   // AWAITED, not fire-and-forget. An un-awaited promise here would leave
@@ -280,34 +321,23 @@ async function runIngest({ keep = false }: { keep?: boolean }): Promise<WindowsI
 
   finishSyncRun(db, runId, {
     status: 'success',
-    rowsRead: read, rowsInserted: inserted, rowsSkipped: skipped,
-    sourceOldestUtc: oldest, sourceNewestUtc: newest,
+    rowsRead: counts.read, rowsInserted: counts.inserted, rowsSkipped: counts.skipped,
+    sourceOldestUtc: counts.oldest, sourceNewestUtc: counts.newest,
     backupStatus, durationMs: Date.now() - began, error: null,
   });
-
-  // Only remove files that can no longer be appended to. The sampler holds
-  // today's file open for more spans; deleting it would lose the rest of today.
-  let removed = 0;
-  if (!keep) {
-    for (const file of files) {
-      if (file === todayFile) continue;
-      try { unlinkSync(join(dir, file)); removed++; } catch { /* keep going */ }
-    }
-  }
 
   const totals = db
     .prepare(
       `SELECT kind, COUNT(*) AS n, SUM(duration_ms) AS ms
          FROM windows_segments WHERE device_id = ? GROUP BY kind ORDER BY ms DESC`,
     )
-    .all(deviceId) as { kind: string; n: number; ms: number }[];
+    .all(DEVICE_ID) as { kind: string; n: number; ms: number }[];
 
   db.close();
 
   return {
-    files: files.length,
-    read, inserted, skipped, malformed, removed,
-    oldest, newest, backupStatus,
+    ...counts,
+    backupStatus,
     durationMs: Date.now() - began,
     // Rebuilt as plain objects: node:sqlite rows have a NULL PROTOTYPE, and
     // React refuses to serialise those across the server/client boundary. This
@@ -316,9 +346,180 @@ async function runIngest({ keep = false }: { keep?: boolean }): Promise<WindowsI
   };
 }
 
+/* ------------------------------------------------- Screen Time Native -- */
+
+/**
+ * The seam as a canonical instant, or an error saying what is wrong with it.
+ *
+ * It must be a LOCAL HOUR EDGE. Both samplers split every span at local hour
+ * edges, so at an edge neither has a row straddling it: everything before
+ * belongs to one sampler and everything after to the other, with nothing cut
+ * in half and no second of overlap. Anywhere else, the row in flight at the
+ * seam would be in both databases under two different keys, counted twice.
+ */
+export function seamInstant(from: string): string {
+  const t = Date.parse(from);
+  if (!from || !Number.isFinite(t)) {
+    throw new Error('nativeFrom in config/collector.json must be an ISO instant, e.g. 2026-10-03T02:00:00+06:00');
+  }
+  const d = new Date(t);
+  if (d.getMinutes() !== 0 || d.getSeconds() !== 0 || d.getMilliseconds() !== 0) {
+    throw new Error(`nativeFrom (${from}) must be a local hour edge -- both samplers split their rows there, so nothing straddles it`);
+  }
+  return d.toISOString();
+}
+
+/** Screen Time Native's segment columns, in SEGMENT_INSERT_SQL's order after the device. */
+const NATIVE_COLUMNS =
+  'session_start_utc, start_utc, end_utc, duration_ms, local_date, local_hour, kind, app_path, unresolved, idle_ms_at_end';
+
+interface NativeRow {
+  session_start_utc: string;
+  start_utc: string;
+  end_utc: string;
+  duration_ms: number;
+  local_date: string;
+  local_hour: number;
+  kind: string;
+  app_path: string;
+  unresolved: number;
+  idle_ms_at_end: number;
+}
+
+interface SegmentKey { session_start_utc: string; start_utc: string; kind: string; app_path: string }
+
+const segmentKey = (r: SegmentKey) => `${r.session_start_utc}|${r.start_utc}|${r.kind}|${r.app_path}`;
+
+/** How far back each run looks again, so a segment saved late is still caught. */
+const NATIVE_LOOKBACK_MS = 24 * HOUR_MS;
+
+export interface NativeCopy {
+  read: number;
+  inserted: number;
+  skipped: number;
+  replaced: number;
+  oldest: string | null;
+  newest: string | null;
+}
+
+/**
+ * Copy Screen Time Native's rows from the seam on into this database, and
+ * make this laptop's rows past the seam MATCH them.
+ *
+ * Its rows are this project's rows already: the native sampler is a port of
+ * this one, writing the same columns, split at the same hour edges, with the
+ * same ISO instants. Only `device_id` is missing, because that app knows one
+ * machine. So the copy is INSERT OR IGNORE on the same key -- immutable
+ * completed segments, exactly as from the JSONL.
+ *
+ * Each run re-reads a trailing day rather than everything since the seam, so
+ * the cost stays flat as the history grows, and a segment the native app
+ * saved late (it saves every 15 minutes, and recovers a killed run's span at
+ * its next start) is still picked up.
+ *
+ * Within that window, a row of ours that the native database does not hold
+ * is the OTHER sampler's -- the last spans the PowerShell sampler wrote past
+ * the seam before it was stopped. Those are removed, which is what makes the
+ * seam exact without a separate cut-over step. But only up to the end of what
+ * the native app has COVERED: past that, a missing row means "not saved yet",
+ * not "not the source", and is left for a later run to judge.
+ *
+ * Not transactional itself; the caller wraps it.
+ */
+export function copyFromNative(
+  db: DatabaseSync, native: DatabaseSync, deviceId: string, fromIso: string,
+): NativeCopy {
+  const ours = db
+    .prepare('SELECT MAX(start_utc) AS m FROM windows_segments WHERE device_id = ? AND start_utc >= ?')
+    .get(deviceId, fromIso) as { m: string | null } | undefined;
+  const lookback = ours?.m ? Date.parse(ours.m) - NATIVE_LOOKBACK_MS : -Infinity;
+  const lower = lookback > Date.parse(fromIso) ? new Date(lookback).toISOString() : fromIso;
+
+  const rows = native
+    .prepare(`SELECT ${NATIVE_COLUMNS} FROM windows_segments WHERE start_utc >= ? ORDER BY start_utc`)
+    .all(lower) as unknown as NativeRow[];
+
+  const theirs = new Set<string>();
+  let covered = lower;
+  for (const r of rows) {
+    theirs.add(segmentKey(r));
+    if (r.end_utc > covered) covered = r.end_utc;
+  }
+
+  const candidates = db
+    .prepare(
+      `SELECT id, session_start_utc, start_utc, kind, app_path FROM windows_segments
+        WHERE device_id = ? AND start_utc >= ? AND start_utc < ?`,
+    )
+    .all(deviceId, lower, covered) as unknown as (SegmentKey & { id: number })[];
+  const remove = db.prepare('DELETE FROM windows_segments WHERE id = ?');
+  let replaced = 0;
+  for (const c of candidates) {
+    if (!theirs.has(segmentKey(c))) replaced += Number(remove.run(c.id).changes);
+  }
+
+  const insert = db.prepare(SEGMENT_INSERT_SQL);
+  let inserted = 0;
+  let skipped = 0;
+  for (const r of rows) {
+    const { changes } = insert.run(
+      deviceId, r.session_start_utc, r.start_utc, r.end_utc, r.duration_ms,
+      r.local_date, r.local_hour, r.kind, r.app_path ?? '', r.unresolved ? 1 : 0, r.idle_ms_at_end ?? 0,
+    );
+    if (Number(changes) > 0) inserted++;
+    else skipped++;
+  }
+
+  return {
+    read: rows.length, inserted, skipped, replaced,
+    oldest: rows[0]?.start_utc ?? null,
+    newest: rows.length > 0 ? covered : null,
+  };
+}
+
+async function runNativeIngest(cfg: Config, databasePath: string, src: NativeSource): Promise<WindowsIngestResult> {
+  const fromIso = seamInstant(src.from);
+  if (!existsSync(src.databasePath)) return empty(`No Screen Time Native database at ${src.databasePath}`, 'native');
+
+  // Read-only: this project never writes to the other app's database. A
+  // reader beside its writer is what WAL mode is for.
+  const native = new DatabaseSync(src.databasePath, { readOnly: true });
+  const db = openDatabase(databasePath);
+  const runId = startSyncRun(db, DEVICE_ID, 'win-sampler');
+  const began = Date.now();
+
+  let copy: NativeCopy;
+  db.exec('BEGIN');
+  try {
+    copy = copyFromNative(db, native, DEVICE_ID, fromIso);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    finishSyncRun(db, runId, {
+      status: 'failed',
+      rowsRead: 0, rowsInserted: 0, rowsSkipped: 0,
+      sourceOldestUtc: null, sourceNewestUtc: null,
+      backupStatus: null, durationMs: Date.now() - began,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    db.close();
+    native.close();
+    throw err;
+  }
+  native.close();
+
+  return finishRun(db, runId, cfg, began, {
+    source: 'native', files: 0, malformed: 0, removed: 0, ...copy,
+  });
+}
+
 /** "Added 663 spans" / "Up to date". One sentence for a toast. */
 export function describeIngest(r: WindowsIngestResult): string {
   if (r.note) return `${r.note} -- nothing to ingest.`;
+  if (r.source === 'native') {
+    if (r.inserted === 0) return 'Up to date -- Screen Time Native has saved nothing new.';
+    return `Added ${r.inserted.toLocaleString('en-US')} segment${r.inserted === 1 ? '' : 's'} from Screen Time Native.`;
+  }
   if (r.inserted === 0) {
     return `Up to date -- read ${r.read} span${r.read === 1 ? '' : 's'}, nothing new.`;
   }

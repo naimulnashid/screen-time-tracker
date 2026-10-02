@@ -5,7 +5,8 @@ import {
 } from '@/lib/queries';
 import { Pager } from '@/components/Pager';
 import { clampPage } from '@/lib/pager';
-import { windowsSlug } from '@/lib/config';
+import { windowsSlug, nativeSource } from '@/lib/config';
+import { samplerSub, InFlightTail } from '@/components/Notes';
 import { formatDateTime, formatDuration, formatElapsed, formatCount } from '@/lib/format';
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
@@ -52,6 +53,7 @@ export default async function SyncPage({
   if (slug !== windowsSlug()) notFound();
 
   const status = getSamplerStatus();
+  const native = nativeSource() !== null;
   // Paged, because the log grows by an ingest an hour and a push per phone
   // sync, and a page is a URL. A number past the end lands on the last page.
   const totalRuns = countSyncRuns();
@@ -74,7 +76,7 @@ export default async function SyncPage({
 
       <div className="grid grid--2">
         <Card delay={0}>
-          <CardTitle sub="Read from the heartbeat file, not the task state.">
+          <CardTitle sub={samplerSub(native)}>
             Sampler
           </CardTitle>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -98,20 +100,21 @@ export default async function SyncPage({
               ) : (
                 <strong>{status.inFlight.kind}</strong>
               )}{' '}
-              for {formatDuration(status.inFlight.ms)}. This span is not in the
-              database yet &mdash; it is written when the foreground changes, so
-              today&rsquo;s totals below exclude it.
+              for {formatDuration(status.inFlight.ms)}. <InFlightTail native={native} />
             </p>
           ) : (
             !status.alive && (
               <p className="prose-note" style={{ marginTop: '1rem' }}>
                 No recent heartbeat. The sampler records only while it runs and
-                nothing backfills, so time passing now is time lost. Start it
-                with{' '}
-                <code className="mono">
-                  install-sampler.ps1 -RunNow
-                </code>
-                .
+                nothing backfills, so time passing now is time lost.{' '}
+                {native ? (
+                  <>Start it from Screen Time Native&rsquo;s Sync Status page.</>
+                ) : (
+                  <>
+                    Start it with{' '}
+                    <code className="mono">install-sampler.ps1 -RunNow</code>.
+                  </>
+                )}
               </p>
             )
           )}

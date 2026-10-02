@@ -78,6 +78,7 @@ interface Config {
   databasePath?: string;
   backupPath?: string;
   samplerLogDir?: string;
+  nativeDatabasePath?: string;
 }
 if (!existsSync('config/collector.json')) {
   console.error('config/collector.json not found -- copy config/collector.example.json to it and set your paths.');
@@ -355,7 +356,9 @@ try {
   // them from a script beats exporting XML, whose embedded <UserId> is this
   // install's SID and will not resolve on a rebuilt machine.
   const taskScripts: [string, string][] = [
-    ['scripts/install-sampler.ps1', 'Screen Time Sampler + Screen Time Ingest (collection)'],
+    ['scripts/install-sampler.ps1', cfg.nativeDatabasePath
+      ? 'Screen Time Ingest (collection; Screen Time Native samples: -IngestOnly)'
+      : 'Screen Time Sampler + Screen Time Ingest (collection)'],
     ['scripts/install-autostart.ps1', 'Start Screen Time Dashboard (serving)'],
   ];
   for (const [script, what] of taskScripts) {

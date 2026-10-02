@@ -15,7 +15,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDatabase, backupDatabase, isBackupContention } from '../src/lib/db';
-import { splitIntoHours, segmentRows, SEGMENT_INSERT_SQL } from '../src/lib/windows-ingest';
+import { splitIntoHours, segmentRows, SEGMENT_INSERT_SQL, seamInstant, copyFromNative } from '../src/lib/windows-ingest';
 import {
   splitDuration, formatDuration, formatDurationLike, durationShape, formatClock,
   formatRelative,
@@ -225,6 +225,82 @@ try {
   db.close();
 } finally {
   rmSync(dir, { recursive: true, force: true });
+}
+
+/* ------------------------------------------------------------------ */
+section('Screen Time Native as the source');
+
+{
+  // The seam must be a LOCAL hour edge: both samplers split their rows there,
+  // so at an edge no row straddles it. Built from local fields, so the test
+  // holds in any time zone.
+  const edge = new Date(2026, 9, 3, 2, 0, 0, 0);
+  check('an hour edge is a seam', seamInstant(edge.toISOString()), edge.toISOString());
+  const threw = (f: () => unknown) => { try { f(); return false; } catch { return true; } };
+  check('half past is refused', threw(() => seamInstant(new Date(2026, 9, 3, 2, 30).toISOString())), true);
+  check('a missing seam is refused', threw(() => seamInstant('')), true);
+  check('garbage is refused', threw(() => seamInstant('soon')), true);
+
+  const nd = mkdtempSync(join(tmpdir(), 'screentime-native-'));
+  try {
+    const db = openDatabase(join(nd, 'web.db'), { allowSystemDrive: true });
+    const native = new DatabaseSync(join(nd, 'native.db'));
+    native.exec(`CREATE TABLE windows_segments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, session_start_utc TEXT NOT NULL,
+      start_utc TEXT NOT NULL, end_utc TEXT NOT NULL, duration_ms INTEGER NOT NULL,
+      local_date TEXT NOT NULL, local_hour INTEGER NOT NULL, kind TEXT NOT NULL,
+      app_path TEXT NOT NULL DEFAULT '', unresolved INTEGER NOT NULL DEFAULT 0,
+      idle_ms_at_end INTEGER NOT NULL DEFAULT 0,
+      UNIQUE (session_start_utc, start_utc, kind, app_path))`);
+
+    const S = edge.getTime();
+    const at = (min: number) => new Date(S + min * MIN).toISOString();
+    const ours = db.prepare(SEGMENT_INSERT_SQL);
+    const theirs = native.prepare(
+      `INSERT INTO windows_segments (session_start_utc, start_utc, end_utc, duration_ms,
+         local_date, local_hour, kind, app_path, unresolved, idle_ms_at_end)
+       VALUES (?, ?, ?, ?, '2026-10-03', 2, 'app', ?, 0, 0)`);
+    const mine = (from: number, to: number, app: string) =>
+      ours.run('zephyrus', at(from), at(from), at(to), (to - from) * MIN, '2026-10-03', 2, 'app', app, 0, 0);
+    const native1 = (from: number, to: number, app: string) =>
+      theirs.run(at(from), at(from), at(to), (to - from) * MIN, app);
+
+    // The PowerShell sampler: one row before the seam, two past it in time
+    // the native app has covered, one past the end of what it has saved.
+    mine(-20, 0, 'C:\\before.exe');
+    mine(0, 9, 'C:\\ps-a.exe');
+    mine(9, 31, 'C:\\ps-b.exe');
+    mine(70, 75, 'C:\\ps-late.exe');
+    // Screen Time Native: a row before the seam (already the other's), and
+    // two after it, covering up to +60 minutes.
+    native1(-20, 0, 'C:\\before-native.exe');
+    native1(0, 30, 'C:\\code.exe');
+    native1(30, 60, 'C:\\edge.exe');
+
+    const run = () => {
+      db.exec('BEGIN');
+      const c = copyFromNative(db, native, 'zephyrus', edge.toISOString());
+      db.exec('COMMIT');
+      return [c.inserted, c.skipped, c.replaced];
+    };
+    const apps = () => (db.prepare('SELECT app_path AS a FROM windows_segments ORDER BY start_utc, app_path').all() as { a: string }[]).map((r) => r.a);
+
+    check('copies past the seam, replaces the other sampler there', run(), [2, 0, 2]);
+    check('before the seam stays; past what native saved stays too', apps(),
+      ['C:\\before.exe', 'C:\\code.exe', 'C:\\edge.exe', 'C:\\ps-late.exe']);
+    check('a second run is a no-op', run(), [0, 2, 0]);
+
+    // Native saves the next stretch: the late stray is now covered, so judged.
+    native1(60, 80, 'C:\\code.exe');
+    check('the later stray goes once native covers it', run(), [1, 2, 1]);
+    const after = db.prepare('SELECT SUM(duration_ms) AS ms FROM windows_segments WHERE start_utc >= ?').get(edge.toISOString()) as { ms: number };
+    check('past the seam, totals are exactly native\'s', after.ms, 80 * MIN);
+
+    db.close();
+    native.close();
+  } finally {
+    rmSync(nd, { recursive: true, force: true });
+  }
 }
 
 /* ------------------------------------------------------------------ */

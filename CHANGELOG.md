@@ -8,6 +8,17 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Added
+- **Screen Time Native can be the laptop's sampler.** Set
+  `nativeDatabasePath` and `nativeFrom` in `config/collector.json` and the
+  ingest (hourly, and Sync now) copies the laptop's screen time from that
+  app's database instead of reading this project's JSONL; Sync Status reads
+  its sampler's heartbeat. `nativeFrom` must be a local hour edge, where both
+  samplers split their rows, so nothing straddles the seam. The PowerShell
+  sampler's last rows past the seam are replaced automatically once the
+  native app has covered that time. `install-sampler.ps1 -IngestOnly` stops
+  this project's sampler cleanly, removes its task and keeps the ingest.
+
 ### Changed
 - **The dashboard and the sampler restart themselves after a crash.** Both
   tasks run a VBS launcher that exited as soon as its child was running, so

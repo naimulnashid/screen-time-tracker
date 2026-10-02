@@ -749,3 +749,13 @@ when next convenient.
 The self-test's logo-colour coverage check fails on four recently dropped
 logos that have no entry in the local `app-colours.json` yet. That predates
 this change.
+
+### 2026-10-03 - one sampler on the laptop: Screen Time Native's
+
+The PowerShell sampler is retired (`install-sampler.ps1 -IngestOnly`) after
+agreeing with Screen Time Native's within 0.3% over 35 hours. The hourly
+ingest now copies the laptop's rows from the native database from 01:00 local
+on 3 October; everything earlier is the PowerShell sampler's. Sync Status
+reads the native heartbeat. The dashboard is now at most about 75 minutes
+behind (the native app saves every 15 minutes, the ingest runs hourly), or
+15 minutes after Sync now.

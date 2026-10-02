@@ -36,6 +36,24 @@ export interface CollectorConfig {
    */
   samplerLogDir: string;
 
+  /**
+   * Screen Time Native's live database. When set, the laptop's screen time
+   * comes from THERE, copied in by the ingest, and the JSONL above is no
+   * longer read. See `nativeSource()` in config.ts.
+   */
+  nativeDatabasePath?: string;
+
+  /**
+   * The seam: rows from this instant on come from Screen Time Native, rows
+   * before it stay as this project's own sampler recorded them. Must be a
+   * local hour edge -- both samplers split their rows there, so nothing
+   * straddles it.
+   */
+  nativeFrom?: string;
+
+  /** Where Screen Time Native keeps its heartbeat. Defaults to its own folder. */
+  nativeSamplerDir?: string;
+
   backupEnabled: boolean;
 }
 

@@ -18,6 +18,10 @@
       .\install-sampler.ps1            register (or re-register) both
       .\install-sampler.ps1 -Remove    unregister both
       .\install-sampler.ps1 -RunNow    register, then start the sampler
+      .\install-sampler.ps1 -IngestOnly
+                                       Screen Time Native is the sampler: stop
+                                       this one cleanly, remove its task, keep
+                                       the hourly ingest (-RunNow runs it once)
 
     Keep this file pure ASCII: Windows PowerShell 5.1 reads a BOM-less script as ANSI.
 #>
@@ -25,7 +29,8 @@
 [CmdletBinding()]
 param(
     [switch]$Remove,
-    [switch]$RunNow
+    [switch]$RunNow,
+    [switch]$IngestOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,40 +62,77 @@ if ($Remove) {
     exit 0
 }
 
-if (-not (Test-Path $vbs)) { Write-Bad "sampler-hidden.vbs not found at $vbs"; exit 1 }
+# --- Screen Time Native is the sampler: retire this one, keep the ingest --
+# Two samplers record every second twice. With nativeDatabasePath set in
+# collector.json the ingest copies from Screen Time Native's database, so this
+# project's sampler has nothing left to do. It is stopped through its STOP
+# FILE, never Stop-Process: the stop file lets it write its in-flight span on
+# the way out, and a kill does not. A clean stop exits 0, so its launcher does
+# not restart it.
+if ($IngestOnly) {
+    if (Get-ScheduledTask -TaskName $SAMPLER_TASK -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $SAMPLER_TASK -Confirm:$false
+        Write-Ok "removed '$SAMPLER_TASK'"
+    } else {
+        Write-Info "'$SAMPLER_TASK' was not registered"
+    }
+    # '\sampler.ps1', with the separator, and never this process: a bare
+    # '*sampler.ps1*' also matches 'install-sampler.ps1', i.e. this script.
+    $running = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+        Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*\sampler.ps1*' })
+    if ($running.Count -gt 0) {
+        $cfg = Get-Content (Join-Path $repo 'config\collector.json') -Raw | ConvertFrom-Json
+        $dir = if ($cfg.samplerLogDir) { $cfg.samplerLogDir } else { Join-Path $cfg.scratchDir 'sampler' }
+        New-Item -ItemType File -Force (Join-Path $dir 'sampler.stop') | Out-Null
+        $samplerPid = $running[0].ProcessId
+        $deadline = (Get-Date).AddSeconds(20)
+        while ((Get-Date) -lt $deadline -and (Get-Process -Id $samplerPid -ErrorAction SilentlyContinue)) {
+            Start-Sleep -Milliseconds 500
+        }
+        if (Get-Process -Id $samplerPid -ErrorAction SilentlyContinue) {
+            Write-Bad "the sampler (PID $samplerPid) did not stop within 20s; it is still running"
+            exit 1
+        }
+        Write-Ok "stopped the sampler cleanly; its in-flight span was written"
+    } else {
+        Write-Info "no sampler running"
+    }
+} elseif (-not (Test-Path $vbs)) { Write-Bad "sampler-hidden.vbs not found at $vbs"; exit 1 }
 if (-not (Test-Path $ingestVbs)) { Write-Bad "ingest-hidden.vbs not found at $ingestVbs"; exit 1 }
 
 # --- 1. The sampler: at logon, runs all session ---------------------------
-$samplerAction = New-ScheduledTaskAction `
-    -Execute 'wscript.exe' `
-    -Argument ('"{0}"' -f $vbs) `
-    -WorkingDirectory $repo
+if (-not $IngestOnly) {
+    $samplerAction = New-ScheduledTaskAction `
+        -Execute 'wscript.exe' `
+        -Argument ('"{0}"' -f $vbs) `
+        -WorkingDirectory $repo
 
-$samplerTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $samplerTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 
-# ExecutionTimeLimit 0 means NO LIMIT. Without it Task Scheduler kills the
-# sampler after its default 3 days, and the symptom is screen time that simply
-# stops being recorded on a machine left running -- with no error anywhere.
-#
-# RestartCount/RestartInterval bring it back if it dies. StartWhenAvailable is
-# deliberately NOT set: this is an at-logon task, and a missed logon is not
-# something to catch up on later.
-$samplerSettings = New-ScheduledTaskSettingsSet `
-    -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries `
-    -DontStopOnIdleEnd `
-    -ExecutionTimeLimit ([TimeSpan]::Zero) `
-    -RestartCount 3 `
-    -RestartInterval (New-TimeSpan -Minutes 1)
+    # ExecutionTimeLimit 0 means NO LIMIT. Without it Task Scheduler kills the
+    # sampler after its default 3 days, and the symptom is screen time that simply
+    # stops being recorded on a machine left running -- with no error anywhere.
+    #
+    # RestartCount/RestartInterval bring it back if it dies. StartWhenAvailable is
+    # deliberately NOT set: this is an at-logon task, and a missed logon is not
+    # something to catch up on later.
+    $samplerSettings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -DontStopOnIdleEnd `
+        -ExecutionTimeLimit ([TimeSpan]::Zero) `
+        -RestartCount 3 `
+        -RestartInterval (New-TimeSpan -Minutes 1)
 
-Register-ScheduledTask `
-    -TaskName $SAMPLER_TASK `
-    -Action $samplerAction `
-    -Trigger $samplerTrigger `
-    -Settings $samplerSettings `
-    -Description 'Records which application is in the foreground, for the Screen Time dashboard. Runs unelevated; captures no window titles.' `
-    -Force | Out-Null
-Write-Ok "registered '$SAMPLER_TASK' (at logon, no time limit)"
+    Register-ScheduledTask `
+        -TaskName $SAMPLER_TASK `
+        -Action $samplerAction `
+        -Trigger $samplerTrigger `
+        -Settings $samplerSettings `
+        -Description 'Records which application is in the foreground, for the Screen Time dashboard. Runs unelevated; captures no window titles.' `
+        -Force | Out-Null
+    Write-Ok "registered '$SAMPLER_TASK' (at logon, no time limit)"
+}
 
 # --- 2. The ingest: hourly, and HIDDEN ------------------------------------
 # Through wscript, exactly like the other two tasks, and for the same reason:
@@ -149,12 +191,16 @@ Write-Ok "registered '$INGEST_TASK' (hourly, hidden, catches up if missed)"
 
 # --- 3. Report -----------------------------------------------------------
 Write-Host ""
-foreach ($t in @($SAMPLER_TASK, $INGEST_TASK)) {
+$registered = if ($IngestOnly) { @($INGEST_TASK) } else { @($SAMPLER_TASK, $INGEST_TASK) }
+foreach ($t in $registered) {
     $info = Get-ScheduledTaskInfo -TaskName $t
     Write-Info ("{0,-22} next run: {1}" -f $t, $(if ($info.NextRunTime) { $info.NextRunTime } else { 'at next logon' }))
 }
 
-if ($RunNow) {
+if ($RunNow -and $IngestOnly) {
+    Start-ScheduledTask -TaskName $INGEST_TASK
+    Write-Ok "started '$INGEST_TASK'; its output goes to logs\ingest.log"
+} elseif ($RunNow) {
     Start-ScheduledTask -TaskName $SAMPLER_TASK
     Start-Sleep -Seconds 4
 
@@ -167,7 +213,7 @@ if ($RunNow) {
     # the steady state, which would have sent a future reader hunting for a
     # fault that does not exist.
     $proc = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
-        Where-Object { $_.CommandLine -like '*sampler.ps1*' }
+        Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*\sampler.ps1*' }
 
     Write-Host ""
     if ($proc) {

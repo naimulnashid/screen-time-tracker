@@ -41,3 +41,29 @@ export function HomeRankNote({ names, verb, opens }: { names: string; verb: 'is'
     </p>
   );
 }
+
+/**
+ * The laptop Sync page's Sampler card names whichever sampler is the source:
+ * this project's own, or Screen Time Native's (see `nativeSource()`).
+ */
+export function samplerSub(native: boolean): string {
+  return native
+    ? "Screen Time Native's, read from its heartbeat file."
+    : 'Read from the heartbeat file, not the task state.';
+}
+
+/** After "Currently in X for 12m": why that span is not in the totals yet. */
+export function InFlightTail({ native }: { native: boolean }) {
+  return native ? (
+    <>
+      This span is not in the database yet &mdash; Screen Time Native saves
+      every 15 minutes and this dashboard copies from it hourly or on Sync
+      now, so today&rsquo;s totals below lag it.
+    </>
+  ) : (
+    <>
+      This span is not in the database yet &mdash; it is written when the
+      foreground changes, so today&rsquo;s totals below exclude it.
+    </>
+  );
+}

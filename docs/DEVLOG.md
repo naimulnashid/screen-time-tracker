@@ -7,6 +7,36 @@ doc privately.
 
 ## After 1.0.0
 
+### One sampler: Screen Time Native's, from a seam on an hour edge
+
+The laptop ran two samplers for two days: this project's PowerShell one and
+Screen Time Native's, a port of it into a standalone app, each into its own
+database. Compared over the 35 hours they overlapped, they agreed: active
+time within 0.3%, locked and asleep time within a minute. So one could go,
+and the native app is the one that stays.
+
+The web dashboard's laptop pages read only this project's database, so
+retiring the PowerShell sampler would have frozen them. Instead the ingest
+copies from the native database. That works row for row because the native
+sampler is a port: same columns, same ISO instants, rows split at the same
+local hour edges. Only `device_id` is missing.
+
+The rows never MATCH, though: each sampler polls on its own 2-second phase,
+so of 2,124 native rows in the overlap, 15 shared a key with ours. Copying
+alongside would count every second twice. Hence a seam, `nativeFrom`, which
+must be a local hour edge: both samplers split there, so at an edge no row of
+either straddles it. Before it, our rows; from it, theirs. Checked on the
+live database after the switch: the last PowerShell row ends at
+19:00:00.000Z, the first native row starts there, no overlap and no gap.
+
+The seam needs no separate cut-over step. Each run re-reads a trailing day of
+native rows, and any row of ours past the seam that the native database
+lacks -- the PowerShell sampler's last spans, written after the seam before
+it was stopped -- is removed. But only up to the end of what the native app
+has saved (every 15 minutes): past that, a missing row means "not saved
+yet", and is left for a later run. The self-test proves both halves, and
+fails when that bound is removed.
+
 ### The expanded heat map starts on the first recorded day
 
 `expandedBlocks()` began on the 1st of the data's first month, which kept a

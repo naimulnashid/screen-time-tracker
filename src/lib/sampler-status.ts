@@ -9,7 +9,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from './config';
+import { loadConfig, nativeSource } from './config';
 
 export interface SamplerStatus {
   /** True when the heartbeat exists and is recent enough to trust. */
@@ -35,6 +35,10 @@ export interface SamplerStatus {
  */
 function samplerDir(): string | null {
   const cfg = loadConfig();
+  // When Screen Time Native is the source, ITS sampler is the one running.
+  // Same heartbeat shape: it is a port of this project's sampler.
+  const native = nativeSource(cfg);
+  if (native) return native.heartbeatDir;
   if (cfg.samplerLogDir) return cfg.samplerLogDir;
   return cfg.scratchDir ? join(cfg.scratchDir, 'sampler') : null;
 }

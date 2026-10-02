@@ -5,6 +5,9 @@
  *   npm run ingest
  *   npm run ingest -- --keep      leave the JSONL in place after ingest
  *
+ * With `nativeDatabasePath` in collector.json it copies from Screen Time
+ * Native's database instead, and there is no JSONL to keep.
+ *
  * This file is what the hourly "Screen Time Ingest" scheduled task runs. Its
  * whole job is to turn the result object into something readable in a console
  * window nobody is watching, and to set an exit code that Task Scheduler will
@@ -21,13 +24,21 @@ async function main(): Promise<void> {
 
   if (r.note) {
     console.log(`${r.note} -- nothing to ingest.`);
-    console.log('Start the sampler with: npm run sample');
+    console.log(r.source === 'native'
+      ? 'Is Screen Time Native installed, and nativeDatabasePath right?'
+      : 'Start the sampler with: install-sampler.ps1 -RunNow');
     return;
   }
 
-  console.log(`files      : ${r.files}`);
-  console.log(`spans read : ${r.read}`);
+  if (r.source === 'native') {
+    console.log('source     : Screen Time Native');
+    console.log(`rows read  : ${r.read}`);
+  } else {
+    console.log(`files      : ${r.files}`);
+    console.log(`spans read : ${r.read}`);
+  }
   console.log(`segments   : ${r.inserted} inserted, ${r.skipped} already present`);
+  if (r.replaced) console.log(`replaced   : ${r.replaced} row(s) past the seam from the other sampler`);
   if (r.malformed) console.log(`malformed  : ${r.malformed} line(s) skipped`);
   console.log(`range      : ${r.oldest ?? '-'}  ->  ${r.newest ?? '-'}`);
   if (r.removed) console.log(`pruned     : ${r.removed} completed day file(s)`);

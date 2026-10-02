@@ -80,6 +80,37 @@ export function windowsSlug(): string {
   return slugify(deviceLabel());
 }
 
+/**
+ * Where the laptop's screen time comes from, when it is NOT this project's own
+ * sampler: Screen Time Native, the standalone Windows app, recording into its
+ * own database. Null means the PowerShell sampler and its JSONL, as before.
+ *
+ * Two samplers on one machine record the same seconds twice, in two places
+ * that never agree to the row (each samples on its own 2-second phase). So
+ * one of them has to be the source, and from a stated instant: `nativeFrom`.
+ * The ingest copies native rows from there on; everything earlier stays as
+ * this project's sampler recorded it.
+ *
+ * The heartbeat is Screen Time Native's too -- it is the sampler that is
+ * actually running. Its folder is on C: (the native app keeps its working
+ * folder there on purpose), and only the heartbeat is read from it.
+ */
+export interface NativeSource {
+  databasePath: string;
+  from: string;
+  heartbeatDir: string | null;
+}
+
+export function nativeSource(cfg: Partial<CollectorConfig> = loadConfig()): NativeSource | null {
+  if (!cfg.nativeDatabasePath) return null;
+  const local = process.env.LOCALAPPDATA;
+  return {
+    databasePath: cfg.nativeDatabasePath,
+    from: cfg.nativeFrom ?? '',
+    heartbeatDir: cfg.nativeSamplerDir ?? (local ? join(local, 'Screen Time Native', 'sampler') : null),
+  };
+}
+
 export function databaseExists(): boolean {
   const p = dbPath();
   try {

@@ -170,6 +170,17 @@ This registers two unelevated tasks: the sampler, at logon, and the ingest,
 hourly. Windows keeps no usable history of foreground time, so recording
 starts from the moment the sampler runs.
 
+**Or let Screen Time Native record.** If the laptop runs
+[Screen Time Native](https://github.com/naimulnashid/screen-time-native), the
+standalone Windows app ported from this project's laptop half, run only one
+sampler: two record every second twice. Register just the ingest with
+`install-sampler.ps1 -IngestOnly` (it stops a running sampler cleanly), run
+`npm run ingest` once more, then set `nativeDatabasePath` and `nativeFrom` in
+`config/collector.json` (see the example file). From `nativeFrom`, a local
+hour edge, the ingest copies the laptop's screen time from that app's
+database, and Sync Status reads its sampler's heartbeat. Earlier history
+stays as this project's sampler recorded it.
+
 ### 3. A phone (optional)
 
 1. Download the signed APK from the
