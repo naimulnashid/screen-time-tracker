@@ -67,7 +67,7 @@ REM   - installs dependencies if node_modules is missing
 REM   - builds when there is no complete build (BUILD_ID and .next\server) -
 REM     `npm start` against no `.next` exits immediately, so there would be
 REM     nothing to open
-REM   - only WARNS when src\ or config\ is newer than the build. Building on
+REM   - only WARNS when the source is newer than the build. Building on
 REM     every launch would cost ~30s each time and turn a broken build into a
 REM     start-up failure; a build is a thing you run after changing code, where
 REM     its output is in front of you. Serving the old build SILENTLY is what

@@ -14,8 +14,9 @@
     wrong -- everything renders, nothing errors, and the figures are computed
     by queries you have since fixed.
 
-    So it compares the newest file under src/ and config/ against
-    .next/BUILD_ID and rebuilds when anything is newer. A no-op check costs
+    So it compares the newest file under src/ and config/, and package.json,
+    next.config.mjs and tsconfig.json, against .next/BUILD_ID and rebuilds
+    when anything is newer (ensure-build.ps1 holds the rule). A no-op check costs
     milliseconds; the build costs ~30s and only happens after you change
     something.
 

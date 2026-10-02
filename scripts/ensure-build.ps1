@@ -21,7 +21,10 @@
         convincing kind of wrong -- everything renders, nothing errors, and the
         figures are computed by queries you have since fixed. So it rebuilds.
 
-    "Stale" means anything under src\ or config\ is newer than .next\BUILD_ID.
+    "Stale" means anything under src\ or config\, or package.json,
+    next.config.mjs or tsconfig.json, is newer than .next\BUILD_ID - the same
+    list as the other local dashboards' launchers. A dependency bump in
+    package.json with no change under src\ is still a different build.
 
     "A build" means BUILD_ID AND .next\server. BUILD_ID is written when a build
     finishes, but a .next emptied by hand, or half deleted, can leave it behind
@@ -96,8 +99,11 @@ elseif ($Force) {
 }
 else {
     $builtAt = (Get-Item '.next\BUILD_ID').LastWriteTime
-    $newest = Get-ChildItem -Path 'src', 'config' -Recurse -File -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $sources = @(Get-ChildItem -Path 'src', 'config' -Recurse -File -ErrorAction SilentlyContinue)
+    foreach ($file in 'package.json', 'next.config.mjs', 'tsconfig.json') {
+        if (Test-Path $file) { $sources += Get-Item $file }
+    }
+    $newest = $sources | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
     if ($newest -and $newest.LastWriteTime -gt $builtAt) {
         if ($RebuildStale) {

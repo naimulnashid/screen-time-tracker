@@ -19,7 +19,8 @@ each change -- what was measured, and what it overturned -- is in
   and `start-screen-time-dashboard.bat` (which warns) each carried their own
   copy; now they call the same script. A build now also needs `.next/server`,
   not just `.next/BUILD_ID`, so a half-deleted `.next` is rebuilt instead of
-  served.
+  served. A change to `package.json`, `next.config.mjs` or `tsconfig.json` now
+  counts as newer source too, so a dependency update is rebuilt at logon.
 - **The expanded Activity page opens on the first recorded day**, not on the
   1st of that month: a laptop whose history began on the 31st no longer
   opens on a month of outlined, never-recorded days. The days before it in
