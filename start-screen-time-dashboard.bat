@@ -29,15 +29,6 @@ cd /d "%~dp0"
 
 set "PORT=7844"
 set "URL=http://localhost:%PORT%"
-REM The readiness probe goes to 127.0.0.1, not localhost. Windows resolves
-REM localhost to ::1 first, and against a server listening on 127.0.0.1 only
-REM that costs about 2 s before it falls back - as long as the probe's whole
-REM timeout, so a probe of localhost can fail every time against a server that
-REM is up. The browser still opens localhost, where its sign-in cookie lives.
-REM It does not follow redirects either: any answer means the server is up, a
-REM redirect included, and the login redirect names localhost - following it
-REM walked straight back into the same 2 s, every time.
-set "PROBE=http://127.0.0.1:%PORT%"
 
 where npm >nul 2>&1
 if errorlevel 1 (
@@ -95,17 +86,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM --- Open the browser once the server responds -----------------------------
-REM Launched first, in the background, so it can poll while the server boots.
-REM Opening the URL immediately would just show a connection error.
+REM --- Open the browser once the server is listening -------------------------
+REM A listening port is the signal, not an HTTP answer. `next start` opens the
+REM port a moment before it has finished starting, but holds any request that
+REM arrives in that moment until it is ready, rather than refusing it - so once
+REM the port listens, the browser's request will be answered. Nothing else can
+REM be the listener: the check above exits if anything held the port already.
 REM
-REM A 200 is not required: the dashboard is behind a password gate, so a cold
-REM browser gets the login form rendered at the address it asked for. Any HTTP
-REM answer at all means the server is up, and Invoke-WebRequest throws on a 401
-REM as readily as on a refused connection - so the catch has to tell "not
-REM listening yet" from "listening and saying no".
-start "" /min powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "for ($i = 0; $i -lt 90; $i++) { try { Invoke-WebRequest '%PROBE%' -UseBasicParsing -TimeoutSec 2 -MaximumRedirection 0 | Out-Null; Start-Process '%URL%'; break } catch { if ($_.Exception.Response) { Start-Process '%URL%'; break }; Start-Sleep -Seconds 1 } }"
+REM This is what the Data Usage dashboard's launcher does, and it sidesteps
+REM everything an HTTP probe has to get right: localhost resolving to ::1 first
+REM (a ~2 s fallback against a server on 127.0.0.1 alone), a login redirect
+REM that names localhost, and a password gate answering 401.
+REM
+REM /b keeps the waiter in this console, so closing the window takes it along,
+REM and its "did not start" message lands here rather than in a window of its
+REM own.
+start "" /b powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline = (Get-Date).AddSeconds(180); while ((Get-Date) -lt $deadline) { if (Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue) { Start-Process '%URL%'; exit 0 }; Start-Sleep -Milliseconds 400 }; Write-Host 'The server did not start within 3 minutes - see the output above.'; exit 1"
 
 echo.
 echo Starting the dashboard on %URL%
