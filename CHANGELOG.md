@@ -9,6 +9,12 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Changed
+- **Both dashboard launchers share one build rule,** in
+  `scripts/ensure-build.ps1`. The logon task (which rebuilds a stale build)
+  and `start-screen-time-dashboard.bat` (which warns) each carried their own
+  copy; now they call the same script. A build now also needs `.next/server`,
+  not just `.next/BUILD_ID`, so a half-deleted `.next` is rebuilt instead of
+  served.
 - **The expanded Activity page opens on the first recorded day**, not on the
   1st of that month: a laptop whose history began on the 31st no longer
   opens on a month of outlined, never-recorded days. The days before it in

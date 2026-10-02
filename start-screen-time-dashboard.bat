@@ -58,68 +58,31 @@ if not errorlevel 1 (
     exit /b 0
 )
 
-REM --- Dependencies ----------------------------------------------------------
-if not exist "node_modules" (
-    echo Installing dependencies. This happens once and takes a minute...
-    call npm install
-    if errorlevel 1 (
-        echo.
-        echo ERROR: npm install failed. See the messages above.
-        pause
-        exit /b 1
-    )
-)
-
-REM --- Production build ------------------------------------------------------
-REM Build only when there ISN'T one. Building on every launch would cost ~30s
-REM each time and would turn a broken build into a start-up failure. Building is
-REM a thing you do after changing code (`npm run build`), where the output is in
-REM front of you and a failure is obvious.
-REM
-REM A MISSING build is the one case that still has to build here: `npm start`
-REM against no `.next` exits immediately, so there would be nothing to open.
+REM --- Dependencies and a production build -----------------------------------
+REM scripts\ensure-build.ps1 decides, and it is the SAME script the logon task
+REM runs, so the two launchers never disagree about what "a build" or "stale"
+REM means. Called plainly, as here, it:
+REM   - installs dependencies if node_modules is missing
+REM   - builds when there is no complete build (BUILD_ID and .next\server) -
+REM     `npm start` against no `.next` exits immediately, so there would be
+REM     nothing to open
+REM   - only WARNS when src\ or config\ is newer than the build. Building on
+REM     every launch would cost ~30s each time and turn a broken build into a
+REM     start-up failure; a build is a thing you run after changing code, where
+REM     its output is in front of you. Serving the old build SILENTLY is what
+REM     the warning prevents: on a dashboard whose whole job is reporting
+REM     current numbers, three-week-old query code is a convincing kind of
+REM     wrong. (The logon task rebuilds instead: it has no window to warn in.)
 REM
 REM Set FORCE_BUILD=1 before running this to rebuild anyway.
-set "DO_BUILD="
-if not exist ".next\BUILD_ID" set "DO_BUILD=1"
-if not "%FORCE_BUILD%"=="" set "DO_BUILD=1"
-
-REM Stale builds are REPORTED, not fixed. Serving the previous build silently is
-REM what this warning exists to prevent - on a dashboard whose whole job is
-REM reporting current numbers, serving three-week-old query code is a convincing
-REM kind of wrong: everything renders, nothing errors, and the figures come from
-REM queries you have since fixed.
-REM
-REM The comparison is src\ and config\ against .next\BUILD_ID - deliberately the
-REM SAME rule dashboard-service.ps1 uses, so the logon task and this window never
-REM disagree about what "stale" means. PowerShell signals through its exit code
-REM rather than stdout, so nothing here has to survive `for /f` quoting - and the
-REM whole check sits inside the block so a leftover errorlevel from npm install
-REM can never be read as "stale".
-set "STALE="
-if not defined DO_BUILD (
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$b = (Get-Item '.next\BUILD_ID' -ErrorAction SilentlyContinue).LastWriteTime; if (-not $b) { exit 0 }; $s = @(); foreach ($d in 'src', 'config') { if (Test-Path $d) { $s += Get-ChildItem $d -Recurse -File -ErrorAction SilentlyContinue } }; $n = ($s | Measure-Object -Property LastWriteTime -Maximum).Maximum; if ($n -and $n -gt $b) { exit 1 }; exit 0"
-    if errorlevel 1 set "STALE=1"
-)
-
-if defined STALE (
+set "FORCE="
+if not "%FORCE_BUILD%"=="" set "FORCE=-Force"
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\ensure-build.ps1" %FORCE%
+if errorlevel 1 (
     echo.
-    echo WARNING: your source files are newer than the production build.
-    echo          This window will serve the OLD build. Run "npm run build"
-    echo          - or set FORCE_BUILD=1 - to pick up your changes.
-    echo.
-)
-
-if not exist ".next\BUILD_ID" echo No production build found - this is the one case that builds here.
-if defined DO_BUILD (
-    echo Building the dashboard. This takes about 30 seconds...
-    call npm run build
-    if errorlevel 1 (
-        echo.
-        echo ERROR: build failed. See the messages above.
-        pause
-        exit /b 1
-    )
+    echo ERROR: there is no build to serve. See the messages above.
+    pause
+    exit /b 1
 )
 
 REM --- Open the browser once the server responds -----------------------------

@@ -129,42 +129,26 @@ if ($held.Count -gt 0) {
     exit 1
 }
 
-# --- Rebuild if the source is newer than the build --------------------
-$buildId = Join-Path $repo '.next\BUILD_ID'
-$needsBuild = $true
-
+# --- Dependencies, and a current build -------------------------------
+# The rule lives in ensure-build.ps1, shared with
+# start-screen-time-dashboard.bat so the two never disagree about what
+# "stale" means. -RebuildStale is this launcher's half of it: the .bat only
+# warns, but this has no window to warn in. Its output is written through
+# Write-LogLines like everything else here (see the encoding note above).
 if ($SkipBuild) {
-    $needsBuild = $false
     Write-Log "build skipped by request"
-} elseif (Test-Path $buildId) {
-    $builtAt = (Get-Item $buildId).LastWriteTime
-    $newest = Get-ChildItem -Path (Join-Path $repo 'src'), (Join-Path $repo 'config') -Recurse -File -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($newest -and $newest.LastWriteTime -gt $builtAt) {
-        Write-Log "rebuild needed: $($newest.Name) is newer than the build"
-    } else {
-        $needsBuild = $false
-        Write-Log "build is current ($builtAt)"
-    }
 } else {
-    Write-Log "no build found"
-}
-
-if ($needsBuild) {
-    Write-Log "building..."
-    # Captured and written through Write-LogLines rather than redirected with
-    # *>> so the encoding stays consistent (see the note above).
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $buildOut = & npm run build 2>&1 | ForEach-Object { $_.ToString() }
+    $buildOut = & (Join-Path $PSScriptRoot 'ensure-build.ps1') -RebuildStale *>&1 | ForEach-Object { $_.ToString() }
     $buildCode = $LASTEXITCODE
     $ErrorActionPreference = $prev
     Write-LogLines $buildOut
     if ($buildCode -ne 0) {
-        Write-Log "BUILD FAILED (exit $buildCode) -- not starting"
+        Write-Log "NO BUILD TO SERVE (ensure-build exit $buildCode) -- not starting"
         exit 1
     }
-    Write-Log "build ok"
+    Set-Location $repo
 }
 
 # --- Serve -------------------------------------------------------------
