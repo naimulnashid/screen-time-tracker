@@ -8,6 +8,8 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-03
+
 ### Added
 - **Screen Time Native can be the laptop's sampler.** Set
   `nativeDatabasePath` and `nativeFrom` in `config/collector.json` and the
@@ -18,6 +20,8 @@ each change -- what was measured, and what it overturned -- is in
   sampler's last rows past the seam are replaced automatically once the
   native app has covered that time. `install-sampler.ps1 -IngestOnly` stops
   this project's sampler cleanly, removes its task and keeps the ingest.
+- **`CONTRIBUTING.md`**: how to report, what to run before a change, and the
+  rules a change must keep.
 
 ### Changed
 - **The dashboard and the sampler restart themselves after a crash.** Both
@@ -47,9 +51,11 @@ each change -- what was measured, and what it overturned -- is in
   opens on a month of outlined, never-recorded days. The days before it in
   its week are hidden. Both the laptop's and the phones' pages.
 
-### Added
-- **`CONTRIBUTING.md`**: how to report, what to run before a change, and the
-  rules a change must keep.
+### Fixed
+- **`install-sampler.ps1 -RunNow` always reported the sampler running.** Its
+  process check matched `*sampler.ps1*`, which `install-sampler.ps1` itself
+  matches, so it found its own process. It now requires `\sampler.ps1` and
+  skips its own PID.
 
 ## [1.2.0] - 2026-10-01
 
@@ -218,7 +224,8 @@ First public release.
   Two documented exceptions: the fixed-width phone layout, and the heat map's
   lowest shades.
 
-[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.0.0
