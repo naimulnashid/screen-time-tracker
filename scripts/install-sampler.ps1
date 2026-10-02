@@ -134,7 +134,9 @@ $ingestSettings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
     -StartWhenAvailable `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 30) `
+    -RestartCount 3 `
+    -RestartInterval (New-TimeSpan -Minutes 1)
 
 Register-ScheduledTask `
     -TaskName $INGEST_TASK `

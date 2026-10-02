@@ -9,6 +9,16 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Changed
+- **The dashboard and the sampler restart themselves after a crash.** Both
+  tasks run a VBS launcher that exited as soon as its child was running, so
+  Task Scheduler never saw a crash and their restart setting could not act:
+  a crashed sampler stayed down until the next logon, losing recording that
+  cannot be caught up. `dashboard-service.ps1` now restarts a server that
+  exits unasked (`stop-dashboard.bat` marks its stop as wanted first), and
+  `sampler-hidden.vbs` waits for the sampler and restarts it on a non-zero
+  exit, logging to `logs/sampler-restarts.log`. Both retry 60 s apart, at
+  most 3 times; a clean exit is never restarted. The Ingest task also
+  retries 3 times, a minute apart, when it fails to start.
 - **The start `.bat` opens your browser once the server's port is
   listening,** instead of probing over HTTP, like the other dashboards'
   launchers; and its already-running message points at `stop-dashboard.bat`.

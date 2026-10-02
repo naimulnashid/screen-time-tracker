@@ -88,7 +88,10 @@ $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 # server after its default three days, and the symptom is a dashboard that was
 # working on Monday and is simply gone on Thursday, with no error anywhere.
 #
-# RestartCount brings it back if node dies. StartWhenAvailable is deliberately
+# RestartCount covers the task failing to START. It cannot see node dying
+# later - the task runs dashboard-hidden.vbs, which exits at once - so
+# dashboard-service.ps1 restarts a crashed server itself, on the same
+# 3-times-a-minute-apart policy. StartWhenAvailable is deliberately
 # NOT set: this is an at-logon task and a missed logon is not worth catching up.
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `

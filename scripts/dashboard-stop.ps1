@@ -62,6 +62,17 @@ function Get-Listeners {
     }
 }
 
+# Tell dashboard-service.ps1 this stop is wanted, before anything is stopped:
+# it restarts a server that exits on its own, and without this marker a stop
+# would look exactly like a crash. Written even when nothing is listening,
+# because the service may be in its 60-second wait before a restart. A
+# marker nobody reads is cleared when the service next starts.
+if (-not $dryRun) {
+    $logDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'logs'
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+    Set-Content -Path (Join-Path $logDir 'dashboard.stop') -Value (Get-Date -Format o) -Encoding ascii
+}
+
 $listeners = @(Get-Listeners)
 if ($listeners.Count -eq 0) {
     Write-Host "  nothing listening on port $Port" -ForegroundColor DarkGray
