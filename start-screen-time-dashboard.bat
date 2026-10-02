@@ -29,6 +29,15 @@ cd /d "%~dp0"
 
 set "PORT=7844"
 set "URL=http://localhost:%PORT%"
+REM The readiness probe goes to 127.0.0.1, not localhost. Windows resolves
+REM localhost to ::1 first, and against a server listening on 127.0.0.1 only
+REM that costs about 2 s before it falls back - as long as the probe's whole
+REM timeout, so a probe of localhost can fail every time against a server that
+REM is up. The browser still opens localhost, where its sign-in cookie lives.
+REM It does not follow redirects either: any answer means the server is up, a
+REM redirect included, and the login redirect names localhost - following it
+REM walked straight back into the same 2 s, every time.
+set "PROBE=http://127.0.0.1:%PORT%"
 
 where npm >nul 2>&1
 if errorlevel 1 (
@@ -52,6 +61,7 @@ if not errorlevel 1 (
     echo NOTE: this window did not start it - something else is already serving
     echo that port. Most likely the "Start Screen Time Dashboard" logon task, or
     echo an "npm run dev" you left running. Nothing to do; opening the browser.
+    echo Run stop-dashboard.bat first if you want this window to serve it instead.
     start "" "%URL%"
     echo.
     pause
@@ -95,7 +105,7 @@ REM answer at all means the server is up, and Invoke-WebRequest throws on a 401
 REM as readily as on a refused connection - so the catch has to tell "not
 REM listening yet" from "listening and saying no".
 start "" /min powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "for ($i = 0; $i -lt 90; $i++) { try { Invoke-WebRequest '%URL%' -UseBasicParsing -TimeoutSec 2 | Out-Null; Start-Process '%URL%'; break } catch { if ($_.Exception.Response) { Start-Process '%URL%'; break }; Start-Sleep -Seconds 1 } }"
+  "for ($i = 0; $i -lt 90; $i++) { try { Invoke-WebRequest '%PROBE%' -UseBasicParsing -TimeoutSec 2 -MaximumRedirection 0 | Out-Null; Start-Process '%URL%'; break } catch { if ($_.Exception.Response) { Start-Process '%URL%'; break }; Start-Sleep -Seconds 1 } }"
 
 echo.
 echo Starting the dashboard on %URL%

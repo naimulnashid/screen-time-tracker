@@ -9,6 +9,11 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Changed
+- **The start `.bat` probes `127.0.0.1`, without following redirects,** before
+  opening your browser, and its already-running message points at
+  `stop-dashboard.bat`. A probe of `localhost` costs about 2 s to fall back
+  from `::1` against a server on `127.0.0.1` alone - as long as the probe's
+  timeout - and the login redirect names `localhost`.
 - **Both dashboard launchers share one build rule,** in
   `scripts/ensure-build.ps1`. The logon task (which rebuilds a stale build)
   and `start-screen-time-dashboard.bat` (which warns) each carried their own
