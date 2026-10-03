@@ -77,7 +77,9 @@ const inPushedGit = (f: string) => {
 interface Config {
   databasePath?: string;
   backupPath?: string;
+  scratchDir?: string;
   samplerLogDir?: string;
+  secretsDir?: string;
   nativeDatabasePath?: string;
 }
 if (!existsSync('config/collector.json')) {
@@ -252,16 +254,18 @@ try {
   section('4. What a reset takes with it');
 
   // Enumerated rather than assumed. Each of these lives only on C:\.
+  //
+  // The secrets' copies live on a NON-synced drive on purpose: they survive a
+  // C:\ reset without being uploaded to anyone's cloud. Resolved exactly as
+  // backup-recovery-kit.ps1 resolves it, and a folder on the system drive
+  // counts as no copy at all.
+  const secretsDir = cfg.secretsDir ?? (cfg.scratchDir ? join(cfg.scratchDir, 'recovery') : '');
+  const secretsSafe = secretsDir !== '' && !onSystemDrive(secretsDir);
   if (existsSync('.env.local')) {
     const env = readFileSync('.env.local', 'utf8');
     const keys = [...env.matchAll(/^([A-Z_]+)=/gm)].map((m) => m[1]);
 
-    // The copy lives on the NON-synced drive on purpose: it survives a C:\
-    // reset without being uploaded to anyone's cloud. That is why the scratch
-    // dir sits outside PersistentData. See backup-recovery-kit.ps1.
-    const secretCopy = cfg.samplerLogDir
-      ? join(resolve(cfg.samplerLogDir, '..'), 'recovery', '.env.local')
-      : '';
+    const secretCopy = secretsSafe ? join(secretsDir, '.env.local') : '';
     if (secretCopy && existsSync(secretCopy)) {
       // Compare contents: a copy taken before the password was rotated is
       // worse than none, because it looks like protection.
@@ -282,14 +286,12 @@ try {
   // release stops installing over the published one: the phones would have
   // to uninstall the app, re-grant usage access and re-enter the token. The
   // .jks must NOT be on C:\, and the properties file naming it (gitignored,
-  // with the passwords) needs its copy in the recovery dir.
+  // with the passwords) needs its copy in secretsDir.
   const ksProps = join('android', 'keystore.properties');
   if (existsSync(ksProps)) {
     const text = readFileSync(ksProps, 'utf8');
     const store = /^storeFile=(.+)$/m.exec(text)?.[1]?.trim() ?? '';
-    const propsCopy = cfg.samplerLogDir
-      ? join(resolve(cfg.samplerLogDir, '..'), 'recovery', 'keystore.properties')
-      : '';
+    const propsCopy = secretsSafe ? join(secretsDir, 'keystore.properties') : '';
     if (!store || !existsSync(store)) {
       bad('APK signing key is MISSING', `${ksProps} names ${store || 'nothing'}, which does not exist`);
     } else if (onSystemDrive(store)) {

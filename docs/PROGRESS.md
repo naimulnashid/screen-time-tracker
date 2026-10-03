@@ -759,3 +759,11 @@ on 3 October; everything earlier is the PowerShell sampler's. Sync Status
 reads the native heartbeat. The dashboard is now at most about 75 minutes
 behind (the native app saves every 15 minutes, the ingest runs hourly), or
 15 minutes after Sync now.
+
+### 2026-10-03 - the secrets live beside the signing key
+
+`secretsDir` in `collector.json` now says where `npm run backup:kit` copies
+`.env.local` and `keystore.properties`, and where `npm run drill` checks them.
+On this machine that is the keys folder that already holds the `.jks`, so the
+scratch folder no longer holds anything a reset recovery needs. Without the
+setting, both fall back to `<scratchDir>\recovery\` as before.

@@ -39,7 +39,7 @@ android {
     // The release APK is published on GitHub Releases, so it is signed with a
     // real key. The key and its passwords are LOCAL ONLY: android/
     // keystore.properties (gitignored) names the .jks and holds the
-    // passwords, and a copy of both lives in <scratchDir>\recovery\. Losing
+    // passwords, and npm run backup:kit copies it into secretsDir. Losing
     // the key means a new release cannot install over the old one; the app
     // would have to be uninstalled first.
     //

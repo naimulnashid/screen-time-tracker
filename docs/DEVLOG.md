@@ -7,6 +7,17 @@ doc privately.
 
 ## After 1.0.0
 
+### The secrets folder is a setting: secretsDir
+
+`npm run backup:kit` always copied `.env.local` and `keystore.properties`
+into `<scratchDir>\recovery\`, and `npm run drill` looked for them in a
+folder derived from `samplerLogDir` instead, which matched only because the
+sampler's folder happened to sit inside the scratch folder. Now both read
+`secretsDir` from `collector.json` and fall back to `<scratchDir>\recovery\`
+the same way, so the copies can live beside the signing key in a folder kept
+for keys. A `secretsDir` on the system drive is refused by the kit and counts
+as no copy in the drill: a copy a reset destroys protects nothing.
+
 ### One sampler: Screen Time Native's, from a seam on an hour edge
 
 The laptop ran two samplers for two days: this project's PowerShell one and

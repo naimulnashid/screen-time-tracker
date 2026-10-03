@@ -36,10 +36,11 @@
       local-files -> beside backupPath   (a synced folder) is exactly what you
                                          want. Personal, but not a credential.
 
-      secrets -> <scratchDir>\recovery\  NOT synced (that is why the scratch
-                                         dir lives outside the synced folder).
-                                         The values survive a C:\ reset without
+      secrets -> secretsDir              NOT synced: off the system drive and
+                 (default <scratchDir>\  outside the synced folder, so the
+                  recovery\)             values survive a C:\ reset without
                                          being uploaded to anyone's cloud.
+                                         Refused on the system drive.
 
     The secrets copy is PLAINTEXT on a local disk -- the same protection the
     original has, and no worse. If that is not good enough for you, put them in
@@ -99,6 +100,10 @@ $raw = [System.IO.File]::ReadAllText($cfgPath)
 if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 65279) { $raw = $raw.Substring(1) }
 $cfg = $raw | ConvertFrom-Json
 
+# One answer to "where do the secrets go", shared with RESTORE.txt below and
+# with reset-drill.ts, which must look in the same place.
+$secretDir = if ($cfg.secretsDir) { $cfg.secretsDir } else { Join-Path $cfg.scratchDir 'recovery' }
+
 # --- 1. The code -------------------------------------------------------
 $bundleDir = Split-Path $cfg.backupPath -Parent
 if (-not (Test-Path $bundleDir)) { New-Item -ItemType Directory -Path $bundleDir -Force | Out-Null }
@@ -153,12 +158,15 @@ if (Test-Path $bundle) {
 Write-Host "`n=== Secrets ===" -ForegroundColor Cyan
 if ($SkipSecrets) {
     Write-Info "skipped by request; keep them in a password manager instead"
+} elseif ($secretDir -like "$($env:SystemDrive)*") {
+    # A copy on the drive a reset destroys protects nothing, and a green tick
+    # for it would be worse than no copy at all.
+    Write-Bad "secretsDir is on the system drive ($secretDir) -- point it at another drive"
 } else {
     $envFile = Join-Path $repo '.env.local'
     if (-not (Test-Path $envFile)) {
         Write-Bad ".env.local not found -- nothing to preserve"
     } else {
-        $secretDir = Join-Path $cfg.scratchDir 'recovery'
         if (-not (Test-Path $secretDir)) { New-Item -ItemType Directory -Path $secretDir -Force | Out-Null }
         Copy-Item $envFile (Join-Path $secretDir '.env.local') -Force
         Write-Ok "secrets copied to the NON-synced drive"
@@ -170,7 +178,6 @@ if ($SkipSecrets) {
     # system drive; a key on C:\ would die with the reset, so say so.
     $ksProps = Join-Path $repo 'android\keystore.properties'
     if (Test-Path $ksProps) {
-        $secretDir = Join-Path $cfg.scratchDir 'recovery'
         if (-not (Test-Path $secretDir)) { New-Item -ItemType Directory -Path $secretDir -Force | Out-Null }
         Copy-Item $ksProps (Join-Path $secretDir 'keystore.properties') -Force
         $store = ((Get-Content $ksProps | Where-Object { $_ -like 'storeFile=*' }) -replace '^storeFile=', '').Trim()
@@ -252,13 +259,13 @@ Everything below assumes C:\ is gone and D:\ survived.
    npm install
 
 2. SECRETS
-   copy "$($cfg.scratchDir)\recovery\.env.local" .env.local
+   copy "$secretDir\.env.local" .env.local
    (or set DASHBOARD_PASSWORD and ANDROID_INGEST_TOKEN by hand -- but then the
     phone needs the new token typed into Screen Time Reporter, or it will 401
     on every sync and only say so in its own status line)
 
    APK SIGNING KEY -- only needed to build a new release of the phone app:
-   copy "$($cfg.scratchDir)\recovery\keystore.properties" android\keystore.properties
+   copy "$secretDir\keystore.properties" android\keystore.properties
 
    LOCAL-ONLY FILES -- config, brand colours and logos; gitignored, so the
    clone may not have them, and step 3 needs collector.json:

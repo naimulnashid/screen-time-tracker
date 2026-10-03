@@ -35,8 +35,8 @@ android/build/
 
 # The release SIGNING KEY and its passwords. Never in git, public or private:
 # anyone holding the key can ship an update the phones will accept as ours.
-# The key lives in <scratchDir>\recovery\ and npm run backup:kit copies the
-# properties file there too.
+# Keep the key off the system drive; npm run backup:kit copies the properties
+# file into secretsDir (default <scratchDir>\recovery\).
 android/keystore.properties
 *.jks
 *.keystore
