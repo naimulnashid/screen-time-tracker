@@ -127,19 +127,27 @@ async function main(): Promise<void> {
   // The check on "new rows win": both readings of each WHOLE day they share.
   // They should agree closely; a large gap means the overlap is not the same
   // history, and the merge should not go ahead blind.
-  const days = db.prepare(
+  // Below Android 9 there is no screen-on, so compare app time instead.
+  const compare = (table: string, where: string) => db.prepare(
     `SELECT local_date,
             SUM(CASE WHEN device_id = ? THEN duration_ms ELSE 0 END) AS old_ms,
             SUM(CASE WHEN device_id = ? THEN duration_ms ELSE 0 END) AS new_ms
-     FROM android_screen
-     WHERE kind = 'screen_on' AND device_id IN (?, ?)
+     FROM ${table}
+     WHERE ${where} device_id IN (?, ?)
      GROUP BY local_date
      HAVING old_ms > 0 AND new_ms > 0
      ORDER BY local_date`,
   ).all(from.device_id, into.device_id, from.device_id, into.device_id) as
     { local_date: string; old_ms: number; new_ms: number }[];
-  if (days.length > 2) {
-    console.log('\nscreen-on on the days both hold (first and last are partial):');
+  let measure = 'screen-on';
+  let days = compare('android_screen', "kind = 'screen_on' AND");
+  if (days.length <= 2) {
+    measure = 'app time';
+    days = compare('android_segments', '');
+  }
+  if (days.length > 0) {
+    console.log(`
+${measure} on the days both hold (first and last are partial):`);
     for (const d of days) {
       console.log(`  ${d.local_date}  old ${hours(d.old_ms).padStart(7)}  new ${hours(d.new_ms).padStart(7)}`);
     }

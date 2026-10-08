@@ -27,7 +27,19 @@ The Redmi Note 9 Pro, reinstalled the same afternoon, showed up as TWO new
 phones, 24 ms apart. The device id was created the first time a sync asked
 for it, without a lock. Saving the address books the sync job, which runs
 at once, so the job and Sync now each created one. Reporter 1.2.1 creates
-it under a lock.
+it under a lock. The orphaned id never synced again, so the one that did is
+the one the phone kept. The orphan and then the original entry were folded
+into it.
+
+The Redmi 5 Plus showed why "new rows win" is the right rule, rather than
+taking both readings. Its two readings held the same sessions, but every
+timestamp in the new one was about 10.25 seconds later. Android had shifted
+its stored events as a block, probably after a clock correction, so no key
+matched and keeping both would have counted the overlap twice. The old
+reading had also cut a session off at the moment of an earlier sync, five
+minutes short of the next event. No entry held overlapping rows of one app,
+so ordinary syncs had not double-counted. Android 8.1 has no screen-on
+events, so on that phone the report compares app time instead.
 
 The uninstall itself also caught us out: on a phone with a second profile
 (Private space, DualApps), Android keeps the package record, with the old
