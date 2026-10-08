@@ -774,4 +774,4 @@ Screen Time Reporter 1.2 (`versionCode 3`): a daily `SyncWatchdog` job,
 with no network constraint, notifies when the dashboard has not had the
 phone's history for the phone's measured reach minus 48 hours, capped at
 168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
-Plus ~138 h. Not yet released or installed on the phones.
+Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.

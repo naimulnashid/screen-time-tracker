@@ -8,6 +8,8 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-08
+
 ### Added
 - **The phone warns before its unsent history is lost** (Screen Time
   Reporter 1.2). A daily check, which runs with or without a network, posts
@@ -233,7 +235,8 @@ First public release.
   Two documented exceptions: the fixed-width phone layout, and the heat map's
   lowest shades.
 
-[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.4.0
 [1.3.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.1.0
