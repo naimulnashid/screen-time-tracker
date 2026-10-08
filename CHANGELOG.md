@@ -8,6 +8,15 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Added
+- **The phone warns before its unsent history is lost** (Screen Time
+  Reporter 1.2). A daily check, which runs with or without a network, posts
+  a notification when the dashboard has not received the phone's history for
+  168 hours -- sooner on a phone that keeps less: the limit is the phone's own
+  measured history reach minus 48 hours. Syncing clears it. The app asks for
+  notification permission on Android 13 and later, and its status says when
+  notifications are off.
+
 ## [1.3.0] - 2026-10-03
 
 ### Added

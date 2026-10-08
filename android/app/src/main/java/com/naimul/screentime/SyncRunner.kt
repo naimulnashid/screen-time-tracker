@@ -43,10 +43,14 @@ class SyncRunner(private val context: Context) {
             }
 
             val reading = UsageReader(context).read(from, now)
+            // Measured every sync, kept as a SPAN: it is how long unsent
+            // history survives on this phone, which is the stale-sync
+            // warning's limit. See SyncWatchdog.
+            reading.eventReachMs?.let { prefs.eventReachSpanMs = now - it }
             if (reading.sessions.isEmpty() && reading.screen.isEmpty()) {
                 // Still advance: an empty window is a fact, not a failure, and
                 // not advancing would re-read the same empty range forever.
-                prefs.syncedThrough = now
+                prefs.markSyncedThrough(now)
                 return finish(prefs, true, "Nothing new to send")
             }
 
@@ -55,7 +59,7 @@ class SyncRunner(private val context: Context) {
                 // Advance from what the SERVER confirmed, never from what was
                 // sent. An upload that fails halfway must be retried, not
                 // skipped past.
-                prefs.syncedThrough = result.acceptedThrough
+                prefs.markSyncedThrough(result.acceptedThrough)
             }
 
             // Surface the measured event reach in the result line: it is the
@@ -76,6 +80,10 @@ class SyncRunner(private val context: Context) {
     private fun finish(prefs: Prefs, ok: Boolean, message: String): Outcome {
         prefs.lastResult = (if (ok) "OK - " else "Failed - ") + message
         prefs.lastResultAt = System.currentTimeMillis()
+        // Clears the warning once the server has caught up; never posts it.
+        // A failed sync leaves posting to the daily check, so a phone off
+        // its network is not re-notified every six hours.
+        if (ok && !SyncWatchdog.staleness(context).stale) SyncWatchdog.dismiss(context)
         return Outcome(ok, message)
     }
 

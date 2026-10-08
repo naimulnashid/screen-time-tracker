@@ -7,6 +7,32 @@ doc privately.
 
 ## After 1.0.0
 
+### The phone warns before its unsent history is lost
+
+Android keeps a phone's usage events for a limited time, and anything the
+dashboard has not received by then is gone for good. Nothing on the phone
+said when that was getting close: a phone away from the dashboard's network
+simply stopped syncing, and the only sign was on the dashboard, which is the
+thing that had stopped hearing from it.
+
+Screen Time Reporter 1.2 posts a notification instead. Two choices in it were
+decided by measurement or by the failure they avoid:
+
+- **The check is its own daily job with no network constraint.** The sync job
+  only runs when its network is up, so a check attached to it would never
+  run in exactly the case it is for.
+- **The limit follows each phone's measured reach.** On 2026-10-08 the
+  reach was about 216 hours on the Nothing and the Redmi Note 9 Pro, and 138
+  hours on the Redmi 5 Plus. A fixed 168 hours would have warned that phone
+  30 hours after its oldest unsent history was already gone. So the warning
+  fires at the reach minus 48 hours, capped at 168 and never under 48.
+
+It measures from a new `safe_through` watermark rather than
+`synced_through`, because Full resync clears the latter and a phone that has
+just re-sent everything has lost nothing. Tested on an Android 16 emulator:
+quiet at 80 hours and warning at 100 with a 138-hour reach, quiet at 150 with
+216, and cleared once the phone had caught up.
+
 ### The secrets folder is a setting: secretsDir
 
 `npm run backup:kit` always copied `.env.local` and `keystore.properties`

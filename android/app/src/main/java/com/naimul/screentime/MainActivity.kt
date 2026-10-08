@@ -1,6 +1,9 @@
 package com.naimul.screentime
 
+import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
@@ -162,10 +165,26 @@ class MainActivity : Activity() {
         root.addView(status)
 
         setContentView(ScrollView(this).apply { addView(root) })
+
+        // For the stale-sync warning (SyncWatchdog). Android 13+ asks once;
+        // a refusal is shown in the status line rather than asked again.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        // An install updated from 1.1 has a sync job but no watchdog until
+        // something books it; this is a no-op once it is booked.
+        if (prefs.isConfigured) SyncWatchdog.schedule(this)
+        refreshStatus()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         refreshStatus()
     }
 
@@ -256,6 +275,20 @@ class MainActivity : Activity() {
                 if (through > 0) "Synced through: ${fmt.format(Date(through))}\n"
                 else "Synced through: nothing yet\n",
             )
+            if (prefs.isConfigured) {
+                val s = SyncWatchdog.staleness(this@MainActivity)
+                if (s.stale) {
+                    append("NOT SYNCED FOR ${SyncWatchdog.hours(s.ageMs).uppercase()}: ")
+                    append("the oldest unsent history is about to be lost\n")
+                }
+                // Without this the warning is dropped silently, and the whole
+                // point of it is that nothing else would say so.
+                if (!getSystemService(NotificationManager::class.java).areNotificationsEnabled()) {
+                    append("Notifications: off, so a stalled sync will not be reported\n")
+                } else {
+                    append("Warns if not synced for ${SyncWatchdog.hours(s.limitMs)}\n")
+                }
+            }
             // The measured event reach rides along in lastResult; see
             // SyncRunner. It is the one number Phase 1 could not determine, and
             // it decides whether this cadence is generous or tight.
@@ -266,7 +299,8 @@ class MainActivity : Activity() {
                 append(prefs.lastResult)
             }
         }
-        status.setTextColor(if (granted) Color.LTGRAY else Color.parseColor("#ff8a80"))
+        val stale = prefs.isConfigured && SyncWatchdog.staleness(this).stale
+        status.setTextColor(if (granted && !stale) Color.LTGRAY else Color.parseColor("#ff8a80"))
     }
 
     /* ------------------------------------------------------------ views */

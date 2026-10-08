@@ -69,6 +69,7 @@ class SyncJobService : JobService() {
                 .setPersisted(true)
                 .build()
             scheduler.schedule(job)
+            SyncWatchdog.schedule(context)
         }
 
         /**

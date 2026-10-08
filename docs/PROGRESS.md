@@ -767,3 +767,11 @@ behind (the native app saves every 15 minutes, the ingest runs hourly), or
 On this machine that is the keys folder that already holds the `.jks`, so the
 scratch folder no longer holds anything a reset recovery needs. Without the
 setting, both fall back to `<scratchDir>\recovery\` as before.
+
+### 2026-10-08 - the phone warns before its history is lost
+
+Screen Time Reporter 1.2 (`versionCode 3`): a daily `SyncWatchdog` job,
+with no network constraint, notifies when the dashboard has not had the
+phone's history for the phone's measured reach minus 48 hours, capped at
+168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
+Plus ~138 h. Not yet released or installed on the phones.

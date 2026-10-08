@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Re-register the job after a reboot.
+ * Re-register the jobs after a reboot, and after an update.
  *
  * `setPersisted(true)` is supposed to make this unnecessary, and on a stock
  * build it does. It is here because the Windows half already learned this
@@ -15,7 +15,14 @@ import android.content.Intent
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        if (Prefs(context).isConfigured) SyncJobService.schedule(context)
+        // MY_PACKAGE_REPLACED so an update that adds a job (SyncWatchdog came
+        // in 1.2) books it without waiting for the app to be opened.
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
+            intent.action != Intent.ACTION_MY_PACKAGE_REPLACED
+        ) return
+        if (Prefs(context).isConfigured) {
+            SyncJobService.schedule(context)
+            SyncWatchdog.schedule(context)
+        }
     }
 }

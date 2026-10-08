@@ -49,6 +49,34 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putLong(KEY_THROUGH, v).apply()
 
     /**
+     * Epoch ms the server is known to hold this phone's history through.
+     *
+     * The same moment as [syncedThrough], but Full resync never clears it:
+     * this is what the stale-sync warning measures from, and a phone that has
+     * just pressed Full resync has lost nothing. Falls back to [syncedThrough]
+     * for an install from before this key existed.
+     */
+    val safeThrough: Long
+        get() = maxOf(sp.getLong(KEY_SAFE_THROUGH, 0L), syncedThrough)
+
+    /** Advance both watermarks; see [syncedThrough] and [safeThrough]. */
+    fun markSyncedThrough(t: Long) {
+        sp.edit()
+            .putLong(KEY_THROUGH, t)
+            .putLong(KEY_SAFE_THROUGH, maxOf(t, sp.getLong(KEY_SAFE_THROUGH, 0L)))
+            .apply()
+    }
+
+    /**
+     * How far back `queryEvents` reached at the last sync, as a span in ms.
+     * It sets the stale-sync warning's limit, because it is how long unsent
+     * history survives on THIS phone -- and it is not the same on every one.
+     */
+    var eventReachSpanMs: Long
+        get() = sp.getLong(KEY_REACH, 0L)
+        set(v) = sp.edit().putLong(KEY_REACH, v).apply()
+
+    /**
      * How often the background job runs, in hours.
      *
      * The rule is the same as everywhere in this project -- collect faster
@@ -102,6 +130,8 @@ class Prefs(context: Context) {
         const val KEY_URL = "server_url"
         const val KEY_TOKEN = "token"
         const val KEY_THROUGH = "synced_through"
+        const val KEY_SAFE_THROUGH = "safe_through"
+        const val KEY_REACH = "event_reach_span_ms"
         const val KEY_RESULT = "last_result"
         const val KEY_RESULT_AT = "last_result_at"
     }

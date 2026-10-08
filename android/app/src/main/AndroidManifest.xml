@@ -24,6 +24,10 @@
          the app to be opened again. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- The stale-sync warning (SyncWatchdog). A runtime permission from
+         Android 13, asked for when the app opens; below 13 it is granted. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!--
       QUERY_ALL_PACKAGES. Android 11+ hides the package list by default, and
       this app's whole job is to name every package that held the foreground,
@@ -57,11 +61,17 @@
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="false" />
 
+        <service
+            android:name=".SyncWatchdog"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>

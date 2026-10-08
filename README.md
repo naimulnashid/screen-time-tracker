@@ -205,7 +205,10 @@ stays as this project's sampler recorded it.
    `ANDROID_INGEST_TOKEN`, then tap **Save and test connection**.
 
 The phone syncs in the background. Android keeps about 10 days of event
-history, so the first sync backfills that much.
+history, so the first sync backfills that much. If the dashboard has not
+received the phone's history for 168 hours (sooner on a phone that keeps
+less), the app posts a notification, before the oldest of it is lost; allow
+notifications when it asks.
 
 ### 4. Backups
 
