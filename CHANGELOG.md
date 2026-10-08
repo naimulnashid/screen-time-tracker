@@ -8,6 +8,8 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-08
+
 ### Added
 - **`npm run android:merge`** folds one phone entry's history into another
   for the same phone. Reinstalling the phone app (for example to switch
@@ -21,6 +23,14 @@ each change -- what was measured, and what it overturned -- is in
 - **A freshly installed phone app could report as two phones** (Screen Time
   Reporter 1.2.1). Its device id was created on first use without a lock,
   and the first background sync and **Sync now** could both create one.
+
+### Security
+- **Next.js 16.3.8**, which fixes server-side request forgery in image
+  optimisation, cache poisoning of statically generated pages, information
+  disclosure through metadata image routes and the development server, and
+  draft-mode content leaking into cached responses. Also **sharp 0.35.5**
+  (a librsvg vulnerability) and **source-map-js 1.2.2** (a denial of
+  service). `npm audit` reports none outstanding.
 
 ## [1.4.0] - 2026-10-08
 
@@ -249,7 +259,8 @@ First public release.
   Two documented exceptions: the fixed-width phone layout, and the heat map's
   lowest shades.
 
-[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.4.1
 [1.4.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.4.0
 [1.3.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.2.0

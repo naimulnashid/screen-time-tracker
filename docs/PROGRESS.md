@@ -775,3 +775,12 @@ with no network constraint, notifies when the dashboard has not had the
 phone's history for the phone's measured reach minus 48 hours, capped at
 168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
 Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
+
+### 2026-10-08 - three phones reinstalled, merged, and v1.4.1
+
+All three phones moved to the signed release. Each reinstall came back as a
+new phone, and the Note 9 Pro came back as two. `npm run android:merge` put
+each one back under its old address with its full history. Reporter 1.2.1
+fixes the double id. v1.4.1 also carries Next.js 16.3.8, sharp 0.35.5 and
+source-map-js 1.2.2, which closes all eight Dependabot alerts. Dependabot's
+PR for Next 16.4.0 is left open as a separate decision.
