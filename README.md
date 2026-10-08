@@ -196,7 +196,11 @@ stays as this project's sampler recorded it.
    and install `app/build/outputs/apk/debug/app-debug.apk`, for example with
    `adb install`. A self-built copy is signed with a different key, so it
    cannot install over the released one, or the other way round, without
-   uninstalling first. To sign your own release builds, point
+   uninstalling first. Uninstalling also resets the phone's device id, so its
+   next sync shows up as a second phone; fold the old entry's history into
+   it with `npm run android:merge -- --from <old-slug> --into <new-slug>`
+   (it reports first, and writes only with `--apply`). To sign your own
+   release builds, point
    `android/keystore.properties` (gitignored) at your keystore with
    `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, then run
    `./gradlew assembleRelease`.

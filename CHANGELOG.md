@@ -8,6 +8,20 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Added
+- **`npm run android:merge`** folds one phone entry's history into another
+  for the same phone. Reinstalling the phone app (for example to switch
+  between a self-built and a released APK) gives it a new device id, so its
+  next sync appears as a second phone holding only recent days. The script
+  reports what it would move and compares the overlap day by day; `--apply`
+  backs up first, keeps the new entry's rows where the two overlap, and gives
+  the merged phone its old address back.
+
+### Fixed
+- **A freshly installed phone app could report as two phones** (Screen Time
+  Reporter 1.2.1). Its device id was created on first use without a lock,
+  and the first background sync and **Sync now** could both create one.
+
 ## [1.4.0] - 2026-10-08
 
 ### Added

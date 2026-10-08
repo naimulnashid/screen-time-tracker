@@ -15,16 +15,27 @@ class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("screen-time", Context.MODE_PRIVATE)
 
     /**
-     * A random id generated once, on first launch.
+     * A random id generated once, at the first sync after install.
      *
      * NOT the hardware serial, ANDROID_ID or an advertising id. Those are
      * either unavailable without extra permissions or are identifiers this
      * project has no business holding; all the dashboard needs is something
      * stable enough to tell two phones apart.
+     *
+     * Uninstalling deletes it, so a reinstalled app reports as a new phone;
+     * `npm run android:merge` folds the old entry's history into the new one.
+     *
+     * Created under a lock. Saving the address books the sync job, which
+     * runs at once, so on a fresh install it and Sync now can ask for the id
+     * together. Unlocked, both found none and each made its own: the
+     * dashboard got two new phones 24 ms apart (Redmi Note 9 Pro,
+     * 2026-10-08), one of them never heard from again.
      */
     val deviceId: String
-        get() = sp.getString(KEY_DEVICE_ID, null) ?: UUID.randomUUID().toString().also {
-            sp.edit().putString(KEY_DEVICE_ID, it).apply()
+        get() = synchronized(ID_LOCK) {
+            sp.getString(KEY_DEVICE_ID, null) ?: UUID.randomUUID().toString().also {
+                sp.edit().putString(KEY_DEVICE_ID, it).commit()
+            }
         }
 
     var serverUrl: String
@@ -120,6 +131,9 @@ class Prefs(context: Context) {
 
     companion object {
         const val DEFAULT_HOURS = 6
+
+        /** Process-wide: every Prefs instance shares one preferences file. */
+        private val ID_LOCK = Any()
 
         /** Offered in the app. Whole hours; see syncHours. */
         val HOUR_CHOICES = intArrayOf(1, 3, 6, 12, 24)

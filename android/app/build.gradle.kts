@@ -25,8 +25,8 @@ android {
         // Lint's NewApi check (run by assembleRelease) guards the rest.
         minSdk = 27
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.2.1"
     }
 
     // BuildConfig is off by default from AGP 8; Uploader reports the app

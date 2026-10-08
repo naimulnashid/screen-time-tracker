@@ -7,6 +7,34 @@ doc privately.
 
 ## After 1.0.0
 
+### A reinstalled phone is a new phone, and a fresh one could be two
+
+Moving the Nothing from a self-built debug APK to the signed 1.2 release
+needed an uninstall, and that deleted the app's random device id. Its next
+sync created a second "Nothing A001" holding the ~216 hours Android still
+had, while seven weeks of history stayed under the old id. Nothing was lost,
+but the history was split across two sidebar entries.
+
+`npm run android:merge` moves one entry's history into another for the same
+phone, refusing two different models. Where the two overlap, the new rows win:
+an old row is kept only if it ends before the new entry's first row starts,
+because two readings of the same events need not share keys and keeping both
+could count the overlap twice. The report compares screen-on for each day
+both entries hold. On the Nothing, every whole day agreed to the minute
+except one, which differed by 2 minutes.
+
+The Redmi Note 9 Pro, reinstalled the same afternoon, showed up as TWO new
+phones, 24 ms apart. The device id was created the first time a sync asked
+for it, without a lock. Saving the address books the sync job, which runs
+at once, so the job and Sync now each created one. Reporter 1.2.1 creates
+it under a lock.
+
+The uninstall itself also caught us out: on a phone with a second profile
+(Private space, DualApps), Android keeps the package record, with the old
+signature, after the app is removed from every profile. The release APK then
+fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` until `adb uninstall`
+clears the record.
+
 ### The phone warns before its unsent history is lost
 
 Android keeps a phone's usage events for a limited time, and anything the

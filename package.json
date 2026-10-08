@@ -19,6 +19,7 @@
     "android:analyze": "tsx scripts/research/phase1-android-analyze.ts",
     "sample": "powershell -ExecutionPolicy Bypass -File scripts/sampler.ps1",
     "ingest": "tsx scripts/ingest-windows.ts",
+    "android:merge": "tsx scripts/merge-android-device.ts",
     "selftest": "tsx scripts/selftest.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",
     "demo": "cd demo && node ../node_modules/next/dist/bin/next start .. -p 7849",
