@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS sync_log (
   -- 'zephyrus' for the laptop; the phone's own stable id for an Android push.
   device_id         TEXT    NOT NULL,
 
-  -- Which collector wrote this run: win-sampler | android-events. Named
+  -- Which collector wrote this run: win-sampler | android-events |
+  -- android-inbox (a phone upload collected from the cloud inbox). Named
   -- rather than inferred from device_id so a device CAN have more than one;
   -- the SRUM reader and the Android daily-rollup API that once made it two
   -- per device were both measured and dropped.

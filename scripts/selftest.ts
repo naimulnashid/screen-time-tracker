@@ -59,6 +59,11 @@ import {
   recentBlock, expandedBlocks, blockLabel, heatmapColor, HEATMAP_RAMP, WEEKS, DAY_LABELS,
 } from '../src/lib/heatmap';
 import { readFileSync, writeFileSync } from 'node:fs';
+import {
+  sealEnvelope, openEnvelope, envelopeJson, newInboxKeyPem, publicKeyB64, fingerprint, uploadBearer,
+} from '../src/lib/inbox';
+import { createPrivateKey } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 
 let passed = 0;
 let failed = 0;
@@ -1748,6 +1753,40 @@ section('history pager');
   check('junk is page 1', [clampPage('abc', 12), clampPage(undefined, 12), clampPage('-3', 12)], [1, 1, 1]);
   check('a fraction is floored', clampPage('4.7', 12), 4);
   check('an empty history still has page 1', clampPage('3', 1), 1);
+}
+
+/* ------------------------------------------------------------------ */
+section('cloud inbox envelopes');
+{
+  // The format in lib/inbox.ts. The Kotlin side (Sealer.kt) writes the same
+  // bytes; that pairing was checked by compiling Sealer.kt on a desktop JVM
+  // and opening its envelopes here, which this test cannot repeat without a
+  // Kotlin compiler. What it pins down is that every way of getting an
+  // envelope wrong fails, and fails closed.
+  const key = createPrivateKey(newInboxKeyPem());
+  const pub = publicKeyB64(key);
+  const token = 'selftest-ingest-token-0123456789';
+  const plain = gzipSync(Buffer.from(JSON.stringify({ device: { deviceId: 'selftest-phone' }, tzOffsetMinutes: 360 })));
+  const env = sealEnvelope(plain, pub, token);
+  const throws = (f: () => unknown) => { try { f(); return false; } catch { return true; } };
+
+  check('an envelope opens to what was sealed',
+    (envelopeJson(env, key, token) as { device: { deviceId: string } }).device.deviceId, 'selftest-phone');
+  check('an envelope starts with STI1', env.subarray(0, 4).toString('ascii'), 'STI1');
+  check('two envelopes of one upload differ', sealEnvelope(plain, pub, token).equals(env), false);
+  check('a forgery sealed with another token is refused',
+    throws(() => openEnvelope(sealEnvelope(plain, pub, 'someone-else-entirely'), key, token)), true);
+  check('another laptop key cannot open it',
+    throws(() => openEnvelope(env, createPrivateKey(newInboxKeyPem()), token)), true);
+  for (const at of [2, 10, 4 + 65 + 3, env.length - 20, env.length - 1]) {
+    const bad = Buffer.from(env);
+    bad[at] = bad[at]! ^ 0x01;
+    check(`a flipped bit at byte ${at} is refused`, throws(() => openEnvelope(bad, key, token)), true);
+  }
+  check('a truncated envelope is refused', throws(() => openEnvelope(env.subarray(0, 60), key, token)), true);
+  check('the upload bearer is not the token, and is hex',
+    uploadBearer(token) !== token && /^[0-9a-f]{64}$/.test(uploadBearer(token)), true);
+  check('a fingerprint is four groups of four', /^[0-9A-F]{4}( [0-9A-F]{4}){3}$/.test(fingerprint(pub)), true);
 }
 
 /* ------------------------------------------------------------------ */

@@ -47,7 +47,15 @@
     "",
     "Switching: install-sampler.ps1 -IngestOnly stops this project's sampler",
     "cleanly and keeps the hourly ingest; run npm run ingest once more, then",
-    "add the keys above."
+    "add the keys above.",
+    "",
+    "Optional, for phones that should report from any network, even while the",
+    "laptop is off:",
+    "",
+    "  inbox  null (off), or { \"url\": <the inbox function's https address,",
+    "         ending /inbox/screen-time>, \"keyPath\": <this laptop's private key,",
+    "         which the phones encrypt to> }. Keep the key off the system drive",
+    "         and out of the repo. See scripts/inbox.ts."
   ],
 
   "deviceLabel": "My Laptop",
@@ -56,6 +64,8 @@
   "backupPath": "D:\\PersistentData\\screen-time\\screen-time.db",
   "scratchDir": "D:\\ScreenTime-scratch",
   "samplerLogDir": "D:\\ScreenTime-scratch\\sampler",
+
+  "inbox": null,
 
   "backupEnabled": true
 }

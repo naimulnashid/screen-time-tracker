@@ -7,6 +7,40 @@ doc privately.
 
 ## After 1.0.0
 
+### A cloud inbox for the phones, encrypted end to end
+
+The phones could only post to the dashboard's LAN address: it changed with
+every router reboot, did not exist at another house, and the laptop had to be
+on. With ~10 days of history on the phone, a week away was close to losing
+some. Moving the dashboard to a host was considered and rejected (every
+query rewritten, the free database tier outgrown, the screen-time record of
+every app held by a third party). What shipped is a mailbox: the phone posts
+to a fixed HTTPS address, and the laptop empties it into the same
+`payloadProblem` + `ingestAndroid` path.
+
+The inbox holds only envelopes it cannot open: each upload is sealed to the
+laptop's P-256 key, and the ingest token is mixed into the key derivation, so
+an envelope sealed by anyone without the token fails at the GCM tag. The
+inbox never sees that token -- phones authenticate to it with an HMAC of it.
+The phone takes the laptop's key from the dashboard over the LAN, never from
+the inbox, which is the party that must not be able to swap it.
+
+One Supabase function serves this project and the sibling Data Usage
+Tracker, as two mailboxes: its own path (`/inbox/screen-time`), its own
+tokens, its own rows, every query filtered by app. Measured live: each
+project's drain token gets a 401 from the other's mailbox, and an envelope
+with the sibling's magic is refused here.
+
+Verified: the Kotlin `Sealer.kt`, compiled on a desktop JVM, sealed 25
+envelopes that the Node side opened, bearer and fingerprint identical; a
+live envelope went through the deployed inbox into a TEMP database as one
+`android-inbox` run, started at the phone's send time and finished when it
+landed.
+
+The phone app was redesigned in the same release, and its token field turned
+out never to have been masked: `setSingleLine()` replaces a password field's
+transformation method.
+
 ### A reinstalled phone is a new phone, and a fresh one could be two
 
 Moving the Nothing from a self-built debug APK to the signed 1.2 release

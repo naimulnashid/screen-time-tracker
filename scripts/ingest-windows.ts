@@ -8,6 +8,10 @@
  * With `nativeDatabasePath` in collector.json it copies from Screen Time
  * Native's database instead, and there is no JSONL to keep.
  *
+ * With `inbox` in collector.json it then empties the phones' cloud inbox
+ * (src/lib/inbox.ts). That step never fails the run: a laptop offline for an
+ * hour is normal, and the envelopes wait for the next one.
+ *
  * This file is what the hourly "Screen Time Ingest" scheduled task runs. Its
  * whole job is to turn the result object into something readable in a console
  * window nobody is watching, and to set an exit code that Task Scheduler will
@@ -16,10 +20,30 @@
 
 import { pathToFileURL } from 'node:url';
 import { ingestWindows } from '../src/lib/windows-ingest';
+import { drainInbox, describeDrain } from '../src/lib/inbox';
 
 const HOUR_MS = 3_600_000;
 
+/** The phones' cloud inbox. Logged, never thrown: see the header. */
+async function inbox(): Promise<void> {
+  try {
+    const d = await drainInbox({ log: (line) => console.log(`  ${line}`) });
+    const said = describeDrain(d);
+    if (said) console.log(`inbox      : ${said}`);
+  } catch (err) {
+    console.log(`inbox      : WARN ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 async function main(): Promise<void> {
+  try {
+    await windows();
+  } finally {
+    await inbox();
+  }
+}
+
+async function windows(): Promise<void> {
   const r = await ingestWindows({ keep: process.argv.includes('--keep') });
 
   if (r.note) {

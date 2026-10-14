@@ -54,6 +54,12 @@ export interface CollectorConfig {
   /** Where Screen Time Native keeps its heartbeat. Defaults to its own folder. */
   nativeSamplerDir?: string;
 
+  /**
+   * The optional cloud inbox the phones can post to instead of this
+   * dashboard. See `src/lib/inbox.ts`. Absent or null: no inbox.
+   */
+  inbox?: { url: string; keyPath: string } | null;
+
   backupEnabled: boolean;
 }
 
@@ -260,19 +266,25 @@ export async function backupDatabase(
  * `android-daily` used to be here too; both sources were measured, rejected
  * and never wrote a row (checked against the live sync_log, 2026-09-23).
  */
-export type SyncSource = 'win-sampler' | 'android-events';
+export type SyncSource = 'win-sampler' | 'android-events' | 'android-inbox';
 
+/**
+ * Open a run. `startedAt` defaults to now; a phone upload collected from the
+ * cloud inbox passes the time the PHONE sent it, so its run reads as made
+ * then and `finished_at` says when it reached the database.
+ */
 export function startSyncRun(
   db: DatabaseSync,
   deviceId: string,
   source: SyncSource,
+  startedAt: string = new Date().toISOString(),
 ): number {
   const r = db
     .prepare(
       `INSERT INTO sync_log(device_id, source, started_at, status)
        VALUES(?, ?, ?, 'running')`,
     )
-    .run(deviceId, source, new Date().toISOString());
+    .run(deviceId, source, startedAt);
   return Number(r.lastInsertRowid);
 }
 

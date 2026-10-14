@@ -15,13 +15,28 @@
  */
 
 import { ingestWindows, describeIngest } from '@/lib/windows-ingest';
+import { drainInbox, describeDrain } from '@/lib/inbox';
+
+/**
+ * The phones' cloud inbox rides along, so Sync now brings in whatever the
+ * phones have sent too. Its failure never fails the button: the laptop's own
+ * numbers are what was asked for, and the envelopes wait for the next run.
+ */
+async function inboxNote(): Promise<string> {
+  try {
+    const said = describeDrain(await drainInbox());
+    return said ? ` ${said}` : '';
+  } catch (err) {
+    return ` The cloud inbox could not be read: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
 
 export async function POST() {
   try {
     const result = await ingestWindows();
     return Response.json({
       ok: true,
-      message: describeIngest(result),
+      message: describeIngest(result) + (await inboxNote()),
       inserted: result.inserted,
       read: result.read,
     });

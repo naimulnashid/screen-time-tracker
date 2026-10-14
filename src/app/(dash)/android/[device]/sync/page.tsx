@@ -167,6 +167,13 @@ export default async function AndroidSyncPage({
                   <tr key={r.id}>
                     <td className="mono" style={{ whiteSpace: 'nowrap' }}>
                       {formatDateTime(r.startedAt)}
+                      {r.source === 'android-inbox' && r.finishedAt && (
+                        // Sent to the cloud inbox at startedAt; collected by
+                        // the laptop at finishedAt.
+                        <div style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-small)' }}>
+                          via inbox · landed {formatDateTime(r.finishedAt)}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span

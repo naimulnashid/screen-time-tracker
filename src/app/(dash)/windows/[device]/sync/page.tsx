@@ -36,7 +36,8 @@ function SourceBadge({ source }: { source: string }) {
   const label =
     source === 'win-sampler' ? 'Windows sampler'
       : source === 'android-events' ? 'Android'
-        : source;
+        : source === 'android-inbox' ? 'Android, via inbox'
+          : source;
   return <span className="app-kind">{label}</span>;
 }
 

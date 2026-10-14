@@ -204,7 +204,7 @@ stays as this project's sampler recorded it.
    `android/keystore.properties` (gitignored) at your keystore with
    `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, then run
    `./gradlew assembleRelease`.
-2. In the app, tap **Grant usage access** and enable *Screen Time Reporter*.
+2. In the app, tap **Grant** beside *Usage access* and enable *Screen Time Reporter*.
 3. Enter the dashboard's address (`http://<your-PC's-LAN-IP>:7844`) and
    `ANDROID_INGEST_TOKEN`, then tap **Save and test connection**.
 
@@ -213,6 +213,51 @@ history, so the first sync backfills that much. If the dashboard has not
 received the phone's history for 168 hours (sooner on a phone that keeps
 less), the app posts a notification, before the oldest of it is lost; allow
 notifications when it asks.
+
+#### Optional: a cloud inbox, so the phone can report from anywhere
+
+On its own the phone posts straight to the dashboard, so it must be on the
+PC's network, the PC must be on, and the address changes whenever the router
+hands the PC a new one. A **cloud inbox** removes all three: the phone posts
+to a fixed `https://` address on any network, and the PC collects whatever is
+waiting on its hourly ingest and on **Sync now**. With only ~10 days of
+history on the phone, that matters more here than for bytes.
+
+**The inbox cannot read what it holds.** The app encrypts each upload to a
+key only the PC has (P-256 ECDH, AES-256-GCM), with your ingest token mixed
+into the key derivation, so the inbox cannot forge one either. It sees an
+upload's size, its time and the phone's random device id. The format is
+written out at the top of `src/lib/inbox.ts`.
+
+It runs on Supabase's free tier as one Edge Function and two tables, in
+`supabase/`. The function also serves the sibling Data Usage Tracker, each
+app as its own mailbox, so one free project covers both.
+
+1. Create a Supabase project (or reuse the sibling's). Run
+   `supabase/migrations/*.sql` in order in its SQL editor, and deploy
+   `supabase/functions/inbox` with **JWT verification off** (the function
+   checks its own tokens): `supabase functions deploy inbox --no-verify-jwt`.
+2. In `config/collector.json`, set
+   `"inbox": { "url": "https://<project>.supabase.co/functions/v1/inbox/screen-time", "keyPath": "D:\\keys\\inbox-key.pem" }`.
+   Keep the key off `C:\` and out of the repo, and back it up: envelopes
+   still in the inbox cannot be opened without it.
+3. Create the key and the PC's own token, then register both tokens:
+   ```bash
+   npm run inbox -- keygen
+   npm run inbox -- drain-token
+   npm run inbox -- sql
+   ```
+   Run the SQL that the last one prints in the SQL editor. It holds SHA-256
+   digests only.
+4. Rebuild and restart the dashboard. On the phone, at home, tap **Set up
+   from the dashboard**. The app fetches the inbox address and the PC's key
+   over the LAN (never from the inbox, which could swap the key) and shows
+   the key's fingerprint; `npm run inbox -- key` prints the same one.
+
+An upload that came this way shows on the phone's Sync page with when it
+reached the database. One that cannot be opened stays in the inbox, marked
+failed; fix the cause, then `npm run inbox -- drain --retry-failed`, or tap
+**Full resync** on the phone.
 
 ### 4. Backups
 
@@ -246,6 +291,10 @@ home network *Private* first, or the phone will be cut off.
 ```bash
 npm run firewall
 ```
+
+The optional cloud inbox is the one outbound connection. It carries only the
+phones' uploads, encrypted on the phone to a key the inbox never sees, and is
+off unless `inbox` is set in config.
 
 Read [`SECURITY.md`](SECURITY.md) for the threat model and its limits, and for
 how to report a vulnerability.

@@ -4,6 +4,7 @@ import { openDatabase, startSyncRun, finishSyncRun, checkpointWal, backupDatabas
 import { ingestAndroid, payloadProblem, type AndroidPayload } from '@/lib/android-ingest';
 import { safeEqual } from '@/lib/auth';
 import { loadConfig } from '@/lib/config';
+import { inboxConfig, loadInboxKey, publicKeyB64, fingerprint } from '@/lib/inbox';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,6 +66,39 @@ async function readCapped(request: Request, max: number): Promise<Buffer | null>
 }
 
 const tooLarge = () => NextResponse.json({ error: 'payload-too-large' }, { status: 413 });
+
+/**
+ * What the app's "Set up from the dashboard" button reads: the cloud inbox's
+ * address and the public half of this laptop's key, or `inbox: null` when no
+ * inbox is configured. Same token as a push, and no side effects.
+ *
+ * Handed out here, on the LAN and behind the ingest token, rather than by the
+ * inbox itself: a key fetched from the inbox could be swapped by whoever runs
+ * it, which is the one party the encryption exists to keep out.
+ */
+export async function GET(request: Request) {
+  const expected = configuredToken();
+  if (!expected) {
+    return NextResponse.json({ error: 'ingest-not-configured' }, { status: 503 });
+  }
+  const auth = request.headers.get('authorization') ?? '';
+  const presented = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!presented || !(await safeEqual(presented, expected))) {
+    return NextResponse.json({ error: 'unauthorised' }, { status: 401 });
+  }
+
+  let inbox: { url: string; publicKey: string; fingerprint: string } | { error: string } | null = null;
+  try {
+    const cfg = inboxConfig();
+    if (cfg) {
+      const publicKey = publicKeyB64(loadInboxKey(cfg.keyPath));
+      inbox = { url: cfg.url, publicKey, fingerprint: fingerprint(publicKey) };
+    }
+  } catch (err) {
+    inbox = { error: err instanceof Error ? err.message : 'inbox misconfigured' };
+  }
+  return NextResponse.json({ ok: true, inbox });
+}
 
 export async function POST(request: Request) {
   const expected = configuredToken();

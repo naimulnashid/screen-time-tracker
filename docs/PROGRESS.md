@@ -282,6 +282,21 @@ spans erased the device metadata, because the upsert wrote excluded.model etc
 unconditionally and a minimal payload sends ''. android_release went "16" ->
 "". Now COALESCE(NULLIF(...)) per field, with a test.
 
+### 2026-10-14 - the cloud inbox, and Reporter 1.3
+
+- [x] Shared Supabase function `inbox` now serves both projects
+      (`/inbox/screen-time` here), each its own mailbox; tokens registered
+      for `screen-time`. Isolation measured live both ways.
+- [x] Laptop key in the secrets folder; `INBOX_DRAIN_TOKEN` in `.env.local`.
+- [x] Drain runs on the hourly ingest and Sync now; live envelope landed in a
+      TEMP database as an `android-inbox` run.
+- [x] `Sealer.kt` cross-checked against Node, 25/25.
+- [x] Reporter 1.3 (`versionCode 5`): inbox, redesigned screen, token masked.
+      Release-signed, lint clean of NewApi.
+- [ ] Install 1.3 on the three phones; tap **Set up from the dashboard** at
+      home on each.
+- [ ] Back up the inbox key off this disk with the release key.
+
 ## Next
 
 - [ ] The reporter APK. It also has to MEASURE queryEvents' real reach, which

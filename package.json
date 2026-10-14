@@ -1,6 +1,6 @@
 {
   "name": "screen-time-tracker",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "description": "Local-only per-app screen time for a Windows laptop and Android phones, kept on a non-system drive so it survives a Windows reset.",
   "license": "MIT",
@@ -19,6 +19,7 @@
     "android:analyze": "tsx scripts/research/phase1-android-analyze.ts",
     "sample": "powershell -ExecutionPolicy Bypass -File scripts/sampler.ps1",
     "ingest": "tsx scripts/ingest-windows.ts",
+    "inbox": "tsx scripts/inbox.ts",
     "android:merge": "tsx scripts/merge-android-device.ts",
     "selftest": "tsx scripts/selftest.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",

@@ -8,6 +8,45 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-14
+
+### Added
+- **A cloud inbox, so a phone can report from any network, and while the PC
+  is off.** Screen Time Reporter 1.3 can post to a fixed `https://` address
+  instead of the dashboard's LAN address, which changed with every router
+  reboot and did not exist away from home. The PC empties the inbox on the
+  hourly ingest and on **Sync now**, through the same validation and upserts
+  as a direct upload. Optional, and off unless `inbox` is set in
+  `config/collector.json`.
+- **The inbox stores only what it cannot read.** The app seals each upload to
+  a P-256 key only the PC holds (ECDH, HKDF-SHA256, AES-256-GCM), with the
+  ingest token in the key derivation so only the app can make an envelope the
+  PC accepts, and authenticates to the inbox with an HMAC of the token rather
+  than the token itself. Setup is one tap at home, **Set up from the
+  dashboard**, which fetches the address and the PC's key from the dashboard
+  over the LAN, never from the inbox. The inbox is a Supabase Edge Function
+  and two tables (`supabase/`), shared with the sibling Data Usage Tracker as
+  separate mailboxes, within the free tier.
+- `npm run inbox -- keygen | key | drain-token | sql | drain`.
+
+### Changed
+- **The phone app's screen is redesigned** (Screen Time Reporter 1.3): true
+  black and Android Green, a status card answering "is it working?" (green,
+  amber after three days, red on a failure or when unsent history is about
+  to be lost) above the data window, destination, the interval Android
+  actually accepted and how many days the phone keeps; cards for the
+  dashboard, the cloud inbox, background sync and full resync. Permissions
+  show only while one is missing. Turning the inbox off and a full resync
+  ask first. Still framework views only, no libraries.
+- The phone's Sync page marks an upload that came through the inbox with
+  when it reached the database; the laptop's run history labels it
+  "Android, via inbox".
+
+### Fixed
+- **The app showed the ingest token in clear.** Every earlier build made the
+  token field single-line after giving it a password input type, and
+  `setSingleLine()` replaces the masking. It is masked now, with Show / Hide.
+
 ## [1.4.1] - 2026-10-08
 
 ### Added
