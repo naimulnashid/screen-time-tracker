@@ -7,6 +7,34 @@ doc privately.
 
 ## After 1.0.0
 
+### A project site, and light screenshots from the same run
+
+`site/` is a one-page site for people who find the repository: what the
+project is for, how the two collectors work, a tour of every page, every
+chart the dashboard draws, and every feature. It is plain HTML, CSS and one
+script, with nothing to install, deployed on Vercel from the public repo with
+Root Directory `site`. Its charts are redrawn in the browser from a fixed
+seed, following the dashboard's own rules: one unbroken trend line with an
+unrecorded day at zero, even heat-map steps, the top eight plus Other, the
+busiest hour brighter, axes that end at the data, and the phone's headline
+from screen-on time. `site/vercel.json` builds only when `site/` or
+`docs/screenshots/` changed since the last deployment, and builds anyway when
+it cannot tell.
+
+**The tour shows the screenshots in the site's own theme**, so
+`npm run demo:shots` now takes every page twice, dark and then light, in one
+run. The demo is seeded against the moment it runs, so a light set taken
+later would carry other dates and other "today" figures than the dark one;
+one run is the only way the pairs match. The theme is set through the
+dashboard's own `st-theme` key before each pass, and a page counts as loaded
+only once `data-theme` agrees.
+
+**The capture's scratch copy must be on the repo's drive.** Its default is
+TEMP, on C:, and with the repo on D: the `node_modules` junction crosses
+drives: Turbopack refused it as "out of the filesystem root", because the
+widened `turbopack.root` can only be a folder holding both. Passing a folder
+on D: works: `npm run demo:shots -- D:\AppData\ScreenTime-scratch\shots`.
+
 ### A cloud inbox for the phones, encrypted end to end
 
 The phones could only post to the dashboard's LAN address: it changed with

@@ -110,3 +110,7 @@ config/collector.json
 config/app-colours.json
 public/apps_logo/*
 !public/apps_logo/README.md
+
+# The project site build (site/build.mjs)
+site/dist/
+.vercel/

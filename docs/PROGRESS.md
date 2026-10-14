@@ -304,7 +304,18 @@ unconditionally and a minimal payload sends ''. android_release went "16" ->
 
 Reporter 1.3.1 (`versionCode 6`): the clock icon's ring is `#3DDC84` on
 `#0D3A24`, with green-white hands, replacing the violet. Checked on the
-emulator's App info page. Release-signed; not yet published.
+emulator's App info page. Published: public `18864fe`, release `v1.5.1`
+with `ScreenTimeReporter-1.3.1.apk` (SHA-256 `ab666537...0c9a2f19`).
+
+### 2026-10-14 - the emulator removed from the live database
+
+While Reporter 1.3 was being tested, the emulator pushed once to the real
+dashboard at 15:01, and showed up in the sidebar as a fourth phone, "Google
+sdk_gphone16k_x86_64" (180 sessions, 2 screen spans, 261 labels, 1 run). It
+was deleted by device id in one transaction, after a safety copy into
+scratchDir (`pre-remove-emulator-2026-10-14T09-41-27-985Z.db`); the three
+phones' row counts were unchanged and `integrity_check` came back ok. Point
+a test emulator at a scratch server, never at 7844.
 
 ## Next
 
@@ -799,6 +810,22 @@ with no network constraint, notifies when the dashboard has not had the
 phone's history for the phone's measured reach minus 48 hours, capped at
 168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
 Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
+
+### 2026-10-14 - a project site, and light screenshots
+
+- [x] `site/`: a static one-page site for visitors, built by `site/build.mjs`
+      (copies `docs/screenshots/` in) and configured for Vercel by
+      `site/vercel.json`, with an ignore step that builds only when `site/` or
+      `docs/screenshots/` changed. Every chart type redrawn from a fixed seed;
+      laptop / phone switch; Time / Opens toggles; screenshots follow the theme.
+- [x] `demo:shots` takes dark and light in one run: 22 images, pairs checked
+      identical in data. Run with a scratch folder on D: (see DEVLOG).
+- [x] Checked: full page in both themes and both device modes at 1440, every
+      card paragraph one line, no overflow at 375, toggles, Expand, fold and
+      theme switch exercised, no console errors.
+- [ ] Publish the export; import the PUBLIC repo in Vercel as
+      `screen-time-tracker-site`, Root Directory `site`; then link it from the
+      README and the social preview.
 
 ### 2026-10-08 - three phones reinstalled, merged, and v1.4.1
 

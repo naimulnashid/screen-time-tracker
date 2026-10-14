@@ -1,7 +1,8 @@
 /**
  * The README's screenshots, from the DEMO -- never from real data.
  *
- *   npm run demo:shots            writes docs/screenshots/ (the opener + tour/)
+ *   npm run demo:shots            writes docs/screenshots/ (the opener + tour/),
+ *                                 every image in dark and again in light (-light)
  *
  * Every step of redoing them by hand, in one command:
  *
@@ -51,6 +52,14 @@ const EDGE = [
 
 const LAPTOP = '/windows/my-laptop';
 const PHONE = '/android/my-phone';
+
+/**
+ * Each shot is taken in both themes, in ONE run against one seeded demo, so a
+ * dark image and its light twin always show the same numbers: the seed is
+ * anchored to the moment it runs. Dark keeps the plain file names the README
+ * links; light adds `-light`.
+ */
+const THEMES = [['dark', ''], ['light', '-light']] as const;
 
 /** [file, path, full page?] -- the full-page tour, then the README's one-screen opener. */
 const SHOTS: [string, string, boolean][] = [
@@ -185,40 +194,52 @@ async function main() {
   const session = await issueSession(password);
   await send('Network.setCookie', { name: SESSION_COOKIE, value: session.value, domain: '127.0.0.1', path: '/', httpOnly: true });
 
-  for (const [file, path, full] of SHOTS) {
-    if (path.endsWith('/sync')) {
-      writeFileSync(join(demo, 'sampler', 'sampler-status.json'), JSON.stringify({
-        updated: new Date().toISOString(),
-        interval_seconds: 2,
-        in_flight: { kind: 'app', app: 'C:\\Users\\demo\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe', ms: 754_000 },
-      }));
-    }
-    await size(HERO_HEIGHT);
-    await send('Page.navigate', { url: BASE + path });
-    // Wait for THIS document, not the last one: the URL, then readyState.
-    for (let i = 0; i < 100; i++) {
+  for (const [theme, suffix] of THEMES) {
+    // The dashboard keeps the theme in localStorage (THEME_KEY in lib/theme.ts)
+    // and applies it before first paint, so it is set on the origin first.
+    await send('Page.navigate', { url: `${BASE}/login` });
+    for (let i = 0; i < 40; i++) {
       await sleep(150);
-      const ready = await evaluate<boolean>(`location.href === ${JSON.stringify(BASE + path)} && document.readyState === 'complete'`).catch(() => false);
-      if (ready) break;
+      if (await evaluate<boolean>(`location.origin === ${JSON.stringify(BASE)}`).catch(() => false)) break;
     }
-    await evaluate(`(() => { const s = document.createElement('style'); s.textContent = '*, *::before, *::after { animation: none !important; transition: none !important; }'; document.head.appendChild(s); })()`);
-    // Then for the page to stop growing: charts measure themselves, and a
-    // card arriving late changes the height a full-page shot is cut at.
-    let last = -1;
-    for (let stable = 0, i = 0; stable < 4 && i < 60; i++) {
-      await sleep(250);
-      const h = await evaluate<number>('document.documentElement.scrollHeight');
-      stable = h === last ? stable + 1 : 0;
-      last = h;
+    await evaluate(`localStorage.setItem('st-theme', ${JSON.stringify(theme)})`);
+
+    for (const [name, path, full] of SHOTS) {
+      const file = name.replace(/\.png$/, `${suffix}.png`);
+      if (path.endsWith('/sync')) {
+        writeFileSync(join(demo, 'sampler', 'sampler-status.json'), JSON.stringify({
+          updated: new Date().toISOString(),
+          interval_seconds: 2,
+          in_flight: { kind: 'app', app: 'C:\\Users\\demo\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe', ms: 754_000 },
+        }));
+      }
+      await size(HERO_HEIGHT);
+      await send('Page.navigate', { url: BASE + path });
+      // Wait for THIS document, not the last one: the URL, then readyState.
+      for (let i = 0; i < 100; i++) {
+        await sleep(150);
+        const ready = await evaluate<boolean>(`location.href === ${JSON.stringify(BASE + path)} && document.readyState === 'complete' && document.documentElement.dataset.theme === ${JSON.stringify(theme)}`).catch(() => false);
+        if (ready) break;
+      }
+      await evaluate(`(() => { const s = document.createElement('style'); s.textContent = '*, *::before, *::after { animation: none !important; transition: none !important; }'; document.head.appendChild(s); })()`);
+      // Then for the page to stop growing: charts measure themselves, and a
+      // card arriving late changes the height a full-page shot is cut at.
+      let last = -1;
+      for (let stable = 0, i = 0; stable < 4 && i < 60; i++) {
+        await sleep(250);
+        const h = await evaluate<number>('document.documentElement.scrollHeight');
+        stable = h === last ? stable + 1 : 0;
+        last = h;
+      }
+      const height = full ? Math.max(HERO_HEIGHT, last) : HERO_HEIGHT;
+      await size(height);
+      // Charts re-measure on the resize; let their bars draw.
+      await sleep(1500);
+      const shot = await send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: WIDTH, height, scale: 1 } });
+      mkdirSync(join(OUT, 'tour'), { recursive: true });
+      writeFileSync(join(OUT, file), Buffer.from(String(shot['data']), 'base64'));
+      console.log(`  ${file}  ${WIDTH}x${height}`);
     }
-    const height = full ? Math.max(HERO_HEIGHT, last) : HERO_HEIGHT;
-    await size(height);
-    // Charts re-measure on the resize; let their bars draw.
-    await sleep(1500);
-    const shot = await send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: WIDTH, height, scale: 1 } });
-    mkdirSync(join(OUT, 'tour'), { recursive: true });
-    writeFileSync(join(OUT, file), Buffer.from(String(shot['data']), 'base64'));
-    console.log(`  ${file}  ${WIDTH}x${height}`);
   }
 
   ws.close();
