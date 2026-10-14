@@ -35,6 +35,14 @@ drives: Turbopack refused it as "out of the filesystem root", because the
 widened `turbopack.root` can only be a folder holding both. Passing a folder
 on D: works: `npm run demo:shots -- D:\AppData\ScreenTime-scratch\shots`.
 
+Later the same day the default was fixed instead: TEMP only when it is on
+the repo's drive, else `.screentime-shots` beside the repo (beside, because a
+copy inside the repo would copy itself). A folder on another drive, or inside
+the repo, is now refused with a plain message before anything is copied,
+where the failure used to be a Turbopack panic halfway through a build. A run
+with no argument built and captured all 22 images that way, and removed the
+folder after.
+
 **The social preview's source is committed now**, as
 `docs/social-preview.html`, rendered with headless Edge like the sibling's.
 It was a throwaway page before, so changing the image meant redrawing it from

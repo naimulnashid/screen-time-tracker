@@ -25,6 +25,14 @@ each change -- what was measured, and what it overturned -- is in
   and the image shows the project site's address in place of the
   repository's.
 
+### Fixed
+- **`npm run demo:shots` failed when TEMP is on another drive than the
+  repo**, as it is with the repo on `D:`: Turbopack refused the scratch
+  copy's `node_modules` link across drives, in a panic halfway through the
+  build. The scratch copy now goes on the repo's drive (TEMP when it is
+  there, else `.screentime-shots` beside the repo), and a folder given on
+  another drive, or inside the repo, is refused before anything is copied.
+
 ## [1.5.1] - 2026-10-14
 
 ### Changed

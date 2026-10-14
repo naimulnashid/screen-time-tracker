@@ -820,6 +820,9 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       laptop / phone switch; Time / Opens toggles; screenshots follow the theme.
 - [x] `demo:shots` takes dark and light in one run: 22 images, pairs checked
       identical in data. Run with a scratch folder on D: (see DEVLOG).
+- [x] `demo:shots` picks a scratch folder on the repo's drive by itself (TEMP,
+      else `.screentime-shots` beside the repo) and refuses one across drives
+      or inside the repo. A default run captured all 22; both refusals checked.
 - [x] `docs/social-preview.html` committed and rendered, the site's address in
       place of the repo's.
 - [x] Checked: full page in both themes and both device modes at 1440, every

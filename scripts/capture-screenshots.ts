@@ -6,7 +6,8 @@
  *
  * Every step of redoing them by hand, in one command:
  *
- *   1. A SCRATCH COPY of the repo is built, in TEMP. Never over the live
+ *   1. A SCRATCH COPY of the repo is built, on the repo's drive (TEMP when
+ *      it is there, else a folder beside the repo). Never over the live
  *      `.next`: the dashboard serves from it, and a build underneath a running
  *      server breaks it: never run next build while a dev server is up.
  *      The copy leaves out everything local-only -- the logos, the real
@@ -33,12 +34,23 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve, sep } from 'node:path';
+import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { issueSession, SESSION_COOKIE } from '../src/lib/auth';
 
 const ROOT = resolve('.');
-const WORK = resolve(process.argv[2] ?? join(tmpdir(), 'screentime-shots'));
+/*
+  The scratch copy must be on the REPO'S DRIVE. Its node_modules is a junction
+  to this repo's, and Turbopack refuses a link "out of the filesystem root":
+  the widened turbopack.root below has to be one folder holding both, which
+  two drives do not have. TEMP is on C:, so with the repo on D: the default
+  failed every run until 2026-10-14. Beside the repo, never inside it: the
+  copy would copy itself.
+*/
+const sameDrive = (p: string) => parse(p).root.toLowerCase() === parse(ROOT).root.toLowerCase();
+const WORK = resolve(process.argv[2] ?? (sameDrive(tmpdir())
+  ? join(tmpdir(), 'screentime-shots')
+  : join(dirname(ROOT), '.screentime-shots')));
 const OUT = join(ROOT, 'docs', 'screenshots');
 const PORT = 7849;
 const CDP = 9333;
@@ -100,6 +112,9 @@ async function up(url: string, ms = 60_000): Promise<boolean> {
 async function main() {
   if (!EDGE) throw new Error('Microsoft Edge not found.');
   if (await up(BASE, 1000)) throw new Error(`Something already answers on ${PORT}; stop it first (npm run demo?).`);
+  if (!sameDrive(WORK)) throw new Error(`The scratch folder ${WORK} must be on the repo's drive, ${parse(ROOT).root}: Turbopack refuses a node_modules link across drives.`);
+  const inside = relative(ROOT, WORK);
+  if (!inside || (!inside.startsWith('..') && !parse(inside).root)) throw new Error(`The scratch folder ${WORK} is inside the repo; it would copy itself.`);
 
   console.log(`scratch copy -> ${WORK}`);
   rmSync(WORK, { recursive: true, force: true });
