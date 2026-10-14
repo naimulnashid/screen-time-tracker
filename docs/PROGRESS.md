@@ -296,6 +296,15 @@ unconditionally and a minimal payload sends ''. android_release went "16" ->
 - [ ] Install 1.3 on the three phones; tap **Set up from the dashboard** at
       home on each.
 - [ ] Back up the inbox key off this disk with the release key.
+- [x] Published: public `f79dea4`, release `v1.5.0` with
+      `ScreenTimeReporter-1.3.apk` (SHA-256 `5630c39b...4f6dabf1`), public CI
+      green.
+
+### 2026-10-14 - the app icon turns Android Green
+
+Reporter 1.3.1 (`versionCode 6`): the clock icon's ring is `#3DDC84` on
+`#0D3A24`, with green-white hands, replacing the violet. Checked on the
+emulator's App info page. Release-signed; not yet published.
 
 ## Next
 

@@ -8,6 +8,14 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-14
+
+### Changed
+- **Screen Time Reporter 1.3.1: the app icon is Android Green**, the accent
+  the dashboard gives a phone, on a dark green ground; it was violet. The
+  clock shape is unchanged, so it still differs from the sibling Data Usage
+  Reporter's bars.
+
 ## [1.5.0] - 2026-10-14
 
 ### Added

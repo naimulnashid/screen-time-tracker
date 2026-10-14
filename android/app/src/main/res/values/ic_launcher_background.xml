@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- True black, like the dashboard's tile. Android masks the icon to the
-         launcher's shape, so this is the ground the bars sit on. -->
-    <color name="ic_launcher_background">#2A2140</color>
+    <!-- The darkest green of the dashboard's Android heat map (step hm-1), so
+         the green ring sits on its own hue. Android masks the icon to the
+         launcher's shape, so this is the ground the clock sits on. -->
+    <color name="ic_launcher_background">#0D3A24</color>
 </resources>

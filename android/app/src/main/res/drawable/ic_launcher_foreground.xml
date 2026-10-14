@@ -2,7 +2,8 @@
 <!--
   A clock, matching the dashboard's favicon rather than the sibling reporter's
   ascending bars. Two reporter apps sit in one app drawer on this phone, so the
-  marks have to differ in SHAPE and not only in hue.
+  marks have to differ in SHAPE and not only in hue. Android Green (#3DDC84),
+  the accent the dashboard gives a phone, since 1.3; violet before.
 
   Adaptive icons are 108x108dp with only the middle 72x72dp guaranteed visible
   (the launcher masks and may parallax the rest), so everything here stays well
@@ -17,19 +18,19 @@
     <!-- Ring. Stroked rather than two filled circles so the launcher's own
          background shows through the middle. -->
     <path
-        android:strokeColor="#9B82FF"
+        android:strokeColor="#3DDC84"
         android:strokeWidth="7"
         android:fillColor="#00000000"
         android:pathData="M54,26 a28,28 0 1,1 -0.1,0 z" />
 
     <!-- Hands, near-white so they separate from the ring at launcher size. -->
     <path
-        android:strokeColor="#ECE8FF"
+        android:strokeColor="#E8FBF0"
         android:strokeWidth="6"
         android:strokeLineCap="round"
         android:pathData="M54,54 L54,36" />
     <path
-        android:strokeColor="#ECE8FF"
+        android:strokeColor="#E8FBF0"
         android:strokeWidth="6"
         android:strokeLineCap="round"
         android:pathData="M54,54 L67,62" />
