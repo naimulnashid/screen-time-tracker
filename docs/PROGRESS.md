@@ -826,6 +826,10 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
 - [x] The site shows phones its desktop layout (`width=1024`, no initial
       scale). Checked as a 390px phone in headless Edge: 1024px layout,
       scaled 0.381, top-bar links and two-column sections, no sideways scroll.
+- [x] Link previews: Open Graph and Twitter card tags, `docs/social-preview.png`
+      copied in as the image, Vercel rebuilds on a card change. Checked
+      2026-10-15: the built page carries the tags, the 1280x640 card is in
+      `site/dist/`.
 - [x] `docs/social-preview.html` committed and rendered, the site's address in
       place of the repo's.
 - [x] Checked: full page in both themes and both device modes at 1440, every

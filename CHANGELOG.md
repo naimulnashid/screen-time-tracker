@@ -19,6 +19,10 @@ each change -- what was measured, and what it overturned -- is in
 - **Light-theme screenshots.** `npm run demo:shots` takes every page in the
   dark theme and again in the light one (`*-light.png`), from one seeded
   demo, so each pair shows the same numbers.
+- **Link previews for the project site**: Open Graph and Twitter card tags,
+  with `docs/social-preview.png` copied in by `site/build.mjs` as the image,
+  so a shared link unfurls with a picture. Vercel also rebuilds when the
+  card changes.
 
 ### Changed
 - **The social preview's source is committed** (`docs/social-preview.html`),
