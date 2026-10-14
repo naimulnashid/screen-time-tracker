@@ -25,6 +25,9 @@ each change -- what was measured, and what it overturned -- is in
   and the image shows the project site's address in place of the
   repository's.
 
+- **The project site shows phones its desktop layout**, zoomed to fit, like
+  the dashboard (`width=1024` viewport).
+
 ### Fixed
 - **`npm run demo:shots` failed when TEMP is on another drive than the
   repo**, as it is with the repo on `D:`: Turbopack refused the scratch

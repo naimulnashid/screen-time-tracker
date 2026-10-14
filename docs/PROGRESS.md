@@ -823,6 +823,9 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
 - [x] `demo:shots` picks a scratch folder on the repo's drive by itself (TEMP,
       else `.screentime-shots` beside the repo) and refuses one across drives
       or inside the repo. A default run captured all 22; both refusals checked.
+- [x] The site shows phones its desktop layout (`width=1024`, no initial
+      scale). Checked as a 390px phone in headless Edge: 1024px layout,
+      scaled 0.381, top-bar links and two-column sections, no sideways scroll.
 - [x] `docs/social-preview.html` committed and rendered, the site's address in
       place of the repo's.
 - [x] Checked: full page in both themes and both device modes at 1440, every
