@@ -25,6 +25,10 @@ each change -- what was measured, and what it overturned -- is in
   card changes.
 
 ### Changed
+- **The project site's screenshot tour is hidden**, pending review: the
+  section, its nav link and its script are kept, the hero's second button
+  goes to the charts, and a Top 10 bar no longer offers to open a detail
+  page while there is no tour to open it in.
 - **The social preview's source is committed** (`docs/social-preview.html`),
   and the image shows the project site's address in place of the
   repository's.

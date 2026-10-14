@@ -830,6 +830,9 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       copied in as the image, Vercel rebuilds on a card change. Checked
       2026-10-15: the built page carries the tags, the 1280x640 card is in
       `site/dist/`.
+- [x] Screenshot tour hidden on the site (owner's call, 2026-10-15; to be
+      reviewed): `hidden` on `#tour`, nav link commented out, code kept.
+      Checked: no tour, no console errors, Top 10 bars inert, both themes.
 - [x] `docs/social-preview.html` committed and rendered, the site's address in
       place of the repo's.
 - [x] Checked: full page in both themes and both device modes at 1440, every

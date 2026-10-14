@@ -548,9 +548,9 @@ function drawTop(d) {
   const sum = d.apps.reduce((t, a) => t + val(a), 0);
   apps.forEach((a, i) => {
     const by = T + i * rowH + 5, bh = rowH - 10;
-    const tip = `<b>${esc(a.name)}</b>${dur(a.total)}, ${pct(a.total / d.appsTotal)}<br>${count(a.opensTotal)} opens<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>`;
+    const tip = `<b>${esc(a.name)}</b>${dur(a.total)}, ${pct(a.total / d.appsTotal)}<br>${count(a.opensTotal)} opens${tourShown() ? '<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>' : ''}`;
     s += `<text x="${L - 8}" y="${by + bh / 2 + 4}" text-anchor="end">${esc(a.name)}</text>`;
-    s += `<rect class="draw-x" style="animation-delay:${i * 40}ms;cursor:pointer" x="${L}" y="${by}" width="${Math.max(2, x(val(a)) - L)}" height="${bh}" rx="3" fill="${ink(a.color)}" data-tip="${esc(tip)}" data-open="detail"/>`;
+    s += `<rect class="draw-x" style="animation-delay:${i * 40}ms;cursor:${tourShown() ? 'pointer' : 'default'}" x="${L}" y="${by}" width="${Math.max(2, x(val(a)) - L)}" height="${bh}" rx="3" fill="${ink(a.color)}" data-tip="${esc(tip)}" data-open="detail"/>`;
   });
   document.getElementById('v-top-title').textContent = m === 'time' ? 'Top apps' : 'Most opened';
   document.getElementById('v-top').innerHTML =
@@ -629,6 +629,10 @@ function wireTooltip() {
   document.addEventListener('scroll', hide, { passive: true });
 }
 
+/** The tour is hidden pending review (see index.html); while it is, a Top 10
+    bar opens nothing, so it neither says so nor looks clickable. */
+const tourShown = () => !document.getElementById('tour')?.hidden;
+
 /* The tour: one device, one page. `npm run demo:shots` writes each twice, from one seed: dark, and `-light`. */
 const tour = { device: 'laptop', page: '1-overview' };
 
@@ -682,7 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('gallery').addEventListener('click', (e) => {
-    if (!e.target.closest('[data-open="detail"]')) return;
+    if (!e.target.closest('[data-open="detail"]') || !tourShown()) return;
     tour.device = device === 'android' ? 'phone' : 'laptop';
     tour.page = '3-app-detail';
     showShot();

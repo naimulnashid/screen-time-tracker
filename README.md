@@ -14,8 +14,8 @@ reset.**
 *Screenshots show synthetic data from `npm run demo:seed`.*
 
 **[See it on the project site](https://screen-time-tracker-site.vercel.app/)**:
-how it works, a tour of the dashboard, every chart it draws (live, on
-invented data) and every feature.
+how it works, every chart it draws (live, on invented data) and every
+feature.
 
 - **Local only.** A dashboard on your own PC, reachable from your LAN. No
   cloud, no account, no telemetry, no outbound requests.
