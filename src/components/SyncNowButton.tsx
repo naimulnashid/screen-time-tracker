@@ -15,10 +15,12 @@ import { Toast, type ToastKind } from '@/components/Toast';
  * now, which makes that a much smaller lie -- but "I want the number now" is
  * still a real thing to want, and this is the button for it.
  *
- * It does not fetch new data from anywhere: everything it folds in was already
- * recorded and safe on disk. Pressing it can only move rows forward, and
- * pressing it twice does nothing the first press did not -- the ingest is
- * idempotent by construction.
+ * The one thing it fetches is the phones' cloud inbox, when one is configured,
+ * which is why the phone pages carry it then too: an upload lands now rather
+ * than at the next hourly ingest. Everything else was already recorded and
+ * safe on disk. Pressing it can only move rows forward, and pressing it twice
+ * does nothing the first press did not -- the ingest and the drain are both
+ * idempotent.
  *
  * `router.refresh()` afterwards, because every dashboard page is
  * `force-dynamic`: the server re-runs the queries and the numbers change under
@@ -59,7 +61,7 @@ export function SyncNowButton() {
         className="chip"
         onClick={() => void sync()}
         disabled={busy}
-        title="Fold the sampler's pending spans into the database"
+        title="Fold the sampler's pending spans and the phones' cloud inbox into the database"
       >
         <span className="sync-label">
           <svg

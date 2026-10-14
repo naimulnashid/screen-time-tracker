@@ -7,6 +7,17 @@ doc privately.
 
 ## After 1.0.0
 
+### Sync now on the phone pages
+
+The button was on the laptop's pages only, on the reasoning that a phone
+pushes on its own schedule and nothing waits on this machine for it. The
+cloud inbox changed that: a phone's upload now sits in the inbox until the
+laptop drains it, and the button's run already drained it and reported what
+landed. So the phone pages get the button whenever `inbox` is set in config,
+and a phone's upload can land at once rather than at the next hourly ingest.
+Without an inbox nothing changes: a phone that posts straight to the
+dashboard has nothing to fetch.
+
 ### A project site, and light screenshots from the same run
 
 `site/` is a one-page site for people who find the repository: what the

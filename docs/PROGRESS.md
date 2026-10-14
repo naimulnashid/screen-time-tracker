@@ -811,6 +811,13 @@ phone's history for the phone's measured reach minus 48 hours, capped at
 168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
 Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
 
+### 2026-10-15 - Sync now on the phone pages
+
+- [x] The top bar shows Sync now on a phone's pages when the cloud inbox is
+      configured (`inboxConfig()`, read in the `(dash)` layout). Checked on
+      a scratch server: the button on a phone page in both themes, and one
+      press returned 200 "Up to date" with the inbox empty.
+
 ### 2026-10-14 - a project site, light screenshots, a committed social preview
 
 - [x] `site/`: a static one-page site for visitors, built by `site/build.mjs`

@@ -22,15 +22,16 @@ import { Footer } from './Footer';
  *   buttons, active tabs, focus rings, chart strokes and the heat-map ramp.
  * - **Which page tabs to show**, since each device has its own set.
  *
- * The Sync button lives here rather than on the Overview, and only on the
- * laptop's pages. The staleness it fixes belongs to the DATABASE, not to one
- * page -- By App and Sync Status read the same rows and were just as far
- * behind, with no way to close the gap without going back to the Overview
- * first. The phone has no button because it pushes on its own schedule; there
- * is nothing sitting on this machine's disk waiting to be folded in.
+ * The Sync button lives here rather than on the Overview. The staleness it
+ * fixes belongs to the DATABASE, not to one page -- By App and Sync Status
+ * read the same rows and were just as far behind, with no way to close the gap
+ * without going back to the Overview first. It is on the phone's pages only
+ * when the cloud inbox is configured: a sync drains it, so a phone's upload
+ * lands now rather than at the next hourly ingest. A phone that posts straight
+ * to the dashboard has nothing waiting here, and there it gets no button.
  */
 export function Shell({
-  phones, windowsLabel, windowsSlug, children,
+  phones, windowsLabel, windowsSlug, phoneSync, children,
 }: {
   /** What the laptop is called, from config. */
   windowsLabel: string;
@@ -38,6 +39,8 @@ export function Shell({
   windowsSlug: string;
   /** Android devices that have reported, for the sidebar. */
   phones: SidebarPhone[];
+  /** A sync drains the cloud inbox, so the phone pages get the button too. */
+  phoneSync: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -55,7 +58,7 @@ export function Shell({
                 reads as one of them if it sits between the group and Sign out;
                 on the left it is the first thing in the group and its label and
                 icon set it apart. */}
-            {device !== 'android' && <SyncNowButton />}
+            {(device !== 'android' || phoneSync) && <SyncNowButton />}
             {/* ScopeBar reads useSearchParams, which opts any page containing
                 it out of static prerendering. Without this boundary the
                 built-in /_not-found page fails to prerender. */}

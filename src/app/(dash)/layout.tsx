@@ -1,6 +1,7 @@
 import { Shell } from '@/components/Shell';
 import { deviceLabel, windowsSlug } from '@/lib/config';
 import { getAndroidDevices } from '@/lib/queries';
+import { inboxConfig } from '@/lib/inbox';
 
 // The shell will query the database for the phone list once that table exists,
 // so it must not be cached alongside a stale set of devices.
@@ -20,8 +21,22 @@ export const dynamic = 'force-dynamic';
  */
 export default function DashLayout({ children }: { children: React.ReactNode }) {
   const phones = getAndroidDevices();
+
+  // A malformed inbox entry is the drain's error to report, not the shell's.
+  let phoneSync = false;
+  try {
+    phoneSync = inboxConfig() !== null;
+  } catch {
+    /* leave the button off the phone pages */
+  }
+
   return (
-    <Shell phones={phones} windowsLabel={deviceLabel()} windowsSlug={windowsSlug()}>
+    <Shell
+      phones={phones}
+      windowsLabel={deviceLabel()}
+      windowsSlug={windowsSlug()}
+      phoneSync={phoneSync}
+    >
       {children}
     </Shell>
   );

@@ -35,6 +35,9 @@ each change -- what was measured, and what it overturned -- is in
 
 - **The project site shows phones its desktop layout**, zoomed to fit, like
   the dashboard (`width=1024` viewport).
+- **Sync now is on the phone pages too** when the cloud inbox is configured.
+  It drains the inbox, so a phone's upload lands at once instead of at the
+  next hourly ingest. Without an inbox it stays on the laptop's pages only.
 
 ### Fixed
 - **`npm run demo:shots` failed when TEMP is on another drive than the
