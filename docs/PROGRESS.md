@@ -831,8 +831,8 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       drawn, screenshots and fonts load, CSP served, no console errors. The
       repo's About box already names it.
 - [x] README badge (shields "website", reads online / offline) and link.
-- [ ] Upload `docs/social-preview.png` in GitHub: Settings > General >
-      Social preview (no API for it).
+- [x] `docs/social-preview.png` uploaded in GitHub Settings by the owner; the
+      repo's Open Graph image is identical to it, pixel for pixel (2026-10-14).
 
 ### 2026-10-08 - three phones reinstalled, merged, and v1.4.1
 
