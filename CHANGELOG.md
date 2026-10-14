@@ -9,15 +9,21 @@ each change -- what was measured, and what it overturned -- is in
 ## [Unreleased]
 
 ### Added
-- **A project site** in `site/`, for Vercel with Root Directory `site`:
+- **A project site** in `site/`, deployed on Vercel at
+  <https://screen-time-tracker-site.vercel.app/> with Root Directory `site`:
   what the project is for, how both collectors work, a tour of every page in
   the matching theme, every chart type drawn live on invented data with a
   laptop / phone switch and Time / Opens toggles, and every feature. Plain
   HTML, CSS and one script; a push rebuilds it only when `site/` or
-  `docs/screenshots/` changed.
+  `docs/screenshots/` changed. Linked from a README badge.
 - **Light-theme screenshots.** `npm run demo:shots` takes every page in the
   dark theme and again in the light one (`*-light.png`), from one seeded
   demo, so each pair shows the same numbers.
+
+### Changed
+- **The social preview's source is committed** (`docs/social-preview.html`),
+  and the image shows the project site's address in place of the
+  repository's.
 
 ## [1.5.1] - 2026-10-14
 

@@ -35,6 +35,12 @@ drives: Turbopack refused it as "out of the filesystem root", because the
 widened `turbopack.root` can only be a folder holding both. Passing a folder
 on D: works: `npm run demo:shots -- D:\AppData\ScreenTime-scratch\shots`.
 
+**The social preview's source is committed now**, as
+`docs/social-preview.html`, rendered with headless Edge like the sibling's.
+It was a throwaway page before, so changing the image meant redrawing it from
+nothing. Its bottom line is the site's address in place of the repository's,
+which the card already links to.
+
 ### A cloud inbox for the phones, encrypted end to end
 
 The phones could only post to the dashboard's LAN address: it changed with

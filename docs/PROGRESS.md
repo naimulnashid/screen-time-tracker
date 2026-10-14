@@ -811,7 +811,7 @@ phone's history for the phone's measured reach minus 48 hours, capped at
 168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
 Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
 
-### 2026-10-14 - a project site, and light screenshots
+### 2026-10-14 - a project site, light screenshots, a committed social preview
 
 - [x] `site/`: a static one-page site for visitors, built by `site/build.mjs`
       (copies `docs/screenshots/` in) and configured for Vercel by
@@ -820,12 +820,19 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       laptop / phone switch; Time / Opens toggles; screenshots follow the theme.
 - [x] `demo:shots` takes dark and light in one run: 22 images, pairs checked
       identical in data. Run with a scratch folder on D: (see DEVLOG).
+- [x] `docs/social-preview.html` committed and rendered, the site's address in
+      place of the repo's.
 - [x] Checked: full page in both themes and both device modes at 1440, every
       card paragraph one line, no overflow at 375, toggles, Expand, fold and
       theme switch exercised, no console errors.
-- [ ] Publish the export; import the PUBLIC repo in Vercel as
-      `screen-time-tracker-site`, Root Directory `site`; then link it from the
-      README and the social preview.
+- [x] Published (public `bc5a8bd`, CI green) and imported in Vercel as
+      `screen-time-tracker-site`, Root Directory `site`:
+      <https://screen-time-tracker-site.vercel.app/>. Live check: every chart
+      drawn, screenshots and fonts load, CSP served, no console errors. The
+      repo's About box already names it.
+- [x] README badge (shields "website", reads online / offline) and link.
+- [ ] Upload `docs/social-preview.png` in GitHub: Settings > General >
+      Social preview (no API for it).
 
 ### 2026-10-08 - three phones reinstalled, merged, and v1.4.1
 

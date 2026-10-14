@@ -3,6 +3,7 @@
 [![CI](https://github.com/naimulnashid/screen-time-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/screen-time-tracker/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/naimulnashid/screen-time-tracker)](https://github.com/naimulnashid/screen-time-tracker/releases/latest)
 [![MIT license](https://img.shields.io/github/license/naimulnashid/screen-time-tracker)](LICENSE)
+[![Project site](https://img.shields.io/website?url=https%3A%2F%2Fscreen-time-tracker-site.vercel.app&label=project%20site&up_message=online&down_message=offline)](https://screen-time-tracker-site.vercel.app/)
 
 **How long each app was actually in the foreground — on a Windows PC and your
 Android phones — kept on your own machine, and built to survive a Windows
@@ -11,6 +12,10 @@ reset.**
 ![The laptop's Overview: today, the daily average and the range total, above a daily trend line](docs/screenshots/laptop-overview.png)
 
 *Screenshots show synthetic data from `npm run demo:seed`.*
+
+**[See it on the project site](https://screen-time-tracker-site.vercel.app/)**:
+how it works, a tour of the dashboard, every chart it draws (live, on
+invented data) and every feature.
 
 - **Local only.** A dashboard on your own PC, reachable from your LAN. No
   cloud, no account, no telemetry, no outbound requests.
@@ -28,7 +33,9 @@ reset.**
 
 Each page top to bottom, at 1440px wide, in the default dark theme. A
 Dark / Light / System menu in the top bar switches every page to a light
-theme. Retake them all with `npm run demo:shots`.
+theme; each image has a light twin beside it (`*-light.png`), taken in the
+same run from the same demo, so the two show the same numbers. Retake them
+all with `npm run demo:shots`.
 
 ### The laptop
 
