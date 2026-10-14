@@ -811,6 +811,16 @@ phone's history for the phone's measured reach minus 48 hours, capped at
 168. Measured reach today: Nothing ~216 h, Redmi Note 9 Pro ~218 h, Redmi 5
 Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
 
+### 2026-10-15 - Reporter 1.3.2: one upload per sync
+
+- [x] `SyncJobService.schedule()` leaves an unchanged pending job alone, and
+      `SyncRunner.runOnce` runs one sync at a time. Cause and count (a fifth of phone
+      syncs repeated within 5 s) in DEVLOG.
+- [x] Built release-signed: `versionCode 7` / `"1.3.2"`, certificate
+      `21ad608e...20ec96fcc9`, APK SHA-256 `382217ca...89cdaa92`.
+- [ ] Not published yet. Then install on the three phones, press Sync now
+      once on each, and check the dashboard logs one sync, not two.
+
 ### 2026-10-15 - Sync now on the phone pages
 
 - [x] The top bar shows Sync now on a phone's pages when the cloud inbox is

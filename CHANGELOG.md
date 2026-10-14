@@ -8,6 +8,8 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-15
+
 ### Added
 - **A project site** in `site/`, deployed on Vercel at
   <https://screen-time-tracker-site.vercel.app/> with Root Directory `site`:
@@ -40,6 +42,12 @@ each change -- what was measured, and what it overturned -- is in
   next hourly ingest. Without an inbox it stays on the laptop's pages only.
 
 ### Fixed
+- **Screen Time Reporter 1.3.2 sends each sync once.** Pressing Sync now on
+  the phone re-registered the background job, which then ran a second sync
+  beside the button's own: a fifth of phone syncs arrived within 5 seconds
+  of another. Nothing was double-counted, but each repeat cost an upload. The
+  job is now re-registered only when its interval or network setting
+  changes, and only one sync runs at a time.
 - **`npm run demo:shots` failed when TEMP is on another drive than the
   repo**, as it is with the repo on `D:`: Turbopack refused the scratch
   copy's `node_modules` link across drives, in a panic halfway through the

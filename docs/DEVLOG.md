@@ -7,6 +7,21 @@ doc privately.
 
 ## After 1.0.0
 
+### Reporter 1.3.2: one upload per sync
+
+A fifth of the phone syncs arrived twice or three times within a few
+seconds. Pressing Sync now saves the settings first, saving
+re-registered the background job, and Android treats a freshly registered
+periodic job as due at once. So the job's sync started beside the button's
+own, both read the same window, and both sent it. The repeats were harmless
+to the data -- the server's upsert keeps the larger value -- but each was a
+full extra upload.
+
+Two changes, either of which would have stopped it: the job is re-registered
+only when its interval or network type differs from the pending one, and
+`SyncRunner` lets one sync run at a time, so a second start returns "A sync
+is already running" instead of reading the window again.
+
 ### Sync now on the phone pages
 
 The button was on the laptop's pages only, on the reasoning that a phone
