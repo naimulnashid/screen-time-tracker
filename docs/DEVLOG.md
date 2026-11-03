@@ -7,6 +7,22 @@ doc privately.
 
 ## After 1.0.0
 
+### Finding the listener by its shape
+
+On this Windows build the TCP table misreports a listening socket's state.
+The dashboard's own listener on 7844 read a blank state on every sample, and
+netstat left it out entirely, so `Get-NetTCPConnection -State Listen` found
+nothing and `dashboard-stop.ps1` reported the port free over a running server.
+The sibling Data Usage Tracker hit it first: there the live listener flipped
+between `Closed`, `FinWait1` and blank, while a phantom row with PID 0 and a
+`127.0.0.1:0` remote read `Listen`. A fresh .NET listener with no connections
+read wrong too, so it is the OS, not Node.
+
+A listener is now the row with remote port 0, a wildcard remote address and a
+real owning process. Every connection has a remote port, and the phantom has
+neither the wildcard nor a PID. The stop script, the logon launcher's check and
+the install script's wait all use it.
+
 ### Reporter 1.3.2: one upload per sync
 
 A fifth of the phone syncs arrived twice or three times within a few

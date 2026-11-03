@@ -818,8 +818,10 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       syncs repeated within 5 s) in DEVLOG.
 - [x] Built release-signed: `versionCode 7` / `"1.3.2"`, certificate
       `21ad608e...20ec96fcc9`, APK SHA-256 `382217ca...89cdaa92`.
-- [ ] Not published yet. Then install on the three phones, press Sync now
-      once on each, and check the dashboard logs one sync, not two.
+- [x] Published: public `8283981`, release `v1.6.0` with
+      `ScreenTimeReporter-1.3.2.apk` (GitHub's asset digest matches).
+- [ ] Install 1.3.2 on the three phones, press Sync now once on each, and
+      check the dashboard logs one sync, not two.
 
 ### 2026-10-15 - Sync now on the phone pages
 
@@ -827,6 +829,19 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       configured (`inboxConfig()`, read in the `(dash)` layout). Checked on
       a scratch server: the button on a phone page in both themes, and one
       press returned 200 "Up to date" with the inbox empty.
+
+### 2026-11-03 - the listener is found by its shape, not its state
+
+`Get-NetTCPConnection -State Listen` found nothing on 7844 while the dashboard
+was serving: the row's state read blank on every sample and netstat omitted it.
+`dashboard-stop.ps1`, `dashboard-service.ps1` and `install-autostart.ps1` now
+match remote port 0, a wildcard remote and an owner PID above 0.
+
+Verified: `-WhatIf` named PID 22748 on four samples in a row, all with a blank
+state, where the old filter found 0; `-WhatIf -Port 7843` left the sibling's
+server alone and named it; a second `schtasks /run` of the logon task logged
+"already served by this dashboard (PID 22748)"; a real stop freed the port and
+`schtasks /run` brought it back as PID 13276, `/login` answering 200.
 
 ### 2026-10-14 - a project site, light screenshots, a committed social preview
 

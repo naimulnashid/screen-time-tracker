@@ -97,8 +97,11 @@ function Test-ThisDashboard([string]$CommandLine) {
     return (ConvertTo-ComparablePath $CommandLine).IndexOf($needle, [StringComparison]::OrdinalIgnoreCase) -ge 0
 }
 
+# A listener by its shape, not its State, which Windows' TCP table misreports:
+# see dashboard-stop.ps1, whose rule this is.
 function Get-PortHolder {
-    $found = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    $found = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemotePort -eq 0 -and $_.RemoteAddress -in '0.0.0.0', '::' -and $_.OwningProcess -gt 0 }
     foreach ($procId in ($found.OwningProcess | Select-Object -Unique)) {
         $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
         if (-not $proc) { continue }

@@ -8,6 +8,15 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Fixed
+- **Stopping and starting the dashboard find its server again.** Windows'
+  TCP table can misreport a listening socket's state, so `dashboard-stop.ps1`
+  said nothing was listening over a running dashboard, and the logon
+  launcher's "already running?" check and `install-autostart.ps1 -RunNow`'s
+  wait could miss it too. All three now find the listener by its shape
+  (remote port 0, wildcard remote address, a real owning process) rather
+  than its reported state.
+
 ## [1.6.0] - 2026-10-15
 
 ### Added

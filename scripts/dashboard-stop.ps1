@@ -52,8 +52,17 @@ function Test-ThisDashboard([string]$CommandLine) {
 }
 
 # Each listening process once, split into this dashboard's and everyone else's.
+# A listener is found by its shape, not its State: Windows' TCP table
+# misreports that (measured 2026-10-29, build 26300 -- a live listener read
+# Closed, FinWait1 or blank, while a row with PID 0 and remote 127.0.0.1:0
+# read Listen, so -State Listen missed a running server). A listener is the
+# row with no remote end and a real owner; every connection has a remote port,
+# and the phantom has neither a wildcard remote nor a PID. Same rule in
+# dashboard-service.ps1's Get-PortHolder and install-autostart.ps1's wait;
+# change them together.
 function Get-Listeners {
-    $found = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    $found = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemotePort -eq 0 -and $_.RemoteAddress -in '0.0.0.0', '::' -and $_.OwningProcess -gt 0 }
     foreach ($procId in ($found.OwningProcess | Select-Object -Unique)) {
         $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
         if (-not $proc) { continue }

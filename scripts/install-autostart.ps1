@@ -120,7 +120,10 @@ if ($RunNow) {
     $up = $false
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 3
-        if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) {
+        # By shape, not State, which Windows misreports: see dashboard-stop.ps1.
+        $listening = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+            Where-Object { $_.RemotePort -eq 0 -and $_.RemoteAddress -in '0.0.0.0', '::' -and $_.OwningProcess -gt 0 }
+        if ($listening) {
             $up = $true
             break
         }
