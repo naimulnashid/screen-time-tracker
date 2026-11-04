@@ -1,6 +1,6 @@
 import {
   SkPageHead, SkStats, SkStat, SkDuration, SkCard, SkCallout, SkPlot, SkHeatmap,
-  SkStacked, SkSplitBar, SkRangeMenu, STACK_LEGEND,
+  SkStacked, SkKindDonut, SkRangeMenu, STACK_LEGEND,
 } from '@/components/Skeleton';
 import { deviceLabel } from '@/lib/config';
 
@@ -61,7 +61,14 @@ export default function Loading() {
         <SkPlot height={240} />
       </SkCard>
       <SkCard title="Where the time went" sub="Every millisecond the sampler accounted for, and how.">
-        <SkSplitBar items={['■ Active 165h 35m', '■ Locked 89h 6m', '■ Unattributed 0s', '■ Asleep 225h 17m']} />
+        <SkKindDonut
+          rows={[
+            ['Active', 'An application was in the foreground.', '165h 35m', '34.4%'],
+            ['Locked', 'The lock screen was in front. Positively detected, not inferred.', '89h 6m', '18.5%'],
+            ['Unattributed', 'No foreground window, and no positive evidence of a lock. Not guessed at.', '0s', '0.0%'],
+            ['Asleep', 'The machine slept, or the sampler was not running. Absence of a measurement, not a quantity.', '225h 17m', '46.9%'],
+          ]}
+        />
       </SkCard>
     </>
   );

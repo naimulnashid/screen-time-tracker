@@ -322,10 +322,7 @@ export function SkActivityPage({ device, cardSub }: { device: string; cardSub: s
   );
 }
 
-/**
- * A 12px bar and its key, in the markup of the laptop's "Where the time
- * went" (KindBar) and the phone's "Attributed vs unaccounted".
- */
+/** A 12px bar and its key, in the markup of the phone's "Attributed vs unaccounted". */
 export function SkSplitBar({ items, gap = '0.4rem 1.2rem' }: { items: string[]; gap?: string }) {
   return (
     <div>
@@ -335,6 +332,33 @@ export function SkSplitBar({ items, gap = '0.4rem 1.2rem' }: { items: string[]; 
           <span key={t} style={{ fontSize: 'var(--fs-small)' }}><SkText>{t}</SkText></span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The laptop's "Where the time went" (KindBar): the donut's box and its
+ * legend, in the same classes, so the card wraps where the page's does.
+ */
+export function SkKindDonut({ rows }: { rows: [string, string, string, string][] }) {
+  return (
+    <div className="kind-split">
+      <div className="kind-donut"><Skeleton height={200} width={200} radius={100} /></div>
+      <table className="kind-legend">
+        <tbody>
+          {rows.map(([name, hint, time, share]) => (
+            <tr key={name}>
+              <td>
+                <span className="kind-swatch" />
+                <span className="kind-name"><SkText>{name}</SkText></span>
+                <span className="kind-hint"><SkText>{hint}</SkText></span>
+              </td>
+              <td className="num mono kind-time"><SkText>{time}</SkText></td>
+              <td className="num mono kind-share"><SkText>{share}</SkText></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

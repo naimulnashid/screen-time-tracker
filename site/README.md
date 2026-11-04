@@ -13,7 +13,7 @@ on 2026-11-04.
 | Light theme | A grey page (`#e6e6ea`) behind white cards, overridden in `src/styles/global.css`, not in `onyx.css` |
 | Accent | **The dashboard's own: Focus Violet for the laptop, Android Green for a phone** (`src/lib/accent.ts` in the dashboard), not Onyx's. `data-device` on `<html>` or a section picks the family |
 | Icons | Lucide shapes inlined in `src/components/Icon.astro`; no icon library ships |
-| Charts | `src/scripts/charts.js`: drawn from a fixed seed, so the same on every load and nobody's usage; they follow the dashboard's (`src/components/Charts.tsx`, `ActivityHeatmap.tsx`, `KindBar.tsx`). No app logos: every app shows its initial |
+| Charts | `src/scripts/charts.js`: drawn from a fixed seed, so the same on every load and nobody's usage; they follow the dashboard's (`src/components/Charts.tsx`, `ActivityHeatmap.tsx`, `KindBar.tsx`). The demo apps' logos are in `public/logos/` (generic marks for the invented apps only, as the Data Usage site ships its own); an app without one shows its initial |
 | Screenshots | **None.** The screenshot tour has been hidden since 2026-10-15, pending the owner's review, so the hero shows how much history each source keeps instead |
 
 `?device=android` opens the chart gallery on the phone.

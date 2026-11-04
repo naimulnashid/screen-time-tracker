@@ -1,8 +1,11 @@
-import { formatDuration } from '@/lib/format';
+import { formatDuration, formatPercent } from '@/lib/format';
 import type { KindTotals } from '@/lib/queries';
 
 /**
- * Where the recorded time went: active, locked, unattributed, asleep.
+ * Where the recorded time went: active, locked, unattributed, asleep, as a
+ * donut with active time in its centre beside a legend that gives each its
+ * time, share and meaning. A donut since 2026-11-04 (the owner's call); it
+ * was one 12px bar. Screen Time Native draws the same card the same way.
  *
  * This exists to keep the sampler honest in public. `unknown` is time the
  * sampler saw no foreground window and DECLINED TO GUESS -- a growing share is
@@ -13,21 +16,17 @@ import type { KindTotals } from '@/lib/queries';
  * laptop is not a quiet day and the two must not look alike.
  *
  * ⚠ That colour is mixed from `--text-dim`. It used to be the heat map's
- * `--hm-none`, which was `#0b0b0d` against this bar's `--bg-panel` track of
- * `#0a0a0b` -- one or two points per channel, so the Asleep segment was
- * invisible and the bar simply looked SHORT. That is the exact misreading this
- * card exists to prevent: unrecorded time reading as no time.
+ * `--hm-none`, which was `#0b0b0d` against the card's `#0a0a0b` -- one or two
+ * points per channel, so the Asleep segment was invisible and the chart
+ * simply looked SHORT: unrecorded time reading as no time, the exact
+ * misreading this card exists to prevent. It takes a visible neutral, and
+ * stays the dimmest of the four so absence still reads as absence.
  *
- * The heat map had already solved the same problem and solved it better --
- * `.heatmap-cell[data-nodata]` draws a hairline instead of a fill, precisely
- * because a near-black fill on a near-black ground says nothing. KindBar
- * borrowed the token without the fix, and was its only consumer -- the token
- * is gone now, so nobody reaches for it again. A 12px band cannot carry a
- * hairline the way a square cell can, so it takes a visible neutral instead,
- * and stays the dimmest of the four so absence still reads as absence.
+ * The SVG is hidden from screen readers: the legend states every value as
+ * text, and the ring only draws the same numbers as arcs.
  */
 
-const SEGMENTS = [
+export const KIND_SEGMENTS = [
   {
     key: 'active' as const,
     label: 'Active',
@@ -54,65 +53,69 @@ const SEGMENTS = [
   },
 ];
 
+/** The ring's geometry, in viewBox units; the skeleton draws the same. */
+export const DONUT = { size: 200, radius: 82, thickness: 30 } as const;
+
+/** Degrees left between two slices, so neighbours of one hue stay apart. */
+const GAP_DEG = 1.5;
+
 export function KindBar({ kinds }: { kinds: KindTotals }) {
   const total = kinds.active + kinds.locked + kinds.unknown + kinds.gap;
   if (total === 0) return null;
 
-  return (
-    <div>
-      {/* Hidden from screen readers: the legend below states every value as
-          text, and this bar only draws the same numbers as widths. */}
-      <div
-        aria-hidden="true"
-        style={{
-          display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden',
-          border: '1px solid var(--border)', background: 'var(--bg-panel)',
-        }}
-      >
-        {SEGMENTS.map((s) => {
-          const pct = (kinds[s.key] / total) * 100;
-          if (pct <= 0) return null;
-          return (
-            <div
-              key={s.key}
-              title={`${s.label} - ${formatDuration(kinds[s.key])}`}
-              style={{ width: `${pct}%`, background: s.fill }}
-            />
-          );
-        })}
-      </div>
+  const { size, radius, thickness } = DONUT;
+  const c = 2 * Math.PI * radius;
+  const shown = KIND_SEGMENTS.filter((s) => kinds[s.key] > 0).length;
+  const gap = shown > 1 ? (GAP_DEG / 360) * c : 0;
+  let offset = 0;
 
-      <div
-        style={{
-          display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1.2rem',
-          marginTop: '0.85rem',
-        }}
-      >
-        {SEGMENTS.map((s) => (
-          <div
-            key={s.key}
-            title={s.hint}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}
-          >
-            <span
-              style={{
-                width: 9, height: 9, borderRadius: 2, background: s.fill,
-                border: '1px solid var(--border)', flexShrink: 0,
-              }}
-            />
-            <span style={{ fontSize: 'var(--fs-small)', color: 'var(--text-dim)' }}>
-              {s.label}
-            </span>
-            <span
-              style={{
-                fontSize: 'var(--fs-small)', fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {formatDuration(kinds[s.key])}
-            </span>
-          </div>
-        ))}
-      </div>
+  return (
+    <div className="kind-split">
+      <figure className="kind-donut" aria-hidden="true">
+        <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+          {/* Clockwise from twelve o'clock: a circle's stroke starts at three,
+              so the group turns a quarter back. */}
+          <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+            {KIND_SEGMENTS.map((s) => {
+              const len = (kinds[s.key] / total) * c;
+              const at = offset;
+              offset += len;
+              if (len <= 0) return null;
+              return (
+                <circle
+                  key={s.key}
+                  cx={size / 2} cy={size / 2} r={radius}
+                  fill="none" stroke={s.fill} strokeWidth={thickness}
+                  strokeDasharray={`${Math.max(0.5, len - gap)} ${c}`}
+                  strokeDashoffset={-(at + gap / 2)}
+                >
+                  <title>{`${s.label} - ${formatDuration(kinds[s.key])}`}</title>
+                </circle>
+              );
+            })}
+          </g>
+        </svg>
+        <figcaption className="kind-donut-centre">
+          <span className="kind-donut-value">{formatDuration(kinds.active)}</span>
+          <span className="kind-donut-caption">active</span>
+        </figcaption>
+      </figure>
+
+      <table className="kind-legend">
+        <tbody>
+          {KIND_SEGMENTS.map((s) => (
+            <tr key={s.key}>
+              <td>
+                <span className="kind-swatch" style={{ background: s.fill }} />
+                <span className="kind-name">{s.label}</span>
+                <span className="kind-hint">{s.hint}</span>
+              </td>
+              <td className="num mono kind-time">{formatDuration(kinds[s.key])}</td>
+              <td className="num mono kind-share">{formatPercent((kinds[s.key] / total) * 100)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -8,6 +8,15 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Changed
+- **"Where the time went" is a donut**: active, locked, unattributed and
+  asleep as a ring with active time in its centre, beside a legend with each
+  one's time, share and meaning. It was one 12px bar. The project site draws
+  it the same way.
+- **The README's screenshots show app logos**, borrowed for the capture from
+  the logos you have added; none ship with the repository. The project site's
+  charts show the invented apps' logos too.
+
 ### Fixed
 - **Every request body is capped as it arrives.** Sign-in parsed a body of
   any size, and renaming, recolouring, hiding or merging read the whole body

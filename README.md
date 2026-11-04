@@ -28,8 +28,10 @@ how it works, every chart it draws (live, on invented data) and every feature.
 
 > **Every number in these images is invented.** They come from `npm run
 > demo:seed`, a synthetic laptop and phone, captured by `npm run demo:shots`
-> (see [Development](#development)). No app logos ship with the repository, so
-> every app shows its initial. Each image follows your GitHub theme.
+> (see [Development](#development)). App logos are not shipped: the script
+> borrows the ones you have added, for the demo's own apps only, and a fresh
+> clone shows each app's initial until you add some. Each image follows your
+> GitHub theme.
 
 The laptop's Overview: the latest day, the daily average and all history, the
 daily trend, a six-month heat map, the top apps and the most opened apps day by

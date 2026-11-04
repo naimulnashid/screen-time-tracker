@@ -63,18 +63,18 @@ const DEVICES = {
     days: 100, seed: 20260923, missing: [61, 62, 63],
     total: [6.5, 10.5], // hours of active time on a working day
     apps: [
-      { name: 'VS Code', color: '#0065a9', w: 3.2, visit: 24, peak: [10, 16] },
-      { name: 'Google Chrome', color: '#fcd209', w: 2.3, visit: 19 },
-      { name: 'Windows Terminal', color: '#ececf1', w: 1.2, visit: 17 },
-      { name: 'File Explorer', color: '#ffc928', w: 0.7, visit: 9, kind: 'system' },
+      { name: 'VS Code', color: '#0065a9', logo: 'vs-code.svg', w: 3.2, visit: 24, peak: [10, 16] },
+      { name: 'Google Chrome', color: '#fcd209', logo: 'chrome.svg', w: 2.3, visit: 19 },
+      { name: 'Windows Terminal', color: '#ececf1', logo: 'windows-terminal.webp', w: 1.2, visit: 17 },
+      { name: 'File Explorer', color: '#ffc928', logo: 'file-explorer.webp', w: 0.7, visit: 9, kind: 'system' },
       { name: 'Spotify', color: '#1ed760', w: 0.55, visit: 15 },
-      { name: 'Discord', color: '#5865f2', w: 0.5, visit: 16 },
-      { name: 'Word', color: '#1146ac', w: 0.45, visit: 15 },
+      { name: 'Discord', color: '#5865f2', logo: 'discord.svg', w: 0.5, visit: 16 },
+      { name: 'Word', color: '#1146ac', logo: 'word.svg', w: 0.45, visit: 15 },
       { name: 'Firefox', color: '#ff7139', w: 0.32, visit: 17 },
-      { name: 'Notepad', color: '#43afcf', w: 0.28, visit: 19 },
-      { name: 'VLC', color: '#f48200', w: 0.26, visit: 15 },
+      { name: 'Notepad', color: '#43afcf', logo: 'notepad.svg', w: 0.28, visit: 19 },
+      { name: 'VLC', color: '#f48200', logo: 'vlc.webp', w: 0.26, visit: 15 },
       { name: 'Calculator', color: null, w: 0.004, visit: 1.5, sparse: 0.15 },
-      { name: 'Snipping Tool', color: null, w: 0.003, visit: 1, sparse: 0.1 },
+      { name: 'Snipping Tool', color: null, logo: 'snipping-tool.webp', w: 0.003, visit: 1, sparse: 0.1 },
     ],
     hours: [0, 0, 0, 0, 0, 0, 0, 0, 0.1, 3.3, 5.4, 7.6, 4.1, 3.9, 7.1, 7.6, 3.3, 5.2, 1.3, 0.1, 1.2, 4.9, 3.1, 0.2],
     detail: 'VS Code',
@@ -83,16 +83,16 @@ const DEVICES = {
     days: 60, seed: 20260930, missing: [],
     total: [3.6, 7.8], // hours of screen-on time
     apps: [
-      { name: 'YouTube', color: '#ff0033', w: 2.1, visit: 9 },
-      { name: 'WhatsApp', color: '#23b33a', w: 1.5, visit: 2.6 },
-      { name: 'Chrome', color: '#fcd209', w: 1.0, visit: 3.5 },
+      { name: 'YouTube', color: '#ff0033', logo: 'youtube.webp', w: 2.1, visit: 9 },
+      { name: 'WhatsApp', color: '#23b33a', logo: 'whatsapp.svg', w: 1.5, visit: 2.6 },
+      { name: 'Chrome', color: '#fcd209', logo: 'chrome.svg', w: 1.0, visit: 3.5 },
       { name: 'Spotify', color: '#1ed760', w: 0.6, visit: 6 },
-      { name: 'Telegram', color: '#1d93d2', w: 0.5, visit: 2.4 },
-      { name: 'Gmail', color: '#ea4335', w: 0.35, visit: 1.8 },
-      { name: 'Maps', color: '#34a853', w: 0.3, visit: 4 },
+      { name: 'Telegram', color: '#1d93d2', logo: 'telegram.svg', w: 0.5, visit: 2.4 },
+      { name: 'Gmail', color: '#ea4335', logo: 'gmail.svg', w: 0.35, visit: 1.8 },
+      { name: 'Maps', color: '#34a853', logo: 'maps.svg', w: 0.3, visit: 4 },
       { name: 'Launcher', color: null, w: 0.28, visit: 0.4, home: true },
       { name: 'Duolingo', color: '#58cc02', w: 0.22, visit: 7 },
-      { name: 'Calendar', color: '#4797ff', w: 0.012, visit: 0.8, sparse: 0.3 },
+      { name: 'Calendar', color: '#4797ff', logo: 'calendar.webp', w: 0.012, visit: 0.8, sparse: 0.3 },
     ],
     hours: [0.3, 0.1, 0, 0, 0, 0, 6.7, 7.3, 11.1, 7.7, 7.9, 7.8, 9.1, 11.8, 14.8, 11.6, 9.4, 10.9, 10.8, 12.1, 15.7, 14.3, 10.6, 2],
     attributed: 0.75, // apps cover this share of screen-on, as measured
@@ -427,7 +427,7 @@ function drawStack(d) {
   const { top, rest, left, lead } = ranked(d, m, n);
   const field = m === 'time' ? 'time' : 'opens';
   const days = d.days.slice(-n);
-  const series = top.map((a) => ({ name: a.name, color: ink(a.color), vals: a[field].slice(-n) }));
+  const series = top.map((a) => ({ name: a.name, color: ink(a.color), logo: a.logo, vals: a[field].slice(-n) }));
   series.push({ name: 'Other', color: OTHER, vals: days.map((_, i) => rest.reduce((s, a) => s + (a[field].slice(-n)[i] ?? 0), 0)) });
   const totals = days.map((_, i) => series.reduce((s, se) => s + (se.vals[i] ?? 0), 0));
   const axis = m === 'time' ? timeAxis(Math.max(...totals)) : countAxis(Math.max(...totals));
@@ -459,7 +459,17 @@ function drawStack(d) {
     `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${m === 'time' ? 'Time' : 'Opens'} per day by app, top eight stacked with the rest as Other">
       ${grid(axis, L, W - R, T, H - B)}${layers}${xDates(days, x, H - 6, Math.max(1, Math.round(days.length / 10)))}${hits}</svg>`;
   document.getElementById('v-stack-legend').innerHTML =
-    series.map((se) => `<span><i style="background:${se.color}"></i>${esc(se.name)}</span>`).join('');
+    series.map((se) => `<span>${se.logo ? logoImg(se.logo, 14) : `<i style="background:${se.color}"></i>`}${esc(se.name)}</span>`).join('');
+}
+
+/**
+ * An app's logo, where the site ships one (site/public/logos): the demo apps'
+ * marks, as the dashboard draws them, and the sibling Data Usage site does.
+ * Generic marks only, never a real device's inventory; apps without one keep
+ * their initial or colour square.
+ */
+function logoImg(file, size) {
+  return `<img class="app-logo" src="/logos/${file}" alt="" width="${size}" height="${size}" style="width:${size}px;height:${size}px" loading="lazy" decoding="async">`;
 }
 
 /** Vertical bars with the peak lifted to the bright accent, as HourlyChart and DailyTrendChart draw. */
@@ -513,10 +523,27 @@ function drawWhere(d) {
       ['Asleep', d.days.length * 24 * 60 * MIN - active * 1.544, 'color-mix(in srgb, var(--text-dim) 28%, var(--bg-panel))'],
     ];
     const all = parts.reduce((s, p) => s + p[1], 0);
+    // A donut, as the dashboard's KindBar draws it since 2026-11-04: clockwise
+    // from twelve o'clock, a small gap between slices, active in the centre.
+    const R = 82, C = 2 * Math.PI * R, gap = (1.5 / 360) * C;
+    let at = 0;
+    const arcs = parts.map(([n, v, c]) => {
+      const len = (v / all) * C;
+      const s = `<circle cx="100" cy="100" r="${R}" fill="none" stroke="${c}" stroke-width="30"
+        stroke-dasharray="${Math.max(0.5, len - gap)} ${C}" stroke-dashoffset="${-(at + gap / 2)}" class="fade"
+        data-tip="${esc(`<b>${n}</b>${dur(v)}, ${pct(v / all)}`)}"/>`;
+      at += len;
+      return s;
+    }).join('');
     document.getElementById('v-where').innerHTML =
-      `<div class="kind-bar" role="img" aria-label="${parts.map((p) => `${p[0]} ${pct(p[1] / all)}`).join(', ')}">${parts.map(([, v, c], i) =>
-        `<span style="width:${(v / all) * 100}%;background:${c};animation-delay:${i * 80}ms" data-tip="${esc(`<b>${parts[i][0]}</b>${dur(v)}, ${pct(v / all)}`)}"></span>`).join('')}</div>
-      <div class="kind-legend">${parts.map(([n, v, c]) => `<span><i style="background:${c}"></i>${n} <b>${dur(v)}</b></span>`).join('')}</div>`;
+      `<div class="kind-split">
+        <div class="kind-donut">
+          <svg viewBox="0 0 200 200" role="img" aria-label="${parts.map((p) => `${p[0]} ${pct(p[1] / all)}`).join(', ')}"><g transform="rotate(-90 100 100)">${arcs}</g></svg>
+          <div class="kind-donut-centre"><b>${dur(active)}</b><span>active</span></div>
+        </div>
+        <div class="kind-rows">${parts.map(([n, v, c]) =>
+          `<div class="kind-row"><i style="background:${c}"></i><span class="kind-name">${n}</span><b>${dur(v)}</b><span class="kind-share">${pct(v / all)}</span></div>`).join('')}</div>
+      </div>`;
   } else {
     title.textContent = 'Attributed vs unaccounted';
     note.textContent = 'Screen-on time, and how much of it any app accounts for. The lock screen, the launcher between apps and system surfaces hold the rest.';
@@ -591,7 +618,8 @@ function drawTable(d) {
   const main = all.filter(listed);
   const folded = all.filter((a) => !listed(a));
   const rows = showAll ? all : main;
-  const initial = (a) => `<span class="initial" style="${a.color ? `color:${ink(a.color)}` : ''}">${esc(a.name[0])}</span>`;
+  const initial = (a, size = 20) => (a.logo ? logoImg(a.logo, size)
+    : `<span class="initial" style="${a.color ? `color:${ink(a.color)}` : ''}">${esc(a.name[0])}</span>`);
   const badge = (a) => (a.kind ? ` <span class="badge">${a.kind}</span>` : '');
   const toggle = `<div class="view-toggle" role="group" aria-label="View">
     <button type="button" data-view="table" aria-pressed="${tableView === 'table'}">Table</button>
@@ -600,7 +628,7 @@ function drawTable(d) {
     ? `<div class="table-wrap"><table><thead><tr><th>App</th><th class="num">Time</th><th class="num">Opens</th><th class="num">Days</th></tr></thead><tbody>${
       rows.map((a) => `<tr><td><span class="app-cell">${initial(a)}${esc(a.name)}${badge(a)}</span></td>
         <td class="num total">${dur(a.total)}</td><td class="num">${count(a.opensTotal)}</td><td class="num">${a.days}</td></tr>`).join('')}</tbody></table></div>`
-    : `<div class="app-grid">${rows.map((a) => `<div class="app-card">${initial(a)}
+    : `<div class="app-grid">${rows.map((a) => `<div class="app-card">${initial(a, 44)}
         <div class="app-card-name">${esc(a.name)}${badge(a)}</div>
         <div class="app-card-total">${dur(a.total)}</div>
         <div class="app-card-io"><span>${count(a.opensTotal)} opens</span></div>

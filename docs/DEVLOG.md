@@ -7,6 +7,24 @@ doc privately.
 
 ## After 1.0.0
 
+### Where the time went as a donut; logos in the screenshots (2026-11-04)
+
+The owner asked for the card as a donut, here and in Screen Time Native. It
+is plain SVG in the server component: one circle per kind, its stroke dashed
+to its share, a 1.5-degree gap between neighbours so Active and Locked (one
+hue at two strengths) stay apart, and active time in the centre. The legend
+is a table beside it carrying every value as text, so the ring stays
+`aria-hidden`. The Asleep colour keeps the reasoning the bar had: a visible
+neutral, the dimmest of the four.
+
+The README's screenshots had no logos, unlike Data Usage Tracker's.
+`demo:shots` now borrows them: for each demo device it picks the real device
+folder that answers for most of the demo's apps and copies only those files
+into the scratch copy's demo folder, which the server reads logos from and
+which is deleted after the run. Nothing is written into the repo. The
+project site ships the invented apps' logos in `site/public/logos/`, as the
+Data Usage site does; apps with none keep their initial.
+
 ### One body reader, capped as it streams
 
 The phone's route already read its body with a byte ceiling enforced while

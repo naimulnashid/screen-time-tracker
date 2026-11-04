@@ -36,7 +36,10 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, write
 import { tmpdir } from 'node:os';
 import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { DatabaseSync } from 'node:sqlite';
 import { issueSession, SESSION_COOKIE } from '../src/lib/auth';
+import { allLogoFiles, logoDir, resolveLogo } from '../src/lib/app-logo';
+import { resolveApp } from '../src/lib/app-name';
 
 const ROOT = resolve('.');
 /*
@@ -103,6 +106,51 @@ function cleanup() {
 }
 process.on('exit', cleanup);
 
+/**
+ * The demo devices' logos, borrowed for the run (since 2026-11-04, at the
+ * owner's request, as the sibling Data Usage Tracker does): a logo is a
+ * generic mark, not usage. None ship, and none are written into this repo:
+ * they are copied into the SCRATCH copy's demo folder, which the server reads
+ * logos from (`logoDir()` is under its working directory) and which is
+ * deleted after the run.
+ *
+ * For each demo device, the real device folder that answers for the most of
+ * its demo apps is picked -- a phone never borrows a laptop's marks -- and the
+ * shared root is tried after it, as the dashboard itself resolves logos. Only
+ * the files the demo's own apps resolve to are copied. With no logos at all,
+ * as in a fresh clone, every app keeps its swatch.
+ */
+function borrowLogos(demo: string): void {
+  const db = new DatabaseSync(join(demo, 'demo.db'), { readOnly: true });
+  let laptop: string[];
+  let phone: string[];
+  try {
+    laptop = [...new Set((db.prepare("SELECT DISTINCT app_path p FROM windows_segments WHERE kind = 'app'").all() as { p: string }[])
+      .map((r) => resolveApp(r.p).name))];
+    phone = [...new Set((db.prepare("SELECT DISTINCT label FROM android_apps WHERE label != ''").all() as { label: string }[])
+      .map((r) => r.label))];
+  } finally {
+    db.close();
+  }
+  const files = new Map(allLogoFiles().map((f) => [`${f.scope}/${f.key}`, f.relPath]));
+  const realScopes = [...new Set(allLogoFiles().map((f) => f.scope).filter(Boolean))];
+  const demoFolders = [['My Laptop', laptop], ['my-phone', phone]] as const;
+  for (const [folder, names] of demoFolders) {
+    const pick = (scope: string) => names.map((n) => resolveLogo(n, scope)).filter((h) => h !== null);
+    const best = realScopes
+      .map((scope) => ({ scope, hits: pick(scope).filter((h) => h.scope === scope).length }))
+      .sort((a, b) => b.hits - a.hits)[0];
+    const hits = pick(best?.scope ?? '');
+    const dest = join(demo, 'public', 'apps_logo', folder);
+    mkdirSync(dest, { recursive: true });
+    for (const hit of hits) {
+      const rel = files.get(`${hit.scope}/${hit.key}`);
+      if (rel) cpSync(join(logoDir(), rel), join(dest, parse(rel).base));
+    }
+    console.log(`  logos for ${folder}: ${hits.length} of ${names.length} apps`);
+  }
+}
+
 async function up(url: string, ms = 60_000): Promise<boolean> {
   const until = Date.now() + ms;
   while (Date.now() < until) {
@@ -166,6 +214,7 @@ async function main() {
   execFileSync(process.execPath, [join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'), 'scripts/seed-demo.ts', demo], {
     cwd: ROOT, stdio: 'inherit', env: { ...process.env, DEMO_NOW: asOf.toISOString() },
   });
+  borrowLogos(demo);
 
   const password = randomBytes(18).toString('base64url');
   const server = spawn(process.execPath, [join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', WORK, '-p', String(PORT), '-H', '127.0.0.1'], {

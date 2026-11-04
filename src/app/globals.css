@@ -1461,3 +1461,37 @@ select.chip {
 .member-table .unmerge-btn { opacity: 1; }
 .unmerge-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
 .unmerge .rename-error { white-space: nowrap; }
+
+/* Where the time went: a donut beside its legend (components/KindBar.tsx). */
+.kind-split {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2.5rem;
+  align-items: center;
+}
+.kind-donut { position: relative; margin: 0; width: 200px; height: 200px; }
+.kind-donut svg { display: block; }
+.kind-donut-centre {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.kind-donut-value { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kind-donut-caption { font-size: 0.8125rem; color: var(--text-faint); }
+.kind-legend { width: 100%; border-collapse: collapse; }
+.kind-legend td { padding: 0.5rem 0; vertical-align: middle; }
+.kind-legend td:first-child {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  column-gap: 0.7rem;
+}
+.kind-swatch {
+  grid-row: 1 / span 2; margin-top: 0.3rem;
+  width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border);
+}
+.kind-name { font-weight: 500; }
+.kind-hint { font-size: 0.8125rem; color: var(--text-faint); }
+.kind-legend .kind-time { font-weight: 600; padding-left: 1.2rem; white-space: nowrap; }
+.kind-legend .kind-share { color: var(--text-dim); width: 4.5rem; white-space: nowrap; }
+@media (max-width: 720px) {
+  .kind-split { grid-template-columns: 1fr; justify-items: center; }
+}
