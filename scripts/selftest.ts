@@ -64,6 +64,7 @@ import {
 } from '../src/lib/inbox';
 import { createPrivateKey } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
+import { compare as compareHistory, info as historyInfo } from './db-digest.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -393,6 +394,28 @@ section('android write rules');
     ).all() as { d: string; h: number }[];
     check('own offset buckets a span', tzRows.map((r) => `${r.d} ${r.h}`), ['2026-08-31 4', '2026-08-31 6']);
     check('an absurd own offset rejects the row', off.rejected, 1);
+
+    // --- malformed rows are rejected and counted, never a 500 (audit BUG-003) ---
+    // Each of these used to throw inside the transaction -- a null row at
+    // s.start, a far-future instant at toISOString() -- and roll back the good
+    // rows sent with it. An unknown screen kind used to be filed as screen-on.
+    const junk = ingestAndroid(db, {
+      device, tzOffsetMinutes: tz,
+      apps: [null as never, 'x' as never, { packageName: 'com.ok', label: 'Ok' }],
+      sessions: [
+        null as never, 7 as never,
+        { start: 1e20, end: 1e20 + MIN, packageName: 'com.far' },
+        { start: base, end: base + MIN, packageName: 'com.prof', userProfile: { x: 1 } as never },
+        { start: base + 2 * MIN, end: base + 3 * MIN, packageName: 'com.good' },
+      ],
+      screen: [
+        null as never,
+        { start: base, end: base + MIN, kind: 'screen_off' },
+        { start: base, end: base + MIN },
+      ],
+    });
+    check('malformed rows are counted, not thrown', junk.rejected, 9);
+    check('the good rows beside them still land', [junk.appsWritten, junk.sessionSegments, junk.screenSegments], [1, 1, 0]);
 
     // --- screen spans: same rule, and CLOSING sticks ---
     ingestAndroid(db, {
@@ -1130,6 +1153,8 @@ check('near-black is lifted', ensureReadable('#000080') !== '#000080', true);
     // put an accent colour outside `accent.ts`. The null fallback draws the
     // same violet on the laptop and the right green on the phone.
     'screentimereporter',
+    // Screen Time Native's icon, the same violet clock: the same reasoning.
+    'screentime',
   ]);
 
   // allLogoFiles(), not readdirSync: the folder is no longer flat, and a scan
@@ -1453,6 +1478,9 @@ section('phone payload limits');
   check('an overlong label is refused',
     payloadProblem({ ...ok, device: { deviceId: 'a', label: 'x'.repeat(PAYLOAD_LIMITS.labelChars + 1) } })?.status, 400);
   check('an impossible offset is refused', payloadProblem({ ...ok, tzOffsetMinutes: 24 * 60 })?.status, 400);
+  check('an object sdkInt is refused', payloadProblem({ ...ok, device: { deviceId: 'a', sdkInt: {} } })?.status, 400);
+  check('a non-ISO events reach is refused', payloadProblem({ ...ok, device: { deviceId: 'a', eventsReachUtc: 'soon' } })?.status, 400);
+  check('a coverage end past the Date range is refused', payloadProblem({ ...ok, coverageEndMs: 1e20 })?.status, 400);
   check('a non-array is refused', payloadProblem({ ...ok, sessions: {} })?.status, 400);
   check('too many rows is a 413, not a 400',
     payloadProblem({ ...ok, apps: new Array(PAYLOAD_LIMITS.apps + 1).fill({}) })?.status, 413);
@@ -1830,6 +1858,35 @@ section('cloud inbox envelopes');
   check('the upload bearer is not the token, and is hex',
     uploadBearer(token) !== token && /^[0-9a-f]{64}$/.test(uploadBearer(token)), true);
   check('a fingerprint is four groups of four', /^[0-9A-F]{4}( [0-9A-F]{4}){3}$/.test(fingerprint(pub)), true);
+}
+
+/* ------------------------------------------------------------------ */
+section('backup vs live, by content (audit DB-003)');
+{
+  // Equal row counts, different history: the case a count could not see.
+  const dir = mkdtempSync(join(tmpdir(), 'st-digest-'));
+  try {
+    const make = (file: string, name: string, extra = false) => {
+      const db = new DatabaseSync(join(dir, file));
+      db.exec('CREATE TABLE app_renames(device_id TEXT, app_key TEXT, name TEXT); CREATE TABLE sync_log(x INT)');
+      db.prepare('INSERT INTO app_renames VALUES (?, ?, ?)').run('w', 'code', name);
+      if (extra) db.exec('INSERT INTO sync_log VALUES (1)');
+      db.close();
+      return join(dir, file);
+    };
+    const live = make('live.db', 'Mine', true);
+    const back = make('back.db', 'Old');
+    const same = make('same.db', 'Mine');
+    const d = compareHistory(live, back);
+    check('a changed rename is a difference both ways', [d.ok, d.onlyA, d.onlyB], [true, 1, 1]);
+    check('it is named by table', (d.tables as Record<string, unknown> | undefined)?.app_renames, { onlyA: 1, onlyB: 1 });
+    check('equal counts no longer read as equal', historyInfo(live).rows === historyInfo(back).rows
+      && historyInfo(live).digest !== historyInfo(back).digest, true);
+    check('sync_log is not history', [compareHistory(live, same).onlyA, historyInfo(live).digest === historyInfo(same).digest], [0, true]);
+    check('a missing file is not ok', compareHistory(live, join(dir, 'none.db')).ok, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /* ------------------------------------------------------------------ */

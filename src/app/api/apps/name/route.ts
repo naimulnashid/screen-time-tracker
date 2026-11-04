@@ -16,6 +16,7 @@
  */
 
 import { dbPath, windowsSlug } from '@/lib/config';
+import { backupAfterEdit } from '@/lib/edit-backup';
 import { getWindowsAppNames, WINDOWS_DEVICE_ID } from '@/lib/queries';
 import { getAndroidAppNames, getAndroidDeviceBySlug } from '@/lib/android-queries';
 import { saveRename, MAX_NAME_LENGTH, type AppNames, type RenameError } from '@/lib/app-renames';
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return fail(result.error === 'unknown-app' ? 404 : 422, result.error, MESSAGES[result.error]);
     }
-    return Response.json({ ok: true, name: result.name, renamed: result.name !== apps.get(key)?.base });
+    return Response.json({ backup: await backupAfterEdit(file), ok: true, name: result.name, renamed: result.name !== apps.get(key)?.base });
   } catch (err) {
     return fail(500, 'write-failed', err instanceof Error ? err.message : String(err));
   }

@@ -10,6 +10,7 @@
  */
 
 import { dbPath, windowsSlug } from '@/lib/config';
+import { backupAfterEdit } from '@/lib/edit-backup';
 import { getWindowsAppKeys, WINDOWS_DEVICE_ID } from '@/lib/queries';
 import { getAndroidAppKeys, getAndroidDeviceBySlug } from '@/lib/android-queries';
 import { setHidden, setMerge, type PrefError } from '@/lib/app-prefs';
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
   try {
     if (action === 'hide' || action === 'show') {
       setHidden({ dbFile: file, deviceId, key, hidden: action === 'hide' });
-      return Response.json({ ok: true });
+      return Response.json({ backup: await backupAfterEdit(file), ok: true });
     }
     if (action === 'merge' || action === 'unmerge') {
       if (action === 'merge' && typeof into !== 'string') return fail(400, 'bad-request', 'Merge into which app?');
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
       if (!result.ok) {
         return fail(result.error === 'unknown-app' ? 404 : 422, result.error, MESSAGES[result.error]);
       }
-      return Response.json({ ok: true });
+      return Response.json({ backup: await backupAfterEdit(file), ok: true });
     }
   } catch (err) {
     return fail(500, 'write-failed', err instanceof Error ? err.message : String(err));

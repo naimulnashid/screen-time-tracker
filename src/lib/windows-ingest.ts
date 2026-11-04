@@ -290,7 +290,14 @@ async function runIngest({ keep = false }: { keep?: boolean }): Promise<WindowsI
 
   // Only remove files that can no longer be appended to. The sampler holds
   // today's file open for more spans; deleting it would lose the rest of today.
-  if (!keep) {
+  //
+  // And only behind a backup that COMPLETED (audit DB-002). The files are
+  // the other copy of these spans until a backup holds them; after a busy or
+  // failed backup they stay, and the next run reads them again, which
+  // inserts nothing twice. With backups switched off there is no backup to
+  // wait for, so they go as before.
+  const covered = !cfg.backupEnabled || !cfg.backupPath || result.backupStatus === 'ok';
+  if (!keep && covered) {
     for (const file of files) {
       if (file === todayFile) continue;
       try { unlinkSync(join(dir, file)); result.removed++; } catch { /* keep going */ }

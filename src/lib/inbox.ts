@@ -386,18 +386,31 @@ export async function drainInbox(opts: DrainOptions = {}): Promise<DrainOutcome 
         }
       }
 
-      if (db && (done.length > 0 || failed.length > 0)) {
-        await call(cfg, drainToken, 'ack', { method: 'POST', body: JSON.stringify({ done, failed }) });
+      // Back up BEFORE acknowledging (audit DB-002). An ack deletes the
+      // envelopes from the inbox, and until a backup holds their rows the
+      // live database is then the only copy: one backup at the end of the
+      // drain left that window open, and a later page failing skipped the
+      // backup altogether. A backup that did not complete (busy, failed)
+      // leaves this page's envelopes in the inbox, to land again on the next
+      // drain -- harmlessly, as the ingest upserts -- and stops this one.
+      let keep = false;
+      if (db && done.length > 0) {
+        checkpointWal(db);
+        if (conf.backupEnabled && conf.backupPath && !opts.dbPath) {
+          out.backupStatus = await backupDatabase(db, conf.backupPath);
+          const set = db.prepare('UPDATE sync_log SET backup_status = ? WHERE id = ?');
+          for (const id of landedRuns) set.run(out.backupStatus, id);
+          landedRuns.length = 0;
+          keep = out.backupStatus !== 'ok';
+        }
       }
-    }
-
-    // One backup for the whole drain, as the route makes one per push.
-    if (db && out.landed > 0) {
-      checkpointWal(db);
-      if (conf.backupEnabled && conf.backupPath && !opts.dbPath) {
-        out.backupStatus = await backupDatabase(db, conf.backupPath);
-        const set = db.prepare('UPDATE sync_log SET backup_status = ? WHERE id = ?');
-        for (const id of landedRuns) set.run(out.backupStatus, id);
+      const ack = keep ? [] : done;
+      if (db && (ack.length > 0 || failed.length > 0)) {
+        await call(cfg, drainToken, 'ack', { method: 'POST', body: JSON.stringify({ done: ack, failed }) });
+      }
+      if (keep) {
+        log(`backup ${out.backupStatus}: ${done.length} landed upload(s) left in the inbox for the next drain`);
+        break;
       }
     }
   } finally {

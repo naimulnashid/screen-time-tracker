@@ -198,6 +198,7 @@ export default async function AndroidAppsPage({
             names={home.map((a) => a.label).join(', ')}
             verb={home.length === 1 ? 'is' : 'are'}
             opens={formatCount(home.reduce((n, a) => n + a.opens, 0))}
+            next={formatCount(mostOpened[0]?.opens ?? 0)}
           />
         )}
       </Card>

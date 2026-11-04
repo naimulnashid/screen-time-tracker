@@ -60,16 +60,10 @@ class SyncRunner(private val context: Context) {
               server accepts, so one session left open by a missed shutdown
               cannot pull the read back further every time.
             */
-            val from = if (prefs.syncedThrough > 0) {
-                val overlap = prefs.syncedThrough - OVERLAP_MS
-                val open = prefs.openSince
-                if (open in 1 until overlap) maxOf(open, prefs.syncedThrough - MAX_OPEN_MS) else overlap
-            } else {
-                // First run: ask for everything Android might still hold. Daily
-                // rollups measured 10 days; asking for more is harmless, and
-                // the event reach is exactly what we are trying to find out.
-                now - 95L * 24 * 60 * 60 * 1000
-            }
+            // First run: everything Android might still hold. Daily rollups
+            // measured 10 days; asking for more is harmless, and the event
+            // reach is exactly what we are trying to find out.
+            val from = Reconstruct.readFrom(prefs.syncedThrough, prefs.openSince, now)
 
             val reading = UsageReader(context).read(from, now)
             cancel.check()
@@ -122,12 +116,6 @@ class SyncRunner(private val context: Context) {
     }
 
     companion object {
-        /** How far before the watermark to re-read. See the note in runOnce. */
-        private const val OVERLAP_MS = 60 * 60 * 1000L
-
-        /** Furthest an open span may pull the read back. See runOnce. */
-        private const val MAX_OPEN_MS = 24 * 60 * 60 * 1000L
-
         private val running = AtomicBoolean(false)
 
         private const val ALREADY_RUNNING = "A sync is already running"

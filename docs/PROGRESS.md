@@ -830,6 +830,50 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       a scratch server: the button on a phone page in both themes, and one
       press returned 200 "Up to date" with the inbox empty.
 
+### 2026-11-04 - the rest of the 2026-10-27 audit
+
+- [x] BUG-003: `android-ingest.ts` checks every row at the JSON boundary
+      (object, instants inside the Date range, integer profile, one of two
+      screen kinds) and counts a bad one in `rejected`. Device `sdkInt`,
+      `eventsReachUtc` and `coverageEndMs` are checked in `payloadProblem()`.
+      A self-test sends nine malformed rows beside good ones: nine rejected,
+      the good ones land. Against the old code the same test crashed the run.
+- [x] OPS-001: the drill checks the inbox key (present, a P-256 key, off C:,
+      outside the synced backup folder) and that its fingerprint matches the
+      one `backup:kit` now writes into `RESTORE.txt`, with the restore step
+      to check it. The key itself is not copied: it is a private key and the
+      backup folder is synced. Checked both ways: the real key passed, and a
+      `RESTORE.txt` with one group changed failed.
+- [x] DB-002: nothing is retired before a backup holds it. The Windows
+      ingest prunes finished JSONL days only after a backup that returned
+      `ok` (or with backups off); the inbox drain backs up after each page
+      and acknowledges only then, leaving a page in the inbox and stopping
+      on `busy` or `failed`; and the rename, colour and prefs routes back up
+      after each write (`lib/edit-backup.ts`), never failing the edit over
+      it. Re-reading a kept file or envelope inserts nothing twice.
+- [x] DB-003: `scripts/db-digest.mjs` hashes every row of the history tables;
+      the drill and `restore.ps1` compare by it, not by counts. On scratch
+      files with equal counts and one rename changed, the restore refused,
+      ran with `-Force` (kept copy and result verified by digest), and the
+      re-run on matching files passed. The live drill: same rows, row for
+      row, comparing the whole database in about 3 s.
+- [x] UX-001: the theme menu has the menu focus pattern (focus to the
+      current choice on open, arrows / Home / End, roving tabindex, focus
+      back to the button on choose, Escape and Tab). Checked on a scratch
+      demo at 127.0.0.1 with real key presses, in both themes.
+- [x] TEST-001: `Reconstruct.kt` holds the phone's pure reconstruction
+      (sessions, screen spans, open-since, the read window), with five JVM
+      tests; reverting the BUG-001 read window fails two of them.
+      `SealerGoldenTest` writes Kotlin-sealed envelopes and
+      `scripts/open-kotlin-envelopes.ts` opens them (3 sizes, plus a wrong
+      token refused). `scripts/inbox-function-test.ts` runs the deployed
+      function unchanged against an in-memory PostgREST: 25 checks of
+      app and role isolation, storing, paging, ack and retry; dropping the
+      app filter from the delete fails two. CI runs all three, and
+      `deno check` on the function (not run locally, as there is no Deno
+      here; it passed in CI on the first push).
+      JUnit is the app's first dependency, test-only.
+
 ### 2026-11-04 - the project site rebuilt on Astro and Onyx
 
 - [x] `site/` is the sibling's Astro 7 site, copied and rewritten for screen
@@ -844,9 +888,9 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       errors.
 - [x] The screenshot tour stayed out (hidden since 2026-10-15, pending the
       owner's review), so the hero has no screenshots either.
-- [ ] Not deployed: Vercel builds from the public repo, so it goes live with
-      the next export. The framework now comes from `vercel.json`
-      (`astro`); check the first deployment's log.
+- [x] Exported and live 2026-11-04 (public `8c6affa`, CI green): the live
+      page serves the Astro build with the CSP header, draws every chart
+      with no console errors, and names v1.6.0 in the footer.
 
 ### 2026-11-04 - the README reworked to the house structure
 
@@ -952,9 +996,28 @@ JavaScript after them, which no index removes. Not ported. Revisit with
       self-tests. Audit BUG-002.
 - [x] `assembleRelease` and `lintRelease` pass; certificate digest
       `21ad608e...20ec96fcc9`, the release key's.
-- [ ] Not yet on a phone, and not released: the reach-back has no test
-      outside a device. Check on the Nothing that a session open across two
-      syncs arrives whole.
+- [x] On the Nothing (Android 16) 2026-11-04: installed over 1.3.2 with
+      `adb install -r`, same key, job still booked. Two syncs through the
+      inbox landed with no rejected rows and no crash in logcat.
+- [x] Digital Wellbeing, same minute: unlock counts matched exactly. Screen-on read
+      about 1.12x Digital Wellbeing's "screen time" today, and 1.17x and 1.23x
+      on the two days before, which 1.3.2 recorded. So the gap predates
+      1.3.3. It is NOT the agreement measured on 2026-08-31, and
+      per-app time reads LOWER than Digital Wellbeing's on the same days:
+      Digital Wellbeing's figure sits between our apps and our screen-on.
+- [x] Likely cause, from the owner: a game kept in the phone's Private space
+      (user 10). Our app reads user 0's events, so it never sees the game's
+      sessions, and Digital Wellbeing (personal profile) leaves it out too;
+      but SCREEN_INTERACTIVE is system-wide, so our screen-on counts that
+      time. It fits: no such package in user 0 or DualApps, and screen-on
+      stretches with no app in front of over 5 minutes, typical game
+      sittings, add up to more than the gap on both full days. Not proven:
+      Private space's own usage cannot be read while it is locked. If it
+      holds, screen-on is right (the screen was on) and the time shows as
+      unaccounted on the phone's Overview, which is what that card is for.
+- [ ] A session open across two syncs more than an hour apart cannot be
+      forced in a short test; watch for it in normal use.
+- [x] Released 2026-11-04 as the v1.7.0 asset (versionCode 8, same key).
 
 ### 2026-11-03 - fixes ported from the sibling's audit
 

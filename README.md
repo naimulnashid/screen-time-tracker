@@ -495,12 +495,16 @@ PowerShell ones in Windows PowerShell or PowerShell 7.
 | Install dependencies | `npm ci` |
 | Typecheck | `npm run typecheck` |
 | Self-test, no device or database needed | `npm run selftest` |
+| The cloud inbox function, against an in-memory database | `npm run test:inbox-function` |
+| The phone app's unit tests, from `android/` (Android Studio's JDK as `JAVA_HOME`) | `./gradlew testDebugUnitTest` |
+| Then open the envelopes those tests sealed, with the laptop's code | `npx tsx scripts/open-kotlin-envelopes.ts` |
 | Production build | `npm run build` |
 | Development server on port 7844 (stop the logon-task server first: they share `.next`) | `npm run dev` |
 | The reset drill, against your real backup | `npm run drill` |
 
-CI runs the typecheck, the self-test, a production build, a PowerShell 5.1
-check and the APK build on every push.
+CI runs all of these but the drill, plus a production build, a PowerShell
+5.1 check, the APK build and a Deno type-check of the inbox function, on
+every push.
 
 ### Trying it without your own data
 

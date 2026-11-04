@@ -12,6 +12,7 @@
  */
 
 import { dbPath, windowsSlug } from '@/lib/config';
+import { backupAfterEdit } from '@/lib/edit-backup';
 import { getWindowsAppNames, WINDOWS_DEVICE_ID } from '@/lib/queries';
 import { getAndroidAppNames, getAndroidDeviceBySlug } from '@/lib/android-queries';
 import { saveColourOverride, type ColourError } from '@/lib/app-colour-overrides';
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return fail(result.error === 'unknown-app' ? 404 : 422, result.error, MESSAGES[result.error]);
     }
-    return Response.json({ ok: true, colour: result.colour });
+    return Response.json({ backup: await backupAfterEdit(file), ok: true, colour: result.colour });
   } catch (err) {
     return fail(500, 'write-failed', err instanceof Error ? err.message : String(err));
   }

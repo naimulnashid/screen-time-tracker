@@ -7,6 +7,31 @@ doc privately.
 
 ## After 1.0.0
 
+### Comparing databases by what they hold
+
+The drill's "backup is current" check and the restore guard both compared row
+counts. A count cannot see most of what changes in this database: a phone's
+still-filling row is upserted in place, and a rename, a colour, a hide or a
+merge replaces a row. Two files with equal counts could hold different
+history, and the restore guard, which asked only whether live had more rows,
+would have discarded every such edit without a word. `scripts/db-digest.mjs`
+now hashes each row of each history table and compares the two files as sets
+of hashes, reporting what each holds that the other lacks, per table. The
+restore's own checks of the copy it keeps and the file it writes compare the
+digest too. Tested on scratch files with one rename changed and equal counts:
+the old guard would have passed it, the new one refuses.
+
+### Nothing retired before a backup holds it
+
+The hourly ingest deleted the sampler's finished day files, and the inbox
+drain acknowledged (and so deleted) landed uploads, whatever the backup after
+them reported. After a `busy` or `failed` backup the live database was then
+the only copy. Both now wait for a backup that returned `ok`; the drain backs
+up after each page of ten and acknowledges only then. A file or envelope kept
+back is read again next time and inserts nothing twice. Renames, colours,
+hides and merges, which nothing re-collects, now back up at once instead of
+at the next ingest.
+
 ### The site, on Astro
 
 The sibling moved its site to Astro and its owner's Onyx design system on

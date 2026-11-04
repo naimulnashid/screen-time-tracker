@@ -237,6 +237,41 @@ if ($need.Count -eq 0) {
     Write-Info $localDir
 }
 
+# --- 3b. The cloud inbox key ------------------------------------------
+# Audit OPS-001. The key is NOT copied anywhere: it is a private key, and the
+# backup folder is cloud-synced. It must already sit off the system drive (as
+# the .jks does), and its fingerprint goes into RESTORE.txt, so a restored
+# install can prove it has the same key the phones were set up with.
+$inboxStep = '   CLOUD INBOX: not configured.'
+if ($cfg.inbox -and $cfg.inbox.url -and $cfg.inbox.keyPath) {
+    $keyPath = $cfg.inbox.keyPath
+    Write-Host "`n=== Cloud inbox key ===" -ForegroundColor Cyan
+    if (-not (Test-Path $keyPath)) {
+        Write-Bad "inbox key not found: $keyPath"
+    } elseif ($keyPath -like "$($env:SystemDrive)*") {
+        Write-Bad "inbox key is on the system drive ($keyPath) -- move it and update inbox.keyPath"
+    } else {
+        # Native call: judged by $LASTEXITCODE, never by stderr (see the
+        # bundle verify note above).
+        $tsx = Join-Path $repo 'node_modules\tsx\dist\cli.mjs'
+        $fpLine = (& node $tsx (Join-Path $repo 'scripts\inbox.ts') key 2>$null) | Where-Object { $_ -like 'fingerprint *' } | Select-Object -First 1
+        if ($LASTEXITCODE -ne 0 -or -not $fpLine) {
+            Write-Bad "could not read the inbox key's fingerprint"
+        } else {
+            $fp = $fpLine.Substring('fingerprint '.Length).Trim()
+            Write-Ok "inbox key is off the system drive, fingerprint $fp"
+            $inboxStep = @"
+   CLOUD INBOX KEY -- only if the phones post through the cloud inbox. It is
+   not copied anywhere; it must still be at
+     $keyPath
+   After restoring, this must print the same fingerprint the phones show:
+     npm run inbox -- key
+   INBOX KEY FINGERPRINT $fp
+"@
+        }
+    }
+}
+
 # --- 4. The instructions ----------------------------------------------
 # Written beside the database backup, because a recovery procedure that lives
 # only in the repo you are trying to restore is not a procedure.
@@ -266,6 +301,8 @@ Everything below assumes C:\ is gone and D:\ survived.
 
    APK SIGNING KEY -- only needed to build a new release of the phone app:
    copy "$secretDir\keystore.properties" android\keystore.properties
+
+$inboxStep
 
    LOCAL-ONLY FILES -- config, brand colours and logos; gitignored, so the
    clone may not have them, and step 3 needs collector.json:

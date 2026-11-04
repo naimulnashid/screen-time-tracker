@@ -16,10 +16,13 @@ keep it working for its one real use, and keep it honest about its numbers.
 ```bash
 npm run typecheck
 npm run selftest     # no device or database needed
+npm run test:inbox-function
 ```
 
-CI runs both, plus a production build, a PowerShell 5.1 check and the APK
-build. **Read [`docs/DEVLOG.md`](docs/DEVLOG.md) before changing anything**:
+A change to the phone app also runs `./gradlew testDebugUnitTest` in
+`android/`. CI runs all of these, plus a production build, a PowerShell 5.1
+check, the APK build, a check that envelopes sealed by the phone's code open
+with the laptop's, and a Deno type-check of the inbox function. **Read [`docs/DEVLOG.md`](docs/DEVLOG.md) before changing anything**:
 it records why the numbers are computed the way they are, and which parts are
 rules rather than taste.
 

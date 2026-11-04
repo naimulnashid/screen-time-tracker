@@ -31,13 +31,17 @@ export function HomeOpensNote({ names, verb, opens }: { names: string; verb: 'is
 }
 
 /** Under the phone By App's Most opened: the launcher left out. */
-export function HomeRankNote({ names, verb, opens }: { names: string; verb: 'is' | 'are'; opens: string }) {
+export function HomeRankNote({ names, verb, opens, next }: {
+  names: string; verb: 'is' | 'are'; opens: string;
+  /** The biggest bar left, so the comparison is this phone's, not a remembered one. */
+  next: string;
+}) {
   return (
     <p className="prose-note" style={{ marginTop: '0.9rem' }}>
       {names} {verb} left out. The home screen is what you pass through
-      between apps, not something you open, and at {opens} it stood nearly
-      three times taller than the biggest bar left, flattening every one of
-      them. It keeps its place in Top apps above, where the time is real.
+      between apps, not something you open: {opens} opens, against {next} for
+      the most opened app. It keeps its place in Top apps above, where the
+      time is real.
     </p>
   );
 }

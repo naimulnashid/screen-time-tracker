@@ -28,6 +28,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run selftest
+      # The deployed inbox function, run against an in-memory database.
+      - run: npm run test:inbox-function
 
       - name: Production build
         run: npm run build
@@ -70,5 +72,28 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Build the reporter APK
-        run: ./gradlew --no-daemon assembleDebug
+      # The phone's session rebuilding (Reconstruct.kt) on the JVM, and
+      # envelopes sealed by Sealer.kt for the next step to open.
+      - name: Unit tests and the reporter APK
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Kotlin-sealed envelopes open with the laptop's code
+        working-directory: .
+        run: |
+          npm ci
+          npx tsx scripts/open-kotlin-envelopes.ts
+
+  inbox-function:
+    # The function runs on Deno in Supabase; type-check it there.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/inbox/index.ts

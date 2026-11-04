@@ -32,6 +32,13 @@ import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { SCHEMA_VERSION } from '../src/lib/schema';
+import { loadInboxKey, publicKeyB64, fingerprint } from '../src/lib/inbox';
+import { compare as compareHistory } from './db-digest.mjs';
+
+interface HistoryDiff {
+  ok: boolean; error?: string; onlyA: number; onlyB: number;
+  tables: Record<string, { onlyA: number; onlyB: number }>;
+}
 
 let pass = 0;
 let warn = 0;
@@ -81,6 +88,7 @@ interface Config {
   samplerLogDir?: string;
   secretsDir?: string;
   nativeDatabasePath?: string;
+  inbox?: { url?: string; keyPath?: string } | null;
 }
 if (!existsSync('config/collector.json')) {
   console.error('config/collector.json not found -- copy config/collector.example.json to it and set your paths.');
@@ -181,26 +189,21 @@ try {
   section('2. The backup is not stale');
 
   if (backupPath && existsSync(backupPath) && cfg.databasePath && existsSync(cfg.databasePath)) {
-    const liveDb = new DatabaseSync(cfg.databasePath, { readOnly: true });
-    const backDb = new DatabaseSync(restored!, { readOnly: true });
-    try {
-      let drift = 0;
-      for (const t of ['windows_segments', 'android_segments', 'android_screen']) {
-        const l = (liveDb.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
-        const b = (backDb.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
-        drift += l - b;
-      }
-      // A small positive drift is normal and healthy -- the collectors have
-      // written since the last backup. A large one means the backup step is
-      // failing quietly, which sync_log would also show.
-      if (drift === 0) ok('backup matches live exactly', 'no rows written since');
-      else if (drift > 0 && drift < 2000) ok('backup is current', `${drift} rows written since`);
-      else if (drift >= 2000) note('backup is behind', `${drift} rows written since the last backup`);
-      else note('backup has MORE rows than live', `${-drift} -- did live get rebuilt?`);
-    } finally {
-      liveDb.close();
-      backDb.close();
-    }
+    // By CONTENT, not by count (audit DB-003): every row of every history
+    // table is hashed, so an upserted phone row, a rename, a colour or a merge
+    // counts as a difference, where equal counts used to read as "matches".
+    const diff = compareHistory(cfg.databasePath, restored!) as HistoryDiff;
+    const where = Object.entries(diff.tables ?? {})
+      .map(([t, d]) => `${t} +${d.onlyA}/-${d.onlyB}`).join(', ');
+    // Rows only in live are normal and healthy -- the collectors have written
+    // since the last backup. Many mean the backup step is failing quietly,
+    // which sync_log would also show. Rows only in the BACKUP are live rows
+    // replaced or deleted since: an upsert or an edit leaves one of each.
+    if (!diff.ok) bad('could not compare backup to live', diff.error ?? 'unknown error');
+    else if (diff.onlyA === 0 && diff.onlyB === 0) ok('backup matches live exactly', 'same rows, row for row');
+    else if (diff.onlyA < 2000 && diff.onlyB <= diff.onlyA) ok('backup is current', `${diff.onlyA} rows new or changed since (${where})`);
+    else if (diff.onlyB > diff.onlyA) note('backup holds rows live no longer has', `${where} -- did live get rebuilt?`);
+    else note('backup is behind', `${diff.onlyA} rows new or changed since the last backup (${where})`);
   } else {
     note('cannot compare backup to live', 'one of them is missing');
   }
@@ -306,6 +309,40 @@ try {
     }
   } else {
     note('no APK signing key configured', 'assembleRelease would build UNSIGNED');
+  }
+
+  // The cloud inbox's private key (audit OPS-001). Envelopes still in the
+  // inbox can only be opened with it, and the phones were set up with its
+  // public half, so a lost key strands what is waiting and means setting every
+  // phone up again. Like the .jks it must be off C:\ and out of the synced
+  // backup folder (it is a private key, and that folder goes to the cloud),
+  // and it must still be the key the kit last recorded: RESTORE.txt carries
+  // its fingerprint, which the phones show too.
+  const keyPath = cfg.inbox?.keyPath;
+  if (cfg.inbox?.url && keyPath) {
+    const restoreDoc = backupDir ? join(backupDir, 'RESTORE.txt') : '';
+    const recorded = restoreDoc && existsSync(restoreDoc)
+      ? /INBOX KEY FINGERPRINT\s+([0-9A-F]{4}(?: [0-9A-F]{4}){3})/.exec(readFileSync(restoreDoc, 'utf8'))?.[1] ?? null
+      : null;
+    let fp: string | null = null;
+    try { fp = existsSync(keyPath) ? fingerprint(publicKeyB64(loadInboxKey(keyPath))) : null; } catch { fp = null; }
+    if (!existsSync(keyPath)) {
+      bad('cloud inbox key is MISSING', `${keyPath} -- anything waiting in the inbox cannot be opened`);
+    } else if (fp === null) {
+      bad('cloud inbox key is not a P-256 private key', keyPath);
+    } else if (onSystemDrive(keyPath)) {
+      bad('cloud inbox key lives on the system drive', `${keyPath} -- move it off C:\ and update inbox.keyPath`);
+    } else if (backupDir && resolve(keyPath).toUpperCase().startsWith(resolve(backupDir).toUpperCase() + '\\')) {
+      bad('cloud inbox key sits in the synced backup folder', `${keyPath} -- a private key must not go to the cloud`);
+    } else if (recorded === null) {
+      bad('cloud inbox key is not recorded for recovery', 'RESTORE.txt has no fingerprint for it -- run npm run backup:kit');
+    } else if (recorded !== fp) {
+      bad('cloud inbox key does not match RESTORE.txt', `key ${fp}, recorded ${recorded} -- run npm run backup:kit if the key was replaced on purpose`);
+    } else {
+      ok('cloud inbox key is off the system drive and recorded', `${keyPath}, fingerprint ${fp}`);
+    }
+  } else {
+    note('no cloud inbox configured', 'phones post straight to the dashboard');
   }
 
   // The local-only files: gitignored in the public repo, so its remote does

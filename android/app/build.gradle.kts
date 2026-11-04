@@ -84,5 +84,10 @@ android {
   dashboard: this must still build years from now from whatever is on disk.
   JobScheduler does periodic work with a network constraint and survives
   reboots, which is the entire requirement, and costs nothing to resolve.
+
+  JUnit is TEST-only (audit TEST-001): it never reaches the APK, and
+  assembleRelease does not resolve it, so the release build is unchanged.
 */
-dependencies { }
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+}

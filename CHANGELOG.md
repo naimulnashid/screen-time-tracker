@@ -8,6 +8,12 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-04
+
+The phone app for this release is **Screen Time Reporter 1.3.3**
+(versionCode 8), attached to the release as a signed APK. It installs over
+1.3.x.
+
 ### Added
 - **The README follows the house structure**: the app icon and a Website
   badge in the title, screenshots that follow your GitHub theme (By App as a
@@ -21,6 +27,13 @@ each change -- what was measured, and what it overturned -- is in
   it again. Schema 7 adds `app_hidden` and `app_merges`.
 - **Rename and recolour in a dialog**, from the "..." menu or the detail
   page's pencil. **Backspace** on an app's page or Activity goes back.
+
+- **Tests for the parts CI could not reach.** The phone app's session
+  rebuilding moved into `Reconstruct.kt` and is unit-tested on the JVM,
+  including the long-session case 1.3.3 fixed; envelopes sealed by the
+  phone's code are opened by the laptop's in CI; and the cloud inbox function
+  runs against an in-memory database (`npm run test:inbox-function`) and is
+  type-checked with Deno.
 
 ### Removed
 - The By App table's Share column.
@@ -58,6 +71,33 @@ each change -- what was measured, and what it overturned -- is in
   image optimization nor `use cache`, but runs on the LAN.
 
 ### Fixed
+- **The theme menu works from the keyboard.** Opening it puts focus on the
+  current choice; the arrow keys, Home and End move between choices; and
+  choosing, Escape or Tab close it with focus back on the button.
+- **The reset drill and the restore compare databases by content.** Both
+  used to compare row counts, which cannot see an upserted phone row or an
+  edited name, colour or merge, so a restore could discard such edits without
+  a warning. `restore.ps1` now refuses (without `-Force`) whenever live holds
+  any row the backup lacks, and names the tables.
+- **No copy of your data is retired before a backup holds it.** The hourly
+  ingest deleted the sampler's finished day files and the inbox drain
+  deleted landed uploads whether or not the backup after them completed, so
+  a busy or failed backup left the live database as the only copy. Both now
+  wait for a completed backup (the drain backs up after each page, before
+  acknowledging it), and whatever stays is read again next time without
+  counting twice. Renaming, recolouring, hiding and merging an app now back
+  up straight away instead of at the next ingest.
+- **The reset drill checks the cloud inbox's private key.** Without it,
+  uploads still waiting in the inbox cannot be opened. The drill fails if the
+  key is missing, on the system drive, in the synced backup folder, or not
+  the key `npm run backup:kit` last recorded; the kit writes its fingerprint
+  into `RESTORE.txt` (never the key itself).
+- **A malformed row in a phone upload is rejected, not fatal.** A null row,
+  a timestamp past what a date can hold, a profile number that is not a
+  number, or an unknown screen kind used to throw inside the ingest, failing
+  the whole upload with a 500 and discarding its good rows; an unknown kind
+  was filed as screen-on. Each is now counted in `rejected` and the rest
+  lands. Bad device fields and a bad coverage end are refused as a 400.
 - **A build under the running dashboard no longer leaves it half-broken.**
   `next start` loads some of `.next` lazily, so a server running across a
   rebuild served two builds at once. `npm start` now runs it through
@@ -442,7 +482,11 @@ First public release.
   Two documented exceptions: the fixed-width phone layout, and the heat map's
   lowest shades.
 
-[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/naimulnashid/screen-time-tracker/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.7.0
+[1.6.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.6.0
+[1.5.1]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.5.1
+[1.5.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.5.0
 [1.4.1]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.4.1
 [1.4.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.4.0
 [1.3.0]: https://github.com/naimulnashid/screen-time-tracker/releases/tag/v1.3.0

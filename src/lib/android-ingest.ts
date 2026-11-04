@@ -235,9 +235,21 @@ export function payloadProblem(p: unknown): PayloadProblem | null {
       return bad(`device.${field} must be a string of at most ${max} characters`);
     }
   }
+  if (device.sdkInt !== undefined && device.sdkInt !== null
+    && !(Number.isInteger(device.sdkInt) && device.sdkInt >= 0 && device.sdkInt <= 1000)) {
+    return bad('device.sdkInt must be a whole number');
+  }
+  if (device.eventsReachUtc !== undefined && device.eventsReachUtc !== null
+    && !(typeof device.eventsReachUtc === 'string' && device.eventsReachUtc.length <= 40
+      && Number.isFinite(Date.parse(device.eventsReachUtc)))) {
+    return bad('device.eventsReachUtc must be an ISO instant');
+  }
   // Real offsets run from -12h to +14h. Anything outside is a clock bug, and
   // would file every span under the wrong day.
   if (!isOffset(payload.tzOffsetMinutes)) return bad('tzOffsetMinutes is required');
+  if (payload.coverageEndMs !== undefined && payload.coverageEndMs !== null && !isInstant(payload.coverageEndMs)) {
+    return bad('coverageEndMs must be an instant in milliseconds');
+  }
   for (const key of ['sessions', 'screen', 'apps'] as const) {
     const v = payload[key];
     if (v === undefined) continue;
@@ -274,22 +286,41 @@ function validPackage(name: unknown): name is string {
 }
 
 /**
- * A span must be finite, ordered, and not absurd.
+ * A span must be an object, finite, ordered, and not absurd.
  *
  * The one-day ceiling is not paranoia about malice -- this endpoint is token
  * gated -- but about a phone whose clock jumped, which produces a single span
  * of implausible length that would then dominate every total it touches.
+ *
+ * Every row is checked here, at the JSON boundary, rather than trusted to the
+ * TypeScript type: `sessions: [null]` used to reach `s.start` and throw, and a
+ * finite number past the Date range threw at `toISOString()`, either one
+ * failing the whole push with a 500 and rolling back its good rows. A bad row
+ * is now counted in `rejected`, like any other.
  */
 const MAX_SPAN_MS = 24 * HOUR_MS;
 
-function validSpan(s: SpanRow): boolean {
+/** An epoch-ms instant a Date can hold, between 2000 and a day from now. */
+function isInstant(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+    && v >= Date.UTC(2000, 0, 1) && v <= Date.now() + 24 * HOUR_MS;
+}
+
+function validSpan(s: unknown): s is SpanRow {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return false;
+  const r = s as SpanRow;
   return (
-    Number.isFinite(s.start) &&
-    Number.isFinite(s.end) &&
-    s.end > s.start &&
-    s.end - s.start <= MAX_SPAN_MS
+    isInstant(r.start) &&
+    isInstant(r.end) &&
+    r.end > r.start &&
+    r.end - r.start <= MAX_SPAN_MS &&
+    (r.userProfile === undefined || r.userProfile === null
+      || (Number.isInteger(r.userProfile) && r.userProfile >= 0 && r.userProfile <= 10_000))
   );
 }
+
+/** The two screen kinds. Anything else is rejected, never filed as screen-on. */
+const SCREEN_KINDS = new Set(['screen_on', 'unlocked']);
 
 /* ------------------------------------------------------------------ */
 
@@ -363,6 +394,7 @@ export function ingestAndroid(db: DatabaseSync, payload: AndroidPayload): Ingest
   let appsWritten = 0;
   for (const row of payload.apps ?? []) {
     if (
+      !row || typeof row !== 'object' ||
       !validPackage(row.packageName) || typeof row.label !== 'string' || !row.label ||
       row.label.length > PAYLOAD_LIMITS.labelChars
     ) { rejected++; continue; }
@@ -384,8 +416,9 @@ export function ingestAndroid(db: DatabaseSync, payload: AndroidPayload): Ingest
 
   let sessionSegments = 0;
   for (const s of payload.sessions ?? []) {
+    if (!validSpan(s) || !validPackage(s.packageName)) { rejected++; continue; }
     const off = spanOffset(s, tzOffsetMinutes);
-    if (!validSpan(s) || !validPackage(s.packageName) || off === null) { rejected++; continue; }
+    if (off === null) { rejected++; continue; }
     const sessionStart = new Date(s.start).toISOString();
     for (const piece of splitIntoLocalHours(s.start, s.end, off)) {
       const { date, hour } = localBuckets(piece.start, off);
@@ -415,9 +448,10 @@ export function ingestAndroid(db: DatabaseSync, payload: AndroidPayload): Ingest
 
   let screenSegments = 0;
   for (const s of payload.screen ?? []) {
-    const kind = s.kind === 'unlocked' ? 'unlocked' : 'screen_on';
+    if (!validSpan(s) || typeof s.kind !== 'string' || !SCREEN_KINDS.has(s.kind)) { rejected++; continue; }
+    const kind = s.kind;
     const off = spanOffset(s, tzOffsetMinutes);
-    if (!validSpan(s) || off === null) { rejected++; continue; }
+    if (off === null) { rejected++; continue; }
     const sessionStart = new Date(s.start).toISOString();
     for (const piece of splitIntoLocalHours(s.start, s.end, off)) {
       const { date, hour } = localBuckets(piece.start, off);
@@ -431,10 +465,9 @@ export function ingestAndroid(db: DatabaseSync, payload: AndroidPayload): Ingest
     }
   }
 
-  const acceptedThrough =
-    Number.isFinite(payload.coverageEndMs) && (payload.coverageEndMs ?? 0) > 0
-      ? new Date(payload.coverageEndMs as number).toISOString()
-      : null;
+  const acceptedThrough = isInstant(payload.coverageEndMs)
+    ? new Date(payload.coverageEndMs).toISOString()
+    : null;
 
   return {
     deviceId: device.deviceId, slug, appsWritten, sessionSegments,

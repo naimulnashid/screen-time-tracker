@@ -18,7 +18,7 @@ export default function Loading() {
       </SkCard>
       <SkCard title="Most opened" sub="Ranked by how often you opened it. Hover a bar for share and time.">
         <SkRanked />
-        <SkMask><HomeRankNote names="Launcher" verb="is" opens="1,108" /></SkMask>
+        <SkMask><HomeRankNote names="Launcher" verb="is" opens="1,108" next="402" /></SkMask>
       </SkCard>
       <SkCard
         title="Apps"

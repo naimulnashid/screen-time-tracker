@@ -20,8 +20,9 @@
     lost every committed row still in its -wal. Nothing is replaced while
     another process holds it: stop the dashboard and the ingest task first.
 
-    This refuses to overwrite a live database that has MORE rows than the
-    backup unless you pass -Force. That is the shape of the accident worth
+    This refuses to overwrite a live database that holds rows the backup does
+    not -- compared row by row, by content, so an edited row counts as well as
+    a new one (db-digest.mjs) -- unless you pass -Force. That is the shape of the accident worth
     guarding: reaching for restore.ps1 after a scare and silently throwing away
     the newer data you still had.
 
@@ -71,26 +72,25 @@ if ([System.IO.Path]::GetFullPath($live).ToUpper().StartsWith($systemDrive + '\'
     exit 1
 }
 
-# Rows and integrity, read through node:sqlite so the WAL is included. Prints
-# one line of JSON; ok=false for a missing or unreadable file.
+# Rows, a content digest and integrity, read through node:sqlite so the WAL
+# is included -- see db-digest.mjs. ok=false for a missing or unreadable file.
+$digest = Join-Path $PSScriptRoot 'db-digest.mjs'
 function Get-DbInfo {
     param($Path)
     if (-not (Test-Path $Path)) { return [pscustomobject]@{ ok = $false; rows = -1; error = 'missing' } }
     try {
-        $out = & node -e "
-const {DatabaseSync}=require('node:sqlite');
-try{
-  const db=new DatabaseSync(process.argv[1],{readOnly:true});
-  let n=0;
-  for (const t of ['windows_segments','android_segments','android_screen']) {
-    try { n += db.prepare('SELECT COUNT(*) c FROM '+t).get().c; } catch {}
-  }
-  const integrity=db.prepare('PRAGMA integrity_check').get().integrity_check;
-  db.close(); console.log(JSON.stringify({ok:true,rows:n,integrity}));
-}catch(e){ console.log(JSON.stringify({ok:false,rows:-1,error:e.message})); }
-" $Path
+        $out = & node $digest info $Path
         return ($out | Select-Object -Last 1) | ConvertFrom-Json
     } catch { return [pscustomobject]@{ ok = $false; rows = -1; error = $_.Exception.Message } }
+}
+
+# Rows each database holds that the other lacks, by content (audit DB-003).
+function Compare-Db {
+    param([string]$A, [string]$B)
+    try {
+        $out = & node $digest compare $A $B
+        return ($out | Select-Object -Last 1) | ConvertFrom-Json
+    } catch { return [pscustomobject]@{ ok = $false; error = $_.Exception.Message } }
 }
 
 # A consistent single-file copy, WAL included -- see db-copy.mjs.
@@ -129,11 +129,25 @@ if (-not $backupInfo.ok -or $backupInfo.integrity -ne 'ok') {
     exit 1
 }
 
-if ($liveRows -gt $backupRows -and -not $Force) {
-    Write-Bad "the LIVE database has more rows than the backup ($liveRows > $backupRows)"
-    Write-Info "restoring would discard $($liveRows - $backupRows) rows that only exist in live."
-    Write-Info "If that is genuinely what you want, re-run with -Force."
-    exit 1
+# By CONTENT, not by count (audit DB-003). A live database with the same
+# number of rows can still hold newer history -- an upserted phone row, a
+# rename, a colour, a merge -- and a count let a restore discard all of it.
+if ($liveInfo.ok -and -not $Force) {
+    $diff = Compare-Db $live $backup
+    if (-not $diff.ok) {
+        Write-Bad "could not compare live with the backup ($($diff.error)); nothing was changed"
+        Write-Info "If the live database is damaged and you mean to replace it, re-run with -Force."
+        exit 1
+    }
+    if ($diff.onlyA -gt 0) {
+        Write-Bad "the LIVE database holds $($diff.onlyA) rows the backup does not"
+        foreach ($p in $diff.tables.PSObject.Properties) {
+            if ($p.Value.onlyA -gt 0) { Write-Info "  $($p.Name): $($p.Value.onlyA)" }
+        }
+        Write-Info "restoring would discard them: new rows, and rows changed since the backup."
+        Write-Info "If that is genuinely what you want, re-run with -Force."
+        exit 1
+    }
 }
 
 $busy = @("$live", "$live-wal") | Where-Object { Test-InUse $_ }
@@ -160,7 +174,7 @@ if ($liveExists) {
         $copied = Copy-Db $live $aside
         if (-not $copied.ok) { Write-Bad "could not copy the live database aside: $($copied.error)"; exit 1 }
         $asideInfo = Get-DbInfo $aside
-        if (-not $asideInfo.ok -or $asideInfo.integrity -ne 'ok' -or $asideInfo.rows -ne $liveInfo.rows) {
+        if (-not $asideInfo.ok -or $asideInfo.integrity -ne 'ok' -or $asideInfo.digest -ne $liveInfo.digest) {
             Write-Bad "the copy of the live database does not match it; nothing was replaced"
             Write-Info "copy: $aside"
             exit 1
@@ -203,7 +217,7 @@ $check = Get-DbInfo $live
 $problem = $null
 if (-not $check.ok) { $problem = "restored file is unreadable: $($check.error)" }
 elseif ($check.integrity -ne 'ok') { $problem = 'restored file failed integrity_check' }
-elseif ($check.rows -ne $backupRows) { $problem = "restored file reports $($check.rows) rows, expected $backupRows" }
+elseif ($check.digest -ne $backupInfo.digest) { $problem = "restored file's rows differ from the backup's ($($check.rows) rows, expected $backupRows)" }
 if ($problem) {
     Write-Bad $problem
     if ($liveExists) {

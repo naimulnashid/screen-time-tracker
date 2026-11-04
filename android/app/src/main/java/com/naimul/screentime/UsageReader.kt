@@ -1,6 +1,5 @@
 package com.naimul.screentime
 
-import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -108,18 +107,14 @@ class UsageReader(private val context: Context) {
 
     fun read(from: Long, now: Long = System.currentTimeMillis()): Reading {
         val events = collectEvents(from, now)
-        val sessions = buildSessions(events, now)
-        val screen = buildScreenSpans(events, now)
-        // An open session is the one clipped to `now`: a closed one ends at
-        // its own event, which is always earlier.
-        val open = sessions.filter { it.end == now }.map { it.start } +
-            screen.filter { it.inFlight }.map { it.start }
+        val sessions = Reconstruct.sessions(events, now, singleResume = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+        val screen = Reconstruct.screenSpans(events, now)
         return Reading(
             sessions = sessions,
             screen = screen,
             apps = apps(),
             eventReachMs = measureEventReach(now),
-            openSince = open.minOrNull(),
+            openSince = Reconstruct.openSince(sessions, screen, now),
         )
     }
 
@@ -127,10 +122,8 @@ class UsageReader(private val context: Context) {
     /* Events                                                              */
     /* ------------------------------------------------------------------ */
 
-    private data class Ev(val type: Int, val pkg: String?, val time: Long)
-
-    private fun collectEvents(from: Long, to: Long): List<Ev> {
-        val out = ArrayList<Ev>()
+    private fun collectEvents(from: Long, to: Long): List<Reconstruct.Ev> {
+        val out = ArrayList<Reconstruct.Ev>()
         val events = try {
             usm.queryEvents(from, to)
         } catch (e: SecurityException) {
@@ -139,7 +132,7 @@ class UsageReader(private val context: Context) {
         val e = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(e)
-            out.add(Ev(e.eventType, e.packageName, e.timeStamp))
+            out.add(Reconstruct.Ev(e.eventType, e.packageName, e.timeStamp))
         }
         // The API returns events in order, but sorting costs nothing and the
         // reconstruction below is only correct on an ordered stream.
@@ -147,88 +140,8 @@ class UsageReader(private val context: Context) {
         return out
     }
 
-    /**
-     * Per-app foreground sessions.
-     *
-     * A package's session closes on PAUSED or STOPPED. DEVICE_SHUTDOWN closes
-     * everything: measured on this device, shutdown events are NOT reliably
-     * present, so a session can otherwise stay open across a power cycle and
-     * be clipped to `now` hours later -- inventing screen time that looks
-     * entirely plausible.
-     *
-     * Below API 29 there is no DEVICE_SHUTDOWN at all, so that guard is gone
-     * too. But below 29 only ONE activity can be resumed at a time -- multi-
-     * resume arrived with 29 -- so a package coming to the foreground means
-     * every other one has left it, and closing them there bounds a missed
-     * close at the next app switch instead of at `now`. Not applied on 29+,
-     * where split-screen apps are genuinely resumed together.
-     */
-    private fun buildSessions(events: List<Ev>, now: Long): List<Session> {
-        val open = HashMap<String, Long>()
-        val out = ArrayList<Session>()
-        val singleResume = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-
-        fun close(pkg: String, at: Long) {
-            val start = open.remove(pkg) ?: return
-            if (at > start) out.add(Session(pkg, start, at))
-        }
-
-        for (ev in events) {
-            when (ev.type) {
-                // MOVE_TO_FOREGROUND below 29: the same constant, renamed.
-                UsageEvents.Event.ACTIVITY_RESUMED -> ev.pkg?.let { pkg ->
-                    if (singleResume) for (other in open.keys.toList()) if (other != pkg) close(other, ev.time)
-                    open[pkg] = ev.time
-                }
-                UsageEvents.Event.ACTIVITY_PAUSED,
-                UsageEvents.Event.ACTIVITY_STOPPED -> ev.pkg?.let { close(it, ev.time) }
-                UsageEvents.Event.DEVICE_SHUTDOWN ->
-                    for (pkg in open.keys.toList()) close(pkg, ev.time)
-            }
-        }
-        // Whatever is still open is genuinely still open. See note 3.
-        for ((pkg, start) in open) if (now > start) out.add(Session(pkg, start, now))
-        return out
-    }
-
-    /**
-     * Screen-on and unlocked spans.
-     *
-     * EMPTY below API 28, which added all four event types. That is a fact
-     * about the phone, not a failure; the dashboard reads the device's
-     * sdkInt and takes its headline from app time instead.
-     *
-     * Kept apart from sessions and from each other because they OVERLAP: an app
-     * session happens during screen-on, and unlocked time is a subset of
-     * screen-on time (measured at 0.96x of it). Summing across them counts
-     * the same minutes twice, which is why the server stores them in their own
-     * table with a kind column that every query must filter.
-     */
-    @SuppressLint("InlinedApi") // intended: the constants just never match below 28
-    private fun buildScreenSpans(events: List<Ev>, now: Long): List<ScreenSpan> {
-        val out = ArrayList<ScreenSpan>()
-
-        fun pair(kind: String, openType: Int, closeType: Int) {
-            var openedAt: Long? = null
-            for (ev in events) {
-                when (ev.type) {
-                    openType -> openedAt = ev.time
-                    closeType -> {
-                        val s = openedAt ?: continue  // close with no open: discard
-                        if (ev.time > s) out.add(ScreenSpan(kind, s, ev.time, false))
-                        openedAt = null
-                    }
-                }
-            }
-            // Still open at read time: count it, clipped, and FLAG it so the
-            // server knows this is the one span a later sync may extend.
-            openedAt?.let { if (now > it) out.add(ScreenSpan(kind, it, now, true)) }
-        }
-
-        pair("screen_on", UsageEvents.Event.SCREEN_INTERACTIVE, UsageEvents.Event.SCREEN_NON_INTERACTIVE)
-        pair("unlocked", UsageEvents.Event.KEYGUARD_HIDDEN, UsageEvents.Event.KEYGUARD_SHOWN)
-        return out
-    }
+    // The sessions and screen spans are rebuilt in Reconstruct.kt, where a
+    // JVM unit test can reach them.
 
     /*
       NOTE: launch counts are NOT read here.
