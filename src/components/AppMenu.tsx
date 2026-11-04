@@ -60,6 +60,16 @@ export function AppMenu({
   const [at, setAt] = useState<{ top: number; right: number; host: Element } | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLSpanElement>(null);
+  const choices = useRef<HTMLDivElement>(null);
+
+  function onChoicesKey(e: React.KeyboardEvent) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const items = [...(choices.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = Math.min(items.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)));
+    items[next]?.focus();
+  }
 
   // Outside clicks, Escape, scrolling and resizing close it, as any menu does.
   // Scrolling too because the menu is fixed to where its button WAS.
@@ -72,12 +82,14 @@ export function AppMenu({
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
+    // Except the merge list's own scrolling, which happens inside the menu.
+    const onScroll = (e: Event) => { if (!menu.current?.contains(e.target as Node)) close(); };
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', close);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', close);
     };
   }, [open]);
@@ -160,14 +172,23 @@ export function AppMenu({
               onSubmit={(e) => { e.preventDefault(); if (into) void run({ action: 'merge', into }); }}
             >
               <span className="app-menu-label">Count {target.name} as part of</span>
-              <select
-                className="chip" value={into} autoFocus disabled={busy}
-                onChange={(e) => setInto(e.target.value)}
+              {/* A list, not a native <select>: Chromium draws a select's open
+                  list in its own colours, white on a dark page. */}
+              <div
+                className="app-menu-choices" role="listbox" ref={choices}
                 aria-label={`App to merge ${target.name} into`}
+                onKeyDown={onChoicesKey}
               >
-                <option value="" disabled>Choose an app</option>
-                {others.map((c) => <option key={c.key} value={c.key}>{c.name}</option>)}
-              </select>
+                {others.map((c, i) => (
+                  <button
+                    key={c.key} type="button" role="option" aria-selected={c.key === into}
+                    className="app-menu-item" disabled={busy} autoFocus={i === 0}
+                    onClick={() => setInto(c.key)}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
               <span className="app-menu-actions">
                 <button type="submit" className="chip chip--small" data-active="true" disabled={busy || !into}>Merge</button>
                 <button type="button" className="chip chip--small" disabled={busy} onClick={() => setMerging(false)}>Back</button>

@@ -1099,3 +1099,14 @@ each one back under its old address with its full history. Reporter 1.2.1
 fixes the double id. v1.4.1 also carries Next.js 16.3.8, sharp 0.35.5 and
 source-map-js 1.2.2, which closes all eight Dependabot alerts. Dependabot's
 PR for Next 16.4.0 is left open as a separate decision.
+
+### 2026-11-04 - the Merge into list follows the theme
+
+- [x] By App's "Merge into..." picked the target from a native `<select>`,
+      whose open list Chromium draws itself: white with black text on the
+      dark theme. Now a list of the app's candidates inside the menu,
+      scrolling past 15rem, the same items as the range menu.
+- [x] The menu closed on ANY scroll, so the list's own scrolling would have
+      closed it; scrolls inside the menu are now ignored.
+- [x] Checked on a scratch demo at 127.0.0.1:7850: list scrolled with the
+      menu open, an app picked, both themes, no console errors.

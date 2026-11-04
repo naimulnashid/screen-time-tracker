@@ -7,6 +7,15 @@ doc privately.
 
 ## After 1.0.0
 
+### The Merge into list follows the theme (2026-11-04)
+
+The merge target was a native `<select>`, and Chromium draws a select's open
+list in its own colours, so on the dark theme it came up white with black
+text. It is now a scrolling list of buttons inside the menu, styled like
+the range menu, which left the native select for the same reason. The
+menu's close-on-scroll now ignores scrolls inside it, or scrolling the list
+would have closed the menu. `select.chip` had no other user and is gone.
+
 ### Where the time went as a donut; logos in the screenshots (2026-11-04)
 
 The owner asked for the card as a donut, here and in Screen Time Native. It

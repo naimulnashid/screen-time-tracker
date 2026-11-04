@@ -482,18 +482,6 @@ tbody tr:hover { background: var(--row-hover); }
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
-/* Native selects take their colours from `color-scheme`, which each theme
-   sets on :root, so the control matches whichever page it is on. */
-select.chip {
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
-                    linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
-  background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-  padding-right: 1.9rem !important;
-  max-width: 15rem;
-}
 .empty { text-align: center; padding: 4rem 1rem; color: var(--text-dim); }
 
 /* ------------------------------------------------------------- app icons */
@@ -1446,7 +1434,13 @@ select.chip {
 
 /* The "..." menu's merge step. */
 .app-menu-merge { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.5rem; }
-.app-menu-merge select.chip { max-width: none; width: 100%; }
+.app-menu-choices {
+  display: flex; flex-direction: column;
+  max-height: 15rem; overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 -0.2rem; padding: 0 0.2rem;
+}
+.app-menu-choices .app-menu-item { flex-shrink: 0; }
+.app-menu-choices .app-menu-item[aria-selected='true'] { color: var(--accent-bright); font-weight: 600; background: var(--row-hover); }
 .app-menu-label { font-size: 0.8125rem; color: var(--text-dim); }
 .app-menu-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
 .app-menu .rename-error { padding: 0 0.5rem 0.4rem; }
