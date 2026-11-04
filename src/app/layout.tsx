@@ -6,8 +6,10 @@ import { accentStyleSheet } from '@/lib/accent';
 import { THEME_SCRIPT, THEME_COLORS } from '@/lib/theme';
 
 export const metadata: Metadata = {
-  // Pages set `<page> · <device>` (lib/page-title.ts); this suffixes the app.
-  title: { default: 'Screen Time', template: '%s · Screen Time' },
+  // Pages set `<page> · <device>` (lib/page-title.ts); this is the title of
+  // anything that does not. No suffix: an installed window already puts the
+  // app's name before the title, and a suffix showed it twice.
+  title: 'Screen Time',
   description: 'Local dashboard over per-app screen time history, across a laptop and a phone.',
   // The manifest (app/manifest.ts) covers installing on Chromium. iOS reads
   // neither it nor its icons, and wants this and app/apple-icon.tsx instead.

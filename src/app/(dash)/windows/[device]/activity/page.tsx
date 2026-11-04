@@ -5,11 +5,12 @@ import { ExpandedHeatmap } from '@/components/ActivityHeatmap';
 import { SamplerEmpty } from '@/components/EmptyState';
 import { deviceLabel, windowsSlug } from '@/lib/config';
 import { getDaily, hasWindowsData } from '@/lib/queries';
-import { ALL_DAYS, queryString } from '@/lib/scope';
+import { ALL_HISTORY } from '@/lib/scope';
+import { BackKey } from '@/components/BackKey';
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -23,28 +24,25 @@ export const dynamic = 'force-dynamic';
 /**
  * The Overview's Activity card, expanded to the whole history.
  *
- * Reached from that card's Expand button. Ignores the day range, like the
- * card does, but carries the query string back to the Overview so the range
- * you left is the range you return to.
+ * Reached from that card's Expand button; Backspace or the link goes back.
  */
 export default async function WindowsActivityPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug } = await params;
   if (slug !== windowsSlug()) notFound();
   if (!hasWindowsData()) return <SamplerEmpty />;
 
-  const sp = await searchParams;
-  const daily = getDaily({ days: ALL_DAYS }).map((d) => ({ date: d.date, ms: d.active }));
+  const daily = getDaily(ALL_HISTORY).map((d) => ({ date: d.date, ms: d.active }));
   if (daily.length === 0) return <SamplerEmpty />;
 
   return (
     <>
+      <BackKey href={`/windows/${slug}`} />
       <div className="page-head">
-        <Link href={`/windows/${slug}${queryString(sp)}`} className="back-link">&larr; Overview</Link>
+        <Link href={`/windows/${slug}`} className="back-link">&larr; Overview</Link>
         <h1 style={{ marginTop: '0.6rem' }}>Activity</h1>
         <p>Every day recorded, six months to a row, on one colour scale</p>
       </div>

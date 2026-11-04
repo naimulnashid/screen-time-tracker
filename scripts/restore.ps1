@@ -15,6 +15,11 @@
     is always one complete, internally consistent file. That is the entire
     reason it exists.
 
+    The database being replaced is kept beside it as one consistent copy
+    (.superseded-<stamp>), made the same way. Moving only its main file aside
+    lost every committed row still in its -wal. Nothing is replaced while
+    another process holds it: stop the dashboard and the ingest task first.
+
     This refuses to overwrite a live database that has MORE rows than the
     backup unless you pass -Force. That is the shape of the accident worth
     guarding: reaching for restore.ps1 after a scare and silently throwing away
@@ -66,12 +71,11 @@ if ([System.IO.Path]::GetFullPath($live).ToUpper().StartsWith($systemDrive + '\'
     exit 1
 }
 
-# Compare before clobbering.
-$liveRows = -1
-$backupRows = -1
-function Get-Rows {
+# Rows and integrity, read through node:sqlite so the WAL is included. Prints
+# one line of JSON; ok=false for a missing or unreadable file.
+function Get-DbInfo {
     param($Path)
-    if (-not (Test-Path $Path)) { return -1 }
+    if (-not (Test-Path $Path)) { return [pscustomobject]@{ ok = $false; rows = -1; error = 'missing' } }
     try {
         $out = & node -e "
 const {DatabaseSync}=require('node:sqlite');
@@ -81,16 +85,49 @@ try{
   for (const t of ['windows_segments','android_segments','android_screen']) {
     try { n += db.prepare('SELECT COUNT(*) c FROM '+t).get().c; } catch {}
   }
-  db.close(); console.log(n);
-}catch(e){ console.log(-1); }
+  const integrity=db.prepare('PRAGMA integrity_check').get().integrity_check;
+  db.close(); console.log(JSON.stringify({ok:true,rows:n,integrity}));
+}catch(e){ console.log(JSON.stringify({ok:false,rows:-1,error:e.message})); }
 " $Path
-        return [int]($out | Select-Object -Last 1)
-    } catch { return -1 }
+        return ($out | Select-Object -Last 1) | ConvertFrom-Json
+    } catch { return [pscustomobject]@{ ok = $false; rows = -1; error = $_.Exception.Message } }
 }
 
-$backupRows = Get-Rows $backup
-$liveRows = Get-Rows $live
+# A consistent single-file copy, WAL included -- see db-copy.mjs.
+function Copy-Db {
+    param([string]$From, [string]$To)
+    $helper = Join-Path $PSScriptRoot 'db-copy.mjs'
+    if (-not (Test-Path $helper)) { throw "Helper not found: $helper" }
+    $json = & node $helper $From $To 2>&1 | Select-Object -Last 1
+    return $json | ConvertFrom-Json
+}
+
+# Whether any process holds the file. Windows refuses a share-nothing open
+# while another handle exists, which is exactly the question; the handle is
+# closed at once.
+function Test-InUse {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $fs = [System.IO.File]::Open($Path, 'Open', 'ReadWrite', 'None')
+        $fs.Close()
+        return $false
+    } catch {
+        return $true
+    }
+}
+
+$backupInfo = Get-DbInfo $backup
+$liveInfo = Get-DbInfo $live
+$liveExists = Test-Path $live
+$backupRows = $backupInfo.rows
+$liveRows = $liveInfo.rows
 Write-Info "backup holds $backupRows rows; live holds $liveRows"
+
+if (-not $backupInfo.ok -or $backupInfo.integrity -ne 'ok') {
+    Write-Bad "the backup is unreadable or fails integrity_check; nothing was changed"
+    exit 1
+}
 
 if ($liveRows -gt $backupRows -and -not $Force) {
     Write-Bad "the LIVE database has more rows than the backup ($liveRows > $backupRows)"
@@ -99,33 +136,84 @@ if ($liveRows -gt $backupRows -and -not $Force) {
     exit 1
 }
 
-# Move the current live aside rather than deleting it. Cheap, and the one time
-# it matters is the time you restored the wrong file.
-if (Test-Path $live) {
-    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $aside = "$live.superseded-$stamp"
-    Move-Item $live $aside -Force
-    Write-Ok "previous live database moved aside"
-    Write-Info $aside
-    # The sidecars belong to the file that just moved; leaving them next to a
-    # freshly restored database is how you get a "database is locked" or worse.
-    foreach ($suffix in @('-wal', '-shm')) {
-        if (Test-Path ($live + $suffix)) { Remove-Item ($live + $suffix) -Force }
+$busy = @("$live", "$live-wal") | Where-Object { Test-InUse $_ }
+if ($busy) {
+    Write-Bad "in use by another process: $($busy -join ', ')"
+    Write-Info "Stop the dashboard (npm run dashboard:stop) and the Screen Time Ingest"
+    Write-Info "task, then run this again. Nothing was changed."
+    exit 1
+}
+
+# Keep the current live database rather than deleting it. Cheap, and the one
+# time it matters is the time you restored the wrong file.
+#
+# Kept as a consistent COPY, not by moving the main file: its newest committed
+# rows can live only in -wal, and a .db moved without it silently lacks them.
+# The copy is checked against what was just read from the live file before
+# anything is removed. An unreadable file cannot be copied that way, so it is
+# moved aside with its sidecars, renamed together so that SQLite still pairs
+# them (it finds a WAL by appending -wal to the database's name).
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$aside = "$live.superseded-$stamp"
+if ($liveExists) {
+    if ($liveInfo.ok) {
+        $copied = Copy-Db $live $aside
+        if (-not $copied.ok) { Write-Bad "could not copy the live database aside: $($copied.error)"; exit 1 }
+        $asideInfo = Get-DbInfo $aside
+        if (-not $asideInfo.ok -or $asideInfo.integrity -ne 'ok' -or $asideInfo.rows -ne $liveInfo.rows) {
+            Write-Bad "the copy of the live database does not match it; nothing was replaced"
+            Write-Info "copy: $aside"
+            exit 1
+        }
+        Write-Ok "previous live database kept ($($asideInfo.rows) rows, WAL included)"
+        Write-Info $aside
+        Remove-Item $live -Force
+    } else {
+        Move-Item -Path $live -Destination $aside
+        Write-Ok "unreadable live database moved aside"
+        Write-Info $aside
     }
-    Write-Info "stale -wal/-shm removed"
+}
+
+# Clear the sidecars at the destination. They belong to the file just kept
+# (its WAL is inside the copy); left beside a freshly restored database they
+# would be replayed against it. An unreadable file keeps its own beside it.
+foreach ($suffix in @('-wal', '-shm')) {
+    $sidecar = $live + $suffix
+    if (Test-Path $sidecar) {
+        if ($liveExists -and -not $liveInfo.ok) {
+            Move-Item -Path $sidecar -Destination ($aside + $suffix)
+            Write-Info "moved its $suffix aside with it"
+        } else {
+            Remove-Item $sidecar -Force
+            Write-Info "stale $suffix removed"
+        }
+    }
 }
 
 $liveDir = Split-Path $live -Parent
 if (-not (Test-Path $liveDir)) { New-Item -ItemType Directory -Path $liveDir -Force | Out-Null }
-Copy-Item $backup $live -Force
+# Staged, so a copy that fails partway never sits at the live path.
+$staging = "$live.restoring"
+Copy-Item $backup $staging -Force
+Move-Item -Path $staging -Destination $live
 Write-Ok "restored"
 
-$restoredRows = Get-Rows $live
-if ($restoredRows -eq $backupRows -and $restoredRows -ge 0) {
-    Write-Ok "verified: $restoredRows rows readable from the restored database"
-} else {
-    Write-Warn "restored file reports $restoredRows rows, expected $backupRows"
+$check = Get-DbInfo $live
+$problem = $null
+if (-not $check.ok) { $problem = "restored file is unreadable: $($check.error)" }
+elseif ($check.integrity -ne 'ok') { $problem = 'restored file failed integrity_check' }
+elseif ($check.rows -ne $backupRows) { $problem = "restored file reports $($check.rows) rows, expected $backupRows" }
+if ($problem) {
+    Write-Bad $problem
+    if ($liveExists) {
+        Write-Info "The previous database is intact at:"
+        Write-Info "  $aside"
+        Write-Info "To go back to it, delete $live and rename that file to it."
+    }
+    exit 1
 }
+Write-Ok "verified: $($check.rows) rows, integrity ok"
 
 Write-Host ""
 Write-Info "Next: npm run drill, then install-sampler.ps1 -RunNow if the tasks are gone."

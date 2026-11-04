@@ -3,11 +3,12 @@ import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { ExpandedHeatmap } from '@/components/ActivityHeatmap';
 import { getAndroidDeviceBySlug, getAndroidDaily } from '@/lib/android-queries';
-import { ALL_DAYS, queryString } from '@/lib/scope';
+import { ALL_HISTORY } from '@/lib/scope';
+import { BackKey } from '@/components/BackKey';
 import type { Metadata } from 'next';
 import { androidTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -20,22 +21,21 @@ export const dynamic = 'force-dynamic';
 
 /** The Android Overview's Activity card, expanded. See the laptop's page. */
 export default async function AndroidActivityPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug } = await params;
   const device = getAndroidDeviceBySlug(slug);
   if (!device) notFound();
 
-  const sp = await searchParams;
-  const daily = getAndroidDaily(device.deviceId, { days: ALL_DAYS })
+  const daily = getAndroidDaily(device.deviceId, ALL_HISTORY)
     .map((d) => ({ date: d.date, ms: d.screenOn }));
-  const back = `/android/${slug}${queryString(sp)}`;
+  const back = `/android/${slug}`;
 
   return (
     <>
+      <BackKey href={back} />
       <div className="page-head">
         <Link href={back} className="back-link">&larr; Overview</Link>
         <h1 style={{ marginTop: '0.6rem' }}>Activity</h1>

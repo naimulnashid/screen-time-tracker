@@ -1,37 +1,19 @@
 /*
-  The project site's only script. It runs in <head>, so the theme is set
-  before first paint, then draws the chart gallery once the DOM exists.
-
-  Every chart is generated from a fixed seed: identical on every load, and
-  nobody's usage. The shapes and rules follow the dashboard's own
-  src/components/Charts.tsx, ActivityHeatmap.tsx and KindBar.tsx: one
-  continuous trend line with an unrecorded day at zero, even heat-map steps,
-  the top eight plus Other, the busiest hour drawn brighter, a callout per
-  chart, and the phone's headline from screen-on time rather than its apps.
+  The live chart gallery (components/Charts.astro). Every chart is generated
+  from a fixed seed: identical on every load, and nobody's usage. The shapes
+  and rules follow the dashboard's own src/components/Charts.tsx,
+  ActivityHeatmap.tsx and KindBar.tsx: one continuous trend line with an
+  unrecorded day at zero and the days well above trend marked, even heat-map
+  steps, the top eight plus Other ranked per range, the busiest hour drawn
+  brighter, and the phone's headline from screen-on time rather than its apps.
 */
 
-/* ------------------------------------------------------------------ theme */
-
-const THEME_KEY = 'stt-site-theme';
-
-function systemTheme() {
+/** The theme on show: the visitor's choice (ThemeToggle.astro), else the system's. */
+function currentTheme() {
+  const chosen = document.documentElement.dataset.theme;
+  if (chosen === 'light' || chosen === 'dark') return chosen;
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
-
-function storedTheme() {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    return t === 'light' || t === 'dark' ? t : null;
-  } catch { return null; }
-}
-
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', t === 'light' ? '#f4f5f7' : '#000000');
-}
-
-applyTheme(storedTheme() ?? systemTheme());
 
 /* ------------------------------------------------------------------ data */
 
@@ -258,6 +240,12 @@ function curve(pts, move = true) {
   return d;
 }
 
+/** A range menu's days: 7, 30, 90, or every day for All. */
+function rangeDays(id, d) {
+  const v = document.getElementById(id).value;
+  return v === 'all' ? d.days.length : Math.min(d.days.length, Number(v));
+}
+
 /* Which measure each Time | Opens switch shows. */
 const measure = { stack: 'time', hour: 'time', top: 'time', app: 'time' };
 
@@ -293,7 +281,7 @@ function drawStats(d) {
     el.className = 'stats stats-3';
     el.innerHTML = statCard('Latest day', latest.total, iso(latest.date), true)
       + statCard('Daily average', d.total / n, `over ${n} days with data`, true)
-      + statCard('Range total', d.total, `${listed} apps`, true);
+      + statCard('All', d.total, `${listed} apps`, true);
   } else {
     note.textContent = 'Screen-on time and unlocks, from screen events. Never a sum of the apps.';
     el.className = 'stats stats-6';
@@ -303,7 +291,7 @@ function drawStats(d) {
       + statCard('Total screen time', d.total, `${listed} apps`, true)
       + statCard('Unlocks, latest day', latest.unlocks, 'pick-ups')
       + statCard('Unlocks per day', unlocks / n, `over ${n} days of data`)
-      + statCard('Total unlocks', unlocks, 'pick-ups in this range');
+      + statCard('Total unlocks', unlocks, 'pick-ups in all history');
   }
   countUp(el.querySelectorAll('[data-count]'));
 }
@@ -333,6 +321,12 @@ function drawTrend(d) {
   // An unrecorded day is PLOTTED at zero so the line never breaks; the data
   // keeps the null, which is what the tooltip reads.
   const pts = days.map((dd, i) => [x(i), y(dd.total ?? 0)]);
+  // Days well above trend: 1.5 times the mean of the recorded days, as the
+  // dashboard's spikeThreshold() (a day of screen time cannot pass 24 hours,
+  // so the sibling's 2.5 times would never fire).
+  const mean = d.total / d.recorded.length;
+  const spikes = days.map((dd, i) => (dd.total !== null && dd.total > mean * 1.5
+    ? `<circle cx="${x(i)}" cy="${y(dd.total)}" r="4.5" fill="var(--accent)" stroke="var(--bg-panel)" stroke-width="1.5" class="fade"/>` : '')).join('');
   const line = curve(pts);
   const area = `${line}L${x(days.length - 1)},${y(0)}L${x(0)},${y(0)}Z`;
   const w = (W - L - R) / (days.length - 1);
@@ -349,13 +343,12 @@ function drawTrend(d) {
       ${grid(axis, L, W - R, T, H - B)}
       <path d="${area}" fill="url(#g-trend)" class="fade"/>
       <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" class="fade"/>
-      ${xDates(days, x, H - 6, 10)}${hits}
+      ${spikes}${xDates(days, x, H - 6, 10)}${hits}
     </svg>`;
 }
 
 function drawHeat(d, expanded) {
-  const theme = document.documentElement.dataset.theme;
-  const ramp = HEAT[theme][d.device];
+  const ramp = HEAT[currentTheme()][d.device];
   const byDate = new Map(d.days.map((x) => [x.date.getTime(), x.total]));
   const first = d.days[0].date.getTime();
   const max = Math.max(...d.recorded.map((x) => x.total));
@@ -410,24 +403,32 @@ function drawHeat(d, expanded) {
   el.querySelector('#hm-toggle').addEventListener('click', () => drawHeat(d, !expanded));
 }
 
-/** The top eight by the chosen measure, the rest folded into Other. */
-function ranked(d, m) {
+/**
+ * The top eight by the chosen measure over the last `n` days, the rest folded
+ * into Other: each range ranks its own, as the dashboard's rangedStacks().
+ */
+function ranked(d, m, n = d.days.length) {
   // The phone's home screen is what you pass through between apps, not
   // something you open, so it is left out of the OPENS ranking only.
   const pool = d.apps.filter((a) => !(m === 'opens' && a.home));
-  const key = m === 'time' ? 'total' : 'opensTotal';
-  pool.sort((a, b) => b[key] - a[key]);
-  return { top: pool.slice(0, 8), rest: pool.slice(8), left: d.apps.filter((a) => m === 'opens' && a.home) };
+  const field = m === 'time' ? 'time' : 'opens';
+  const sum = (a) => a[field].slice(-n).reduce((s, v) => s + (v ?? 0), 0);
+  const scored = pool.map((a) => ({ a, v: sum(a) })).sort((x, y) => y.v - x.v);
+  return {
+    top: scored.slice(0, 8).map((x) => x.a), rest: scored.slice(8).map((x) => x.a),
+    lead: scored[0], left: d.apps.filter((a) => m === 'opens' && a.home),
+  };
 }
 
 function drawStack(d) {
   const m = measure.stack;
   const W = 1000, H = 280, L = 48, R = 8, T = 10, B = 26;
-  const { top, rest, left } = ranked(d, m);
+  const n = rangeDays('r-stack', d);
+  const { top, rest, left, lead } = ranked(d, m, n);
   const field = m === 'time' ? 'time' : 'opens';
-  const days = d.days;
-  const series = top.map((a) => ({ name: a.name, color: ink(a.color), vals: a[field] }));
-  series.push({ name: 'Other', color: OTHER, vals: days.map((_, i) => rest.reduce((s, a) => s + (a[field][i] ?? 0), 0)) });
+  const days = d.days.slice(-n);
+  const series = top.map((a) => ({ name: a.name, color: ink(a.color), vals: a[field].slice(-n) }));
+  series.push({ name: 'Other', color: OTHER, vals: days.map((_, i) => rest.reduce((s, a) => s + (a[field].slice(-n)[i] ?? 0), 0)) });
   const totals = days.map((_, i) => series.reduce((s, se) => s + (se.vals[i] ?? 0), 0));
   const axis = m === 'time' ? timeAxis(Math.max(...totals)) : countAxis(Math.max(...totals));
   const x = (i) => L + ((W - L - R) * i) / (days.length - 1);
@@ -450,14 +451,13 @@ function drawStack(d) {
         .map(([se, v]) => tipRow(se.color, se.name, fmtV(v))).join('');
     return `<rect x="${x(i) - w / 2}" y="${T}" width="${w}" height="${H - B - T}" fill="transparent" data-tip="${esc(tip)}"/>`;
   }).join('');
-  const lead = top[0];
   document.getElementById('v-stack-title').textContent = m === 'time' ? 'Top apps by day' : 'Most opened by day';
   document.getElementById('v-stack-note').textContent = left.length
     ? `${left[0].name} is left out of opens: the home screen is what you pass through between apps, not something you open.` : '';
   document.getElementById('v-stack').innerHTML =
-    callout(m === 'time' ? 'Top app' : 'Most opened', lead.name, m === 'time' ? dur(lead.total) : `${count(lead.opensTotal)} opens`) +
+    callout(m === 'time' ? 'Top app' : 'Most opened', lead.a.name, m === 'time' ? dur(lead.v) : `${count(lead.v)} opens`) +
     `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${m === 'time' ? 'Time' : 'Opens'} per day by app, top eight stacked with the rest as Other">
-      ${grid(axis, L, W - R, T, H - B)}${layers}${xDates(days, x, H - 6, 10)}${hits}</svg>`;
+      ${grid(axis, L, W - R, T, H - B)}${layers}${xDates(days, x, H - 6, Math.max(1, Math.round(days.length / 10)))}${hits}</svg>`;
   document.getElementById('v-stack-legend').innerHTML =
     series.map((se) => `<span><i style="background:${se.color}"></i>${esc(se.name)}</span>`).join('');
 }
@@ -548,9 +548,9 @@ function drawTop(d) {
   const sum = d.apps.reduce((t, a) => t + val(a), 0);
   apps.forEach((a, i) => {
     const by = T + i * rowH + 5, bh = rowH - 10;
-    const tip = `<b>${esc(a.name)}</b>${dur(a.total)}, ${pct(a.total / d.appsTotal)}<br>${count(a.opensTotal)} opens${tourShown() ? '<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>' : ''}`;
+    const tip = `<b>${esc(a.name)}</b>${dur(a.total)}, ${pct(a.total / d.appsTotal)}<br>${count(a.opensTotal)} opens`;
     s += `<text x="${L - 8}" y="${by + bh / 2 + 4}" text-anchor="end">${esc(a.name)}</text>`;
-    s += `<rect class="draw-x" style="animation-delay:${i * 40}ms;cursor:${tourShown() ? 'pointer' : 'default'}" x="${L}" y="${by}" width="${Math.max(2, x(val(a)) - L)}" height="${bh}" rx="3" fill="${ink(a.color)}" data-tip="${esc(tip)}" data-open="detail"/>`;
+    s += `<rect class="draw-x" style="animation-delay:${i * 40}ms" x="${L}" y="${by}" width="${Math.max(2, x(val(a)) - L)}" height="${bh}" rx="3" fill="${ink(a.color)}" data-tip="${esc(tip)}"/>`;
   });
   document.getElementById('v-top-title').textContent = m === 'time' ? 'Top apps' : 'Most opened';
   document.getElementById('v-top').innerHTML =
@@ -560,7 +560,7 @@ function drawTop(d) {
 function drawApp(d) {
   const m = measure.app;
   const app = d.apps.find((a) => a.name === d.cfg.detail);
-  const span = 30;
+  const span = rangeDays('r-app', d);
   const days = d.days.slice(-span);
   const vals = (m === 'time' ? app.time : app.opens).slice(-span);
   const peakI = vals.reduce((b, v, i) => ((v ?? 0) > (vals[b] ?? 0) ? i : b), 0);
@@ -577,12 +577,13 @@ function drawApp(d) {
     callout(m === 'time' ? 'Heaviest day' : 'Most opens', fmtDay(days[peakI].date), fmtV(vals[peakI])) +
     bars(vals, days.map((x) => fmtDay(x.date)), {
       axis: m === 'time' ? timeAxis(vals[peakI]) : countAxis(vals[peakI]),
-      fmtV, every: 3, tipLabel: (i) => fmtDayLong(days[i].date),
+      fmtV, every: Math.max(1, Math.round(span / 10)), tipLabel: (i) => fmtDayLong(days[i].date),
       aria: `${app.name}, ${m === 'time' ? 'time' : 'opens'} per day over ${span} days`,
     });
 }
 
 let showAll = false;
+let tableView = 'grid';
 function drawTable(d) {
   // lib/app-list.ts: 10 minutes or more, OR 30+ opens across 5+ days.
   const listed = (a) => a.total >= 10 * MIN || (a.opensTotal >= 30 && a.days >= 5);
@@ -590,15 +591,32 @@ function drawTable(d) {
   const main = all.filter(listed);
   const folded = all.filter((a) => !listed(a));
   const rows = showAll ? all : main;
-  const body = rows.map((a) => `<tr><td><span class="app-cell"><span class="initial" style="${a.color ? `color:${ink(a.color)}` : ''}">${esc(a.name[0])}</span>${esc(a.name)}${a.kind ? ` <span class="badge">${a.kind}</span>` : ''}</span></td>
-      <td class="num">${dur(a.total)}</td><td class="num">${pct(a.total / d.appsTotal)}</td><td class="num">${count(a.opensTotal)}</td><td class="num">${a.days}</td></tr>`).join('');
+  const initial = (a) => `<span class="initial" style="${a.color ? `color:${ink(a.color)}` : ''}">${esc(a.name[0])}</span>`;
+  const badge = (a) => (a.kind ? ` <span class="badge">${a.kind}</span>` : '');
+  const toggle = `<div class="view-toggle" role="group" aria-label="View">
+    <button type="button" data-view="table" aria-pressed="${tableView === 'table'}">Table</button>
+    <button type="button" data-view="grid" aria-pressed="${tableView === 'grid'}">Grid</button></div>`;
+  const body = tableView === 'table'
+    ? `<div class="table-wrap"><table><thead><tr><th>App</th><th class="num">Time</th><th class="num">Opens</th><th class="num">Days</th></tr></thead><tbody>${
+      rows.map((a) => `<tr><td><span class="app-cell">${initial(a)}${esc(a.name)}${badge(a)}</span></td>
+        <td class="num total">${dur(a.total)}</td><td class="num">${count(a.opensTotal)}</td><td class="num">${a.days}</td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="app-grid">${rows.map((a) => `<div class="app-card">${initial(a)}
+        <div class="app-card-name">${esc(a.name)}${badge(a)}</div>
+        <div class="app-card-total">${dur(a.total)}</div>
+        <div class="app-card-io"><span>${count(a.opensTotal)} opens</span></div>
+        <div class="app-card-days">${a.days} active days</div></div>`).join('')}</div>`;
   const foldTime = folded.reduce((s, a) => s + a.total, 0);
   const el = document.getElementById('v-table');
-  el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>App</th><th class="num">Time</th><th class="num">Share</th><th class="num">Opens</th><th class="num">Days</th></tr></thead><tbody>${body}</tbody></table></div>`
+  el.innerHTML = `<div class="table-bar">${toggle}</div>${body}`
     + (folded.length ? `<div class="fold"><button type="button" class="mini-btn" id="fold-btn">${showAll ? 'Show fewer apps' : `Show all ${all.length} apps`}</button>
        <span>${showAll ? '' : `${folded.length} more, ${dur(foldTime)} between them, below the bar for a row of their own.`}</span></div>` : '');
   const btn = el.querySelector('#fold-btn');
   if (btn) btn.onclick = () => { showAll = !showAll; drawTable(d); };
+  el.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
+    tableView = b.dataset.view;
+    drawTable(d);
+    el.querySelector(`[data-view="${tableView}"]`).focus();
+  }));
 }
 
 let device = 'windows';
@@ -629,70 +647,21 @@ function wireTooltip() {
   document.addEventListener('scroll', hide, { passive: true });
 }
 
-/** The tour is hidden pending review (see index.html); while it is, a Top 10
-    bar opens nothing, so it neither says so nor looks clickable. */
-const tourShown = () => !document.getElementById('tour')?.hidden;
-
-/* The tour: one device, one page. `npm run demo:shots` writes each twice, from one seed: dark, and `-light`. */
-const tour = { device: 'laptop', page: '1-overview' };
-
-function shotSrc() {
-  const light = document.documentElement.dataset.theme === 'light' ? '-light' : '';
-  return `screenshots/tour/${tour.device}-${tour.page}${light}.png`;
-}
-
-function showShot() {
-  document.querySelectorAll('[data-tour-device]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.tourDevice === tour.device)));
-  document.querySelectorAll('.tabs [role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.page === tour.page)));
-  const img = document.getElementById('shot-img');
-  img.src = shotSrc();
-  const page = document.querySelector(`.tabs [data-page="${tour.page}"]`).textContent;
-  img.alt = `The ${tour.device}'s ${page} page, full height`;
-  document.querySelector('.shot-scroll').scrollTop = 0;
-  // The phone's pages are in the phone's accent; the controls follow it.
-  document.getElementById('tour').dataset.device = tour.device === 'phone' ? 'android' : 'windows';
-}
-
-/** The heat-map ramp and the screenshots are per theme; nothing else needs redrawing. */
-function retheme() {
-  drawAll();
-  document.getElementById('shot-img').src = shotSrc();
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('theme-btn').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-    applyTheme(next);
-    try { localStorage.setItem(THEME_KEY, next); } catch { /* private window: still switches */ }
-    retheme();
-  });
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    if (!storedTheme()) { applyTheme(systemTheme()); retheme(); }
-  });
-
-  document.querySelectorAll('[data-tour-device]').forEach((b) => b.addEventListener('click', () => { tour.device = b.dataset.tourDevice; showShot(); }));
-  document.querySelectorAll('.tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => { tour.page = b.dataset.page; showShot(); }));
-  showShot();
-
-  const pickDevice = (b) => {
-    device = b.dataset.device;
-    document.querySelectorAll('.charts-head [role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
-    document.getElementById('gallery').dataset.device = device;
-  };
-  document.querySelectorAll('.charts-head [role="radio"]').forEach((b) => b.addEventListener('click', () => { pickDevice(b); drawAll(); }));
-  // ?device=android opens the gallery on the phone, so either view can be linked.
-  if (new URLSearchParams(location.search).get('device') === 'android') {
-    pickDevice(document.querySelector('.charts-head [data-device="android"]'));
-  }
-
-  document.getElementById('gallery').addEventListener('click', (e) => {
-    if (!e.target.closest('[data-open="detail"]') || !tourShown()) return;
-    tour.device = device === 'android' ? 'phone' : 'laptop';
-    tour.page = '3-app-detail';
-    showShot();
-    document.getElementById('tour').scrollIntoView();
-  });
-
-  wireTooltip();
-  drawAll();
-});
+const section = document.getElementById('charts');
+const pickDevice = (b) => {
+  device = b.dataset.device;
+  document.querySelectorAll('#device-seg [role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+  // The section, not just the gallery: the switch itself wears the device's accent.
+  section.dataset.device = device;
+  document.getElementById('gallery').dataset.device = device;
+};
+document.querySelectorAll('#device-seg [role="radio"]').forEach((b) => b.addEventListener('click', () => { pickDevice(b); drawAll(); }));
+// ?device=android opens the gallery on the phone, so either view can be linked.
+if (new URLSearchParams(location.search).get('device') === 'android') pickDevice(document.querySelector('#device-seg [data-device="android"]'));
+document.getElementById('r-stack').addEventListener('change', () => drawStack(DATA[device]));
+document.getElementById('r-app').addEventListener('change', () => drawApp(DATA[device]));
+// The heat-map ramp is per theme; ThemeToggle.astro says when it changes.
+document.addEventListener('themechange', () => drawAll());
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => drawAll());
+wireTooltip();
+drawAll();

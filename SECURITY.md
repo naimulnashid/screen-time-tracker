@@ -21,13 +21,13 @@ That data is personal, and the defaults are chosen accordingly:
 |---|---|
 | Who can read the dashboard | Every page and API is behind one shared password (`DASHBOARD_PASSWORD`). Unset, the dashboard **refuses everything** -- it fails closed, never open. |
 | Guessing the password | Wrong guesses are counted: a per-client lockout after 5, and a global budget of 30 per 15 minutes that a spoofed `X-Forwarded-For` cannot escape. |
-| A copied session cookie | `httpOnly`, 30 days, HMAC-signed with a PBKDF2-derived key, so the cookie cannot be used to test password guesses offline. Rotating the password revokes every session. |
+| A copied session cookie | `httpOnly`, 30 days, HMAC-signed with a key derived from the password by PBKDF2 (200,000 iterations). A copied cookie can still be used to test guesses offline, but each one costs that derivation, so a long random password is what keeps it safe. Rotating the password revokes every session. |
 | The phone's uploads | A separate bearer token (`ANDROID_INGEST_TOKEN`), also fail-closed. Bodies are capped on the wire (8 MB) and after decompression (64 MB), and payload shapes are validated. |
 | The phone sending to the wrong place | The app refuses cleartext HTTP to anything outside private, loopback and link-local ranges (carrier-grade NAT included). |
 | Cross-site requests | State-changing requests from another origin -- including another port on `localhost` -- are refused. `SameSite=Lax` cookies. |
 | Browser hardening | Content-Security-Policy, `frame-ancestors 'none'`, `nosniff`, `no-referrer`, a restrictive Permissions-Policy. SVG logos are served sandboxed. |
 | Window titles | **Never captured.** A title can name the document, page or person on screen; this records the app and the duration only. |
-| Outbound traffic | None at runtime. No telemetry, no analytics, no remote fonts. |
+| Outbound traffic | None from the pages: no telemetry, no analytics, no remote fonts. The one optional connection is the cloud inbox drain, when `inbox` is configured: it fetches the phones' encrypted envelopes, and the inbox sees their size, timing and a device hint, never their content. |
 
 ## Known limitations -- read before running it
 

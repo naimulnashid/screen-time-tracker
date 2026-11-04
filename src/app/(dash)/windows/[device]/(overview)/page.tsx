@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
-import { TrendChart, HourlyChart, StackedDailyChart } from '@/components/Charts';
+import { TrendChart, HourlyChart } from '@/components/Charts';
+import { RangedStackCard } from '@/components/RangedCharts';
 import { Callout } from '@/components/Callout';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { KindBar } from '@/components/KindBar';
@@ -12,18 +13,18 @@ import {
   collectedAgo, windowsLogoScope, WINDOWS_DEVICE_ID,
   getWindowsColourOverrides,
 } from '@/lib/queries';
-import { stackByApp, peakOf } from '@/lib/stack';
-import { stackSeries } from '@/lib/stack-series';
-import { ALL_DAYS, parseDays, queryString } from '@/lib/scope';
-import { fillDays, heaviestDay } from '@/lib/trend';
+import { peakOf } from '@/lib/stack';
+import { rangedStacks } from '@/lib/ranged-stack';
+import { ALL_HISTORY } from '@/lib/scope';
+import { fillDays, heaviestDay, spikeThreshold } from '@/lib/trend';
 import {
   splitDuration, formatDuration, formatDayLong, formatDayShort, formatPercent,
-  formatHourOfDay, formatOpens,
+  formatHourOfDay,
 } from '@/lib/format';
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -73,10 +74,9 @@ function StatCard({
 }
 
 export default async function OverviewPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   // The real check, the one that makes a wrong slug a 404, is in
   // [device]/layout.tsx. This one only keeps the page honest on its own.
@@ -85,17 +85,15 @@ export default async function OverviewPage({
 
   if (!hasWindowsData()) return <SamplerEmpty />;
 
-  const sp = await searchParams;
-  const scope = { days: parseDays(sp.days) };
+  // Every figure covers all history; the two by-day charts carry a range of
+  // their own (lib/scope.ts).
+  const scope = ALL_HISTORY;
 
   const data = getOverview(scope);
   const appCount = getApps(scope).filter((a) => a.ms > 0).length;
   const daily = getDaily(scope);
   const hourly = getHourly(scope);
-  // The heat map ignores the range selector, as the sibling's does: it answers
-  // "what does the last six months look like", which a 7-day scope would
-  // reduce to one lit column.
-  const history = getDaily({ days: ALL_DAYS }).map((d) => ({ date: d.date, ms: d.active }));
+  const history = daily.map((d) => ({ date: d.date, ms: d.active }));
 
   if (!data.latestDate) return <SamplerEmpty />;
 
@@ -106,22 +104,28 @@ export default async function OverviewPage({
 
   const trend = fillDays(daily.map((d) => ({ date: d.date, ms: d.active })));
   const heaviest = heaviestDay(trend);
+  const spikeOver = spikeThreshold(trend);
+  const spikes = spikeOver === null ? 0 : trend.filter((d) => d.ms !== null && d.ms > spikeOver).length;
   const busiest = peakOf(hourly, (h) => h.ms);
+  // The span of history held, at the right of the line under the heading.
+  const first = daily[0]?.date;
+  const span = first
+    ? `${formatDayShort(first)} – ${formatDayShort(data.latestDate)} · ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'}`
+    : null;
 
   // The two stacked charts: every app past the top eight is folded into
   // Other, ranked separately for each, because the apps you spend longest in
   // are not the ones you open most -- the same reason By App has two charts.
   const byApp = getDailyByApp(scope);
-  const recordedDays = daily.map((d) => d.date);
-  const nameOf = (id: string) => byApp.names.get(id) ?? { name: id, base: id };
-  const timeStack = stackByApp(byApp.time, recordedDays);
-  const opensStack = stackByApp(byApp.opens, recordedDays);
-  const laptop = windowsLogoScope();
-  const picked = getWindowsColourOverrides();
-  const timeSeries = stackSeries(timeStack.series, nameOf, laptop, picked);
-  const opensSeries = stackSeries(opensStack.series, nameOf, laptop, picked);
-  const topByTime = timeSeries.find((s) => s.key !== 'other');
-  const topByOpens = opensSeries.find((s) => s.key !== 'other');
+  const stackOpts = {
+    recorded: daily.map((d) => d.date),
+    latest: data.latestDate,
+    nameOf: (id: string) => byApp.names.get(id) ?? { name: id, base: id },
+    device: windowsLogoScope(),
+    picked: getWindowsColourOverrides(),
+  };
+  const timeRanges = rangedStacks({ rows: byApp.time, ...stackOpts });
+  const opensRanges = rangedStacks({ rows: byApp.opens, ...stackOpts });
 
   return (
     <>
@@ -136,9 +140,12 @@ export default async function OverviewPage({
           cannot distinguish "quiet day" from "collector died on Tuesday" --
           which is exactly the confusion the hourly ingest was meant to end.
         */}
-        <p>
-          Latest data {formatDayLong(data.latestDate)}
-          {collected ? ` · collected ${collected}` : ''}
+        <p className="page-head-line">
+          <span>
+            Latest data {formatDayLong(data.latestDate)}
+            {collected ? ` · collected ${collected}` : ''}
+          </span>
+          {span && <span>{span}</span>}
         </p>
       </div>
 
@@ -160,7 +167,7 @@ export default async function OverviewPage({
           delay={60}
         />
         <StatCard
-          label="Range total"
+          label="All"
           ms={data.rangeTotal}
           sub={`${appCount} app${appCount === 1 ? '' : 's'}`}
           delay={120}
@@ -177,7 +184,7 @@ export default async function OverviewPage({
           rank apps, and that page is where the apps are. */}
       <Card delay={180}>
         <CardTitle
-          sub={`Active time per day across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} with data. Asleep time is deliberately not drawn.`}
+          sub={`Active time per day across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} with data${spikes ? ` · ${spikes} day${spikes === 1 ? '' : 's'} well above trend` : ''}. Asleep time is deliberately not drawn.`}
           aside={
             heaviest && (
               <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
@@ -187,7 +194,7 @@ export default async function OverviewPage({
           Daily trend
         </CardTitle>
         {daily.length > 1 ? (
-          <TrendChart data={trend} />
+          <TrendChart data={trend} spikeOver={spikeOver} />
         ) : (
           <p className="prose-note">
             One day of data so far. The trend appears once the sampler has run
@@ -197,58 +204,38 @@ export default async function OverviewPage({
       </Card>
 
       <Card delay={240}>
-        <CardTitle sub="Active time per day, whatever the range above. Outlined days were never recorded - before the sampler existed, or while it was not running - which is not the same as a quiet day.">
+        <CardTitle sub="Active time per day. Outlined days were never recorded - before the sampler existed, or while it was not running - which is not the same as a quiet day.">
           Activity
         </CardTitle>
         <ActivityHeatmap
           daily={history}
           label="Daily active time"
-          expandHref={`/windows/${slug}/activity${queryString(sp)}`}
+          expandHref={`/windows/${slug}/activity`}
         />
       </Card>
 
       {/* The By App rankings, day by day: which apps made each day's total,
           and which ones were reached for. Every band together IS the active
           time above, since the sampler partitions it -- Other included. */}
-      <Card delay={300}>
-        <CardTitle
-          sub="Active time per day, top 8 apps stacked; everything else grouped as Other."
-          aside={
-            topByTime && (
-              <Callout label="Top app" detail={topByTime.name} value={formatDuration(topByTime.total)} />
-            )
-          }
-        >
-          Top apps by day
-        </CardTitle>
-        {timeStack.points.length > 1 ? (
-          <StackedDailyChart points={timeStack.points} series={timeSeries} measure="time" />
-        ) : (
-          <p className="prose-note">One day of data so far.</p>
-        )}
-      </Card>
+      <RangedStackCard
+        ranges={timeRanges}
+        measure="time"
+        title="Top apps by day"
+        sub="Active time per day, top 8 apps stacked; everything else grouped as Other."
+        delay={300}
+      />
 
-      <Card delay={360}>
-        <CardTitle
-          sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
-          aside={
-            topByOpens && (
-              <Callout label="Most opened" detail={topByOpens.name} value={formatOpens(topByOpens.total)} />
-            )
-          }
-        >
-          Most opened by day
-        </CardTitle>
-        {opensStack.points.length > 1 ? (
-          <StackedDailyChart points={opensStack.points} series={opensSeries} measure="opens" />
-        ) : (
-          <p className="prose-note">One day of data so far.</p>
-        )}
-      </Card>
+      <RangedStackCard
+        ranges={opensRanges}
+        measure="opens"
+        title="Most opened by day"
+        sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
+        delay={360}
+      />
 
       <Card delay={420}>
         <CardTitle
-          sub="Active time by hour of day, summed across the range."
+          sub="Active time by hour of day, summed over all history."
           aside={
             busiest && (
               <Callout label="Busiest hour" detail={formatHourOfDay(busiest.hour)} value={formatDuration(busiest.ms)} />

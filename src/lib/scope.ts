@@ -1,8 +1,15 @@
 /**
- * Shared scope constants.
+ * Shared range constants.
  *
  * Lives apart from `queries.ts` because that module is `server-only` and the
- * scope bar is a client component -- both need these numbers.
+ * range menus are client components -- both need these numbers.
+ *
+ * **Pages are not scoped any more** (since 2026-11-03, after the sibling Data
+ * Usage Tracker). The top bar's 7d / 30d / 90d / All chips scoped every figure
+ * on every page; now every page reads all history, and only the day-by-day
+ * charts carry a range of their own, in a menu at their card's top right. An
+ * old link carrying `?days=` shows everything rather than a filter with no
+ * visible control.
  */
 
 /**
@@ -15,20 +22,44 @@
  */
 export const ALL_DAYS = 36500;
 
-/** Ranges offered in the scope bar, shortest first. */
+/** Ranges offered in a chart's menu, shortest first. */
 export const RANGES = [7, 30, 90, ALL_DAYS] as const;
 
-/** Opening view. All history, so the dashboard leads with everything it holds. */
-export const DEFAULT_DAYS = ALL_DAYS;
+export type ChartRange = (typeof RANGES)[number];
+
+/** What a chart's menu opens on. A month: readable bands, recent enough to matter. */
+export const DEFAULT_CHART_DAYS: ChartRange = 30;
+
+/** Every page's scope: all history. */
+export const ALL_HISTORY = { days: ALL_DAYS } as const;
 
 export function rangeLabel(days: number): string {
   return days === ALL_DAYS ? 'All' : `${days}d`;
 }
 
-/** Parse `?days=` into a range we actually offer, falling back to the default. */
-export function parseDays(raw: string | undefined): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_DAYS;
+/** Spoken label, for the menu's options. */
+export function rangeName(days: number): string {
+  return days === ALL_DAYS ? 'All history' : `Last ${days} days`;
+}
+
+/**
+ * The first local date each range covers, counted back from `latest` (the
+ * newest day with data, which anchors every range, as the queries do).
+ * `''` for All, which every date passes.
+ */
+export function rangeStarts(latest: string): Record<ChartRange, string> {
+  const start = (days: number) => {
+    const d = new Date(latest + 'T00:00:00');
+    d.setDate(d.getDate() - (days - 1));
+    return d.toLocaleDateString('en-CA');
+  };
+  return { 7: start(7), 30: start(30), 90: start(90), [ALL_DAYS]: '' } as Record<ChartRange, string>;
+}
+
+/** One value per range, built from that range's first date. */
+export function perRange<T>(latest: string, build: (from: string) => T): Record<ChartRange, T> {
+  const starts = rangeStarts(latest);
+  return Object.fromEntries(RANGES.map((r) => [r, build(starts[r])])) as Record<ChartRange, T>;
 }
 
 /**

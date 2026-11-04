@@ -46,12 +46,12 @@ import {
   brandColour, brandColourForIdentity, ensureReadable, parseBrandColours, colourFor,
 } from '../src/lib/app-colour';
 import { hourTick, niceHourAxis, niceCountAxis } from '../src/lib/axis';
-import { queryString } from '../src/lib/scope';
+import { queryString, rangeStarts, ALL_DAYS } from '../src/lib/scope';
 import { isHomeSurface } from '../src/lib/home-surface';
 import { stitchVisits, visitStats, visitCounts, openBuckets, opensByDay } from '../src/lib/visits';
 import { stackByApp, peakOf, OTHER } from '../src/lib/stack';
 import { isListed, splitForList, listRule, LIST_MIN_MS, LIST_MIN_OPENS, LIST_MIN_DAYS } from '../src/lib/app-list';
-import { fillDays, heaviestDay } from '../src/lib/trend';
+import { fillDays, heaviestDay, spikeThreshold } from '../src/lib/trend';
 import { headlineSource, unionMs, unionByHour } from '../src/lib/android-source';
 import { PWA_MANIFEST, PWA_ICONS, glyphOnly } from '../src/lib/pwa';
 import { config as proxyConfig } from '../src/proxy';
@@ -375,6 +375,24 @@ section('android write rules');
       'SELECT SUM(duration_ms) AS ms FROM android_segments WHERE package_name = ?',
     ).get('com.y') as { ms: number };
     check('in-flight session grows, not duplicates', sess.ms, 20 * MIN);
+
+    // --- a span's own offset buckets it, the payload's the rest ---
+    // 23:30 UTC is 05:30 the next day at +6, but 04:30 at +5: a span read
+    // after a trip from +5 carries its own offset and keeps its own day.
+    const late = Date.UTC(2026, 7, 30, 23, 30, 0);
+    const off = ingestAndroid(db, {
+      device, tzOffsetMinutes: tz,
+      sessions: [
+        { start: late, end: late + 10 * MIN, packageName: 'com.tz', tzOffsetMinutes: 300 },
+        { start: late + 60 * MIN, end: late + 60 * MIN + 10 * MIN, packageName: 'com.tz' },
+        { start: late, end: late + MIN, packageName: 'com.tzbad', tzOffsetMinutes: 99_999 },
+      ],
+    });
+    const tzRows = db.prepare(
+      "SELECT local_date AS d, local_hour AS h FROM android_segments WHERE package_name = 'com.tz' ORDER BY start_utc",
+    ).all() as { d: string; h: number }[];
+    check('own offset buckets a span', tzRows.map((r) => `${r.d} ${r.h}`), ['2026-08-31 4', '2026-08-31 6']);
+    check('an absurd own offset rejects the row', off.rejected, 1);
 
     // --- screen spans: same rule, and CLOSING sticks ---
     ingestAndroid(db, {
@@ -859,6 +877,18 @@ section('trend line');
   check('heaviest day', heaviestDay(filled), { date: '2026-09-02', ms: 9 });
   // A recorded zero is not a heaviest day.
   check('an empty range has no heaviest day', heaviestDay([{ date: '2026-09-01', ms: 0 }, { date: '2026-09-02', ms: null }]), null);
+
+  // Days well above trend: 1.5x the mean of RECORDED days. An unrecorded day
+  // is no evidence of a quiet one, so it must not drag the mean down.
+  const spikes = [{ ms: 10 }, { ms: 10 }, { ms: null }, { ms: 10 }, { ms: 30 }];
+  check('spike threshold is 1.5x the recorded mean', spikeThreshold(spikes), 22.5);
+  check('too few days marks nothing', spikeThreshold([{ ms: 5 }, { ms: 50 }]), null);
+
+  // A chart's range counts back from the newest day with data, inclusive.
+  const starts = rangeStarts('2026-10-31');
+  check('7d starts six days back', starts[7], '2026-10-25');
+  check('30d crosses a month', starts[30], '2026-10-02');
+  check('All admits every date', starts[ALL_DAYS], '');
 }
 
 /* ------------------------------------------------------------------ */
@@ -1652,6 +1682,19 @@ section('app renames');
   check('an app may keep its own name', planRename(apps, 'code', 'Editor').ok, true);
   check('Other is reserved', planRename(apps, 'msedge', 'other'), { ok: false, error: 'reserved' });
   check('a bad name is refused', planRename(apps, 'msedge', 'x'.repeat(61)), { ok: false, error: 'bad-name' });
+  // Resetting is checked too: Edge renamed to "VS Code" would make Code's
+  // reset show two "VS Code" rows. A clash with an UN-renamed app is let
+  // through, or the rename could never be undone.
+  const clash: AppNames = new Map([
+    ['code', { name: 'Editor', base: 'VS Code' }],
+    ['msedge', { name: 'VS Code', base: 'Microsoft Edge' }],
+  ]);
+  check('a reset onto a renamed app is taken', planRename(clash, 'code', ''), { ok: false, error: 'taken' });
+  const twin: AppNames = new Map([
+    ['code', { name: 'Editor', base: 'VS Code' }],
+    ['code2', { name: 'VS Code', base: 'VS Code' }],
+  ]);
+  check('a reset onto an un-renamed twin is allowed', planRename(twin, 'code', '').ok, true);
 
   // The real write path, on a temp database: set, overwrite, clear.
   const rdir = mkdtempSync(join(tmpdir(), 'screentime-renames-'));

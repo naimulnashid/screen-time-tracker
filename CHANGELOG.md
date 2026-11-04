@@ -8,7 +8,87 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Added
+- **The README follows the house structure**: the app icon and a Website
+  badge in the title, screenshots that follow your GitHub theme (By App as a
+  grid among them), then Features, Installation, Configuration (every key and
+  variable in a table), Usage, a Mermaid architecture diagram, Security and
+  privacy, Development, and Contributing.
+- **A grid view on By App**, beside the table, remembered per browser.
+- **Hide an app from By App, or merge it into another**, from the "..."
+  beside its name. Hiding affects only that page; a merged app is counted as
+  part of its target everywhere, and the target's Merged apps card separates
+  it again. Schema 7 adds `app_hidden` and `app_merges`.
+- **Rename and recolour in a dialog**, from the "..." menu or the detail
+  page's pencil. **Backspace** on an app's page or Activity goes back.
+
+### Removed
+- The By App table's Share column.
+
+### Changed
+- **The project site is rebuilt on Astro and the Onyx design system**, on the
+  sibling Data Usage Tracker's structure: a hero with how much history each
+  source keeps, features, the live chart gallery (now with each range ranking
+  its own top apps, spike days marked, and the app list as a table or a grid),
+  how it works with the traps each collector handles, privacy, install steps
+  beside what you need, and an FAQ. Fonts are self-hosted, and the CSP allows
+  only the one inline theme snippet, by hash. It shows no screenshots: the
+  tour stays hidden pending review.
+- **No range chips in the top bar.** The 7d / 30d / 90d / All chips scoped
+  every figure on every page; now every page covers all history, and the
+  day-by-day charts carry a range of their own: **Top apps by day** and
+  **Most opened by day** on the Overview, and an app's **Daily trend** and
+  **Opens per day**, each with a 7d / 30d / 90d / All menu at its top right,
+  opening on 30d. Every range ranks its own top apps. An old link carrying
+  `?days=` shows everything.
+- **A range's top app or heaviest day sits in its chart's subtitle**, where
+  the callout was; the head's right slot is the menu.
+- **The span of history held** (first day, last day, how many) sits at the
+  right of the line under each Overview's heading, and the third score card
+  reads **All**.
+- **The daily trend marks each day well above trend with a point**: more than
+  1.5 times the average of the recorded days.
+
+### Security
+- **Next.js 16.3.8 -> 16.4.3**, for three advisories affecting 16.0.0 to
+  16.4.0: GHSA-2464-fhr4-w9xw (remote code execution through image
+  optimization with SVGs), GHSA-673q-mjm6-r5xr (remote code execution in
+  `use cache` functions returning typed arrays) and GHSA-p3m5-59mp-jv5r
+  (denial of service through Server Actions). The dashboard uses neither
+  image optimization nor `use cache`, but runs on the LAN.
+
 ### Fixed
+- **A build under the running dashboard no longer leaves it half-broken.**
+  `next start` loads some of `.next` lazily, so a server running across a
+  rebuild served two builds at once. `npm start` now runs it through
+  `scripts/run-next-start.mjs`, which restarts it on the new build once the
+  build has finished.
+- **Screen Time Reporter 1.3.3 (versionCode 8) sends the rest of a long
+  session.** A session or screen-on span open for more than an hour at one
+  sync had its opening event outside the next sync's one-hour overlap, so its
+  close was discarded and the rest of it never arrived. The app now reads back
+  to the earliest span still open at the last confirmed sync, up to a day.
+- **A sync Android stops is stopped.** When the job's network went away,
+  the sync carried on and uploaded anyway; now an upload in flight is cut off
+  before the watermark moves, and the next sync sends it again.
+- **Spans keep their own day across a DST change or a trip.** The phone sends
+  the offset at a span's start where it differs from today's, and the
+  dashboard buckets that span by it. Older app versions are unaffected.
+- **A restore keeps the database it replaces, WAL included.** It used to
+  move the live file aside and delete its `-wal`, so rows committed but not
+  yet checkpointed were missing from the kept copy. The old database is now
+  copied with SQLite's backup API and checked before it is removed, the
+  backup is integrity-checked first, and the restore refuses while anything
+  has the database open.
+- **Resetting an app's name can no longer duplicate another app's.** Rename
+  one app away from a name, give that name to another, then reset the first,
+  and two apps showed the same name. The reset is now refused as "taken".
+- **Page titles no longer end in "Screen Time".** The installed app's window
+  already shows its name before the title, so it appeared twice.
+- **The footer and the docs say what leaves the PC.** "No outbound requests"
+  was untrue with the cloud inbox set up. SECURITY.md also no longer claims
+  a copied session cookie cannot test password guesses offline: PBKDF2 makes
+  each guess expensive, not impossible.
 - **Stopping and starting the dashboard find its server again.** Windows'
   TCP table can misreport a listening socket's state, so `dashboard-stop.ps1`
   said nothing was listening over a running dashboard, and the logon

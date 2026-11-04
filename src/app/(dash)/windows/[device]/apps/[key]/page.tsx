@@ -1,30 +1,30 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
+import { HourlyChart, HourlyOpensChart } from '@/components/Charts';
+import { AppDailyCards } from '@/components/RangedCharts';
 import {
-  DailyTrendChart, HourlyChart, DailyOpensChart, HourlyOpensChart,
-} from '@/components/Charts';
-import {
-  getAppDetail, appExists, earnsDetailPage, windowsLogoScope, getWindowsColourOverrides,
+  getAppDetail, earnsDetailPage, windowsLogoScope, getWindowsColourOverrides,
 } from '@/lib/queries';
 import { AppIcon } from '@/components/AppIcon';
 import { Callout } from '@/components/Callout';
-import { heaviestDay } from '@/lib/trend';
 import { peakOf } from '@/lib/stack';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
 import { RenameApp } from '@/components/RenameApp';
+import { UnmergeButton } from '@/components/AppMenu';
+import { BackKey } from '@/components/BackKey';
 import { brandColour } from '@/lib/app-colour';
 import { ACCENTS } from '@/lib/accent';
 import { windowsSlug } from '@/lib/config';
 import { decodeSegment } from '@/lib/slug';
-import { parseDays } from '@/lib/scope';
+import { ALL_HISTORY, rangeStarts } from '@/lib/scope';
 import {
-  formatDuration, formatPercent, formatDayShort, formatHourOfDay, formatOpens,
+  formatDuration, formatPercent, formatHourOfDay, formatOpens,
 } from '@/lib/format';
 import type { Metadata } from 'next';
 import { windowsAppTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -47,10 +47,9 @@ export const dynamic = 'force-dynamic';
  * the address bar and cannot collide.
  */
 export default async function AppDetailPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string; key: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug, key: raw } = await params;
   if (slug !== windowsSlug()) notFound();
@@ -60,32 +59,12 @@ export default async function AppDetailPage({
   const key = decodeSegment(raw);
   if (key === null) notFound();
   const backHref = `/windows/${slug}/apps`;
-  const sp = await searchParams;
-  const scope = { days: parseDays(sp.days) };
-
-  const detail = getAppDetail(scope, key);
+  // All history: the page is not scoped; its two by-day charts carry a range.
+  // With no range there is no "nothing in this range" answer any more: no
+  // rows means no such app.
+  const detail = getAppDetail(ALL_HISTORY, key);
   const laptop = windowsLogoScope();
-
-  // "Not found" and "nothing in this range" are DIFFERENT answers. An app with
-  // no rows in the current scope still exists -- the range is just empty, and
-  // telling the reader it does not exist sends them hunting for a page that is
-  // right there.
-  if (!detail) {
-    if (appExists(key)) {
-      return (
-        <div className="empty">
-          <h1 style={{ marginBottom: '0.8rem' }}>Nothing in this range</h1>
-          <p style={{ maxWidth: 520, margin: '0 auto 1.4rem' }}>
-            This app has recorded time, but none inside the selected range.
-          </p>
-          <Link href={backHref} className="chip" style={{ display: 'inline-block' }}>
-            Back to all apps
-          </Link>
-        </div>
-      );
-    }
-    notFound();
-  }
+  if (!detail) notFound();
 
   // Re-checked here, not just on the table's link: a pasted or bookmarked URL
   // for a trivial app must not render a page of one bar.
@@ -104,12 +83,8 @@ export default async function AppDetailPage({
     );
   }
 
-  // Each chart's headline figure, for the top right of its card. A single
-  // day draws no chart, so it gets no callout either.
-  const heaviest = detail.daily.length > 1
-    ? heaviestDay(detail.daily.map((d) => ({ date: d.date, ms: d.active })))
-    : null;
-  const mostOpens = detail.dailyOpens.length > 1 ? peakOf(detail.dailyOpens, (d) => d.opens) : null;
+  // Each hourly chart's headline figure, for the top right of its card. The
+  // by-day charts put theirs in their subtitle, beside their range menu.
   const busiest = peakOf(detail.hourly, (h) => h.ms);
   const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
   const look = lookName(detail.name, detail.baseName, laptop);
@@ -117,17 +92,18 @@ export default async function AppDetailPage({
 
   return (
     <>
+      <BackKey href={backHref} />
       <div className="page-head">
         <Link href={backHref} className="back-link">&larr; All apps</Link>
         <RenameApp
-          variant="title" platform="windows" device={slug}
+          platform="windows" device={slug}
           appKey={detail.key} name={detail.name} baseName={detail.baseName}
           colour={ownColour ?? brandColour(look, laptop) ?? ACCENTS.zephyrus.accent}
           customColour={ownColour !== undefined}
           icon={<AppIcon name={detail.name} src={logoUrl(look, laptop)} plate={needsLightPlate(look, laptop)} size={32} />}
         />
         <p>
-          {formatPercent(detail.share, 1)} of active time in this range
+          {formatPercent(detail.share, 1)} of all active time
           {detail.system ? ' · Windows component' : ''}
         </p>
       </div>
@@ -163,54 +139,20 @@ export default async function AppDetailPage({
         </Card>
       </div>
 
-      <Card delay={240}>
-        <CardTitle
-          sub={`Time in ${detail.name} per day.`}
-          aside={
-            heaviest && (
-              <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
-            )
-          }
-        >
-          Daily trend
-        </CardTitle>
-        {detail.daily.length > 1 ? (
-          <DailyTrendChart data={detail.daily} />
-        ) : (
-          <p className="prose-note">Only one day of data for this app so far.</p>
-        )}
-      </Card>
-
       {/*
-        The same two shapes, counted in opens rather than milliseconds. They
-        are the pair worth reading TOGETHER: a tall time bar over a short opens
-        bar is one long sitting, and a short time bar over a tall opens bar is
-        compulsive checking. Either one alone cannot tell those apart, which is
-        why these are separate cards rather than a second series squeezed onto
-        the same axis -- one chart with hours and counts on two scales invites
-        comparing bar heights that mean different things.
-
-        Windows makes the distinction sharper than the phone does, because
-        alt-tab is cheap: a browser can hold an hour across forty opens in a
-        way an app on a phone rarely does.
+        Time and opens per day, under one range. They are the pair worth
+        reading TOGETHER: a tall time bar over a short opens bar is one long
+        sitting, and a short time bar over a tall opens bar is compulsive
+        checking. Windows makes the distinction sharper than the phone does,
+        because alt-tab is cheap: a browser can hold an hour across forty opens.
       */}
-      <Card delay={300}>
-        <CardTitle
-          sub={`How many times ${detail.name} was opened each day.`}
-          aside={
-            mostOpens && (
-              <Callout label="Most opens" detail={formatDayShort(mostOpens.date)} value={formatOpens(mostOpens.opens)} />
-            )
-          }
-        >
-          Opens per day
-        </CardTitle>
-        {detail.dailyOpens.length > 1 ? (
-          <DailyOpensChart data={detail.dailyOpens} />
-        ) : (
-          <p className="prose-note">Only one day of data for this app so far.</p>
-        )}
-      </Card>
+      <AppDailyCards
+        daily={detail.daily}
+        opens={detail.dailyOpens}
+        starts={rangeStarts(detail.latestDate)}
+        name={detail.name}
+        delay={240}
+      />
 
       <Card delay={360}>
         <CardTitle
@@ -278,6 +220,35 @@ export default async function AppDetailPage({
           </p>
         )}
       </Card>
+      {detail.members.length > 0 && (
+        <Card delay={540}>
+          <CardTitle sub="Apps you merged into this one. Their time and opens are counted here, on every page.">
+            Merged apps
+          </CardTitle>
+          <div className="table-wrap">
+            <table className="app-table member-table">
+              <thead>
+                <tr>
+                  <th>App</th>
+                  <th style={{ textAlign: 'right' }}>Time</th>
+                  <th className="undo-col"><span className="sr-only">Separate</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.members.map((m) => (
+                  <tr key={m.key}>
+                    <td>{m.name}</td>
+                    <td className="num mono">{formatDuration(m.ms)}</td>
+                    <td className="num undo-col">
+                      <UnmergeButton platform="windows" device={slug} appKey={m.key} name={m.name} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </>
   );
 }

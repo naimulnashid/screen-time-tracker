@@ -23,7 +23,7 @@ import java.util.zip.GZIPOutputStream
  * to the laptop's key (Sealer) and posted to the inbox, which stores it until
  * the laptop collects it. Nothing else about an upload changes.
  */
-class Uploader(private val prefs: Prefs) {
+class Uploader(private val prefs: Prefs, private val cancel: Cancel = Cancel()) {
 
     data class Result(val ok: Boolean, val message: String, val acceptedThrough: Long?)
 
@@ -241,6 +241,8 @@ class Uploader(private val prefs: Prefs) {
         conn.setRequestProperty("Accept", "application/json")
         conn.connectTimeout = 10_000
         conn.readTimeout = 60_000
+        // So a stopped job can cut this off: see Cancel.
+        cancel.track(conn)
         return conn
     }
 
@@ -273,7 +275,19 @@ class Uploader(private val prefs: Prefs) {
 
             // The PHONE's offset, so the server buckets days the way this
             // device experiences them rather than the way the server does.
-            put("tzOffsetMinutes", TimeZone.getDefault().getOffset(now) / 60_000)
+            val zone = TimeZone.getDefault()
+            val offset = zone.getOffset(now) / 60_000
+            put("tzOffsetMinutes", offset)
+
+            // The offset AT a span's start, where it differs from today's: a
+            // read across a DST change or a trip otherwise filed everything on
+            // the far side of it an hour (or a zone) out. Only those spans
+            // carry one, so a phone that stays put sends what it always did.
+            fun JSONObject.offsetAt(start: Long): JSONObject {
+                val at = zone.getOffset(start) / 60_000
+                if (at != offset) put("tzOffsetMinutes", at)
+                return this
+            }
 
             // What this payload covers. The server echoes it back as
             // acceptedThrough only if the whole transaction committed, and the
@@ -286,7 +300,8 @@ class Uploader(private val prefs: Prefs) {
                         JSONObject()
                             .put("packageName", s.packageName)
                             .put("start", s.start)
-                            .put("end", s.end),
+                            .put("end", s.end)
+                            .offsetAt(s.start),
                     )
                 }
             })
@@ -298,7 +313,8 @@ class Uploader(private val prefs: Prefs) {
                             .put("kind", s.kind)
                             .put("start", s.start)
                             .put("end", s.end)
-                            .put("inFlight", s.inFlight),
+                            .put("inFlight", s.inFlight)
+                            .offsetAt(s.start),
                     )
                 }
             })

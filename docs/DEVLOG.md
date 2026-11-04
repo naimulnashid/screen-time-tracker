@@ -7,6 +7,90 @@ doc privately.
 
 ## After 1.0.0
 
+### The site, on Astro
+
+The sibling moved its site to Astro and its owner's Onyx design system on
+2026-10-29; this one follows. The structure, the styles, the theme switch and
+the CSP check are the sibling's. The words and the charts are this project's:
+the chart script is the old static site's, adapted to the new markup and given
+what the dashboard gained the day before (a range per stacked chart, spike
+points, a grid of apps). One thing did not come across on purpose: the
+sibling's hero is two screenshots, and this site's screenshot tour has been
+hidden since 2026-10-15 at the owner's request, so the hero keeps the old
+page's figure of how much history each source keeps.
+
+### Hiding and merging apps, and a grid
+
+The sibling's 3.7.0, ported. By App gets a Table / Grid switch, and a "..."
+menu on every app to rename or recolour it (now in a dialog: the inline form
+stretched a table row and would have broken a grid card), hide it from that
+page, or merge it into another app. Hiding is only a view: totals still count
+the app. Merging is read everywhere, through the one resolver every grouping
+query already used for renames, which is why it was cheap here. The one
+query that bypassed the resolver, the visit stitcher, would have counted a
+merged app's opens apart from its time; it now goes through it too.
+
+Checked by driving it on the demo rather than by reading it: merge, separate,
+hide, show and rename all round-tripped, and the totals matched the database.
+The drive also found three layout faults no screenshot of a closed menu could
+show.
+
+### A build under the running server
+
+`next start` does not read the whole of `.next` at boot. Run `npm run build`
+under a live server and it goes on with its old manifests while loading new
+chunks on demand, which fails as error pages and stylesheets that come back as
+HTML. The sibling hit it on 2026-10-29. `npm start` now goes through a small
+wrapper that waits for a finished build (a changed `BUILD_ID` is not enough:
+Next writes it early) and restarts the server on it.
+
+### Reporter 1.3.3: the end of a long session
+
+Each sync read from an hour before the last watermark, so a session clipped
+at the last sync could be re-read whole. That holds only for a session that
+STARTED inside that hour. Open at 08:00, sent clipped at a 10:00 sync, closed
+at 11:00: the next read began at 09:00, saw a close with no open, discarded
+it as it must, and the last hour never reached the dashboard. Nothing failed,
+and an hour of a long sitting just went missing. The sibling's audit found
+the same shape in its own reader; this repo's audit (BUG-001) found this one.
+
+The app now saves, with the watermark, the start of the earliest span still
+open at the last confirmed sync, and the next read reaches back to it. It is
+capped at a day, which is also the longest span the dashboard accepts, so a
+session left open by a missing shutdown event costs at most a day of extra
+events per sync rather than an ever-growing read.
+
+Two more from the sibling's 1.5.2. A job Android stopped kept running, and
+uploaded on whatever network it then had; `Cancel` now disconnects the upload
+and the sync reports itself stopped. And one offset per upload was applied to
+every span in it, so a read across a DST change or a trip filed the far side
+of it in the wrong hour or day; a span whose offset differs now carries its
+own.
+
+### Fixes ported from the sibling's audit
+
+The sibling Data Usage Tracker fixed its 2026-10-26 audit on 2026-10-29, and
+most of its findings had an exact twin here.
+
+**A restore lost the rows in the WAL of the file it kept.** `restore.ps1`
+moved the live `.db` aside and deleted the `-wal` beside it, as "stale". It
+was not stale: it belonged to that file, and any row committed since the last
+checkpoint lived only there. Now the old database is written to a single file
+by SQLite's backup API, read-only, which reads through the WAL, and the copy
+must pass `integrity_check` with the same row count before the live file is
+removed. Tested with a row that existed only in the WAL.
+
+**A reset could duplicate a name.** `planRename()` returned early for a reset,
+before the "taken" check. A clash with an app that is not itself renamed is
+still allowed, or a rename could become impossible to undo.
+
+**Titles lost their suffix.** The installed window reads "Screen Time
+Dashboard - " before the page's title, so "· Screen Time" said it twice.
+
+**"No outbound requests" was false** once the cloud inbox existed. The pages
+still fetch nothing off their own origin, which the CSP enforces; the drain
+is the one connection out, and it is optional.
+
 ### Finding the listener by its shape
 
 On this Windows build the TCP table misreports a listening socket's state.

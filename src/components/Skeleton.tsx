@@ -70,10 +70,12 @@ function SkIcon({ size }: { size: number }) {
 
 /** `.page-head`, laid out from its real text. */
 export function SkPageHead({
-  title, sub, back, appIcon = false, subMono = false,
+  title, sub, span, back, appIcon = false, subMono = false,
 }: {
   title: string;
   sub: string;
+  /** The span of history held, at the right of the line under an Overview's heading. */
+  span?: string;
   /** The "back" link above a title. */
   back?: string;
   /** A detail page's title row: logo, name, rename pencil. */
@@ -95,9 +97,16 @@ export function SkPageHead({
       ) : (
         <h1 style={back ? { marginTop: '0.6rem' } : undefined}><SkText>{title}</SkText></h1>
       )}
-      <p className={subMono ? 'mono' : undefined} style={subMono ? { fontSize: '0.8rem' } : undefined}>
-        <SkText>{sub}</SkText>
-      </p>
+      {span ? (
+        <p className="page-head-line">
+          <span><SkText>{sub}</SkText></span>
+          <span><SkText>{span}</SkText></span>
+        </p>
+      ) : (
+        <p className={subMono ? 'mono' : undefined} style={subMono ? { fontSize: '0.8rem' } : undefined}>
+          <SkText>{sub}</SkText>
+        </p>
+      )}
     </div>
   );
 }
@@ -122,6 +131,25 @@ export function SkCard({
       </div>
       {children}
     </div>
+  );
+}
+
+/** By App's Table / Grid switch (components/AppsViews.tsx), on Table. */
+export function SkViewToggle() {
+  return (
+    <div className="view-toggle">
+      <span className="skeleton-chip" style={{ padding: '0.3rem 0.75rem' }}><SkText>&#9776; Table</SkText></span>
+      <span style={{ padding: '0.3rem 0.75rem' }}><SkText>&#9638; Grid</SkText></span>
+    </div>
+  );
+}
+
+/** A chart's range menu (components/RangeMenu.tsx), at the 30d it opens on. */
+export function SkRangeMenu() {
+  return (
+    <span className="range-menu-wrap">
+      <span className="range-menu"><SkText>&#9634; 30d &#8964;</SkText></span>
+    </span>
   );
 }
 

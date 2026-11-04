@@ -11,7 +11,7 @@ import { formatDateTime, formatDuration, formatElapsed, formatCount } from '@/li
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {

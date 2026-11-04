@@ -52,7 +52,7 @@
  * ===========================================================================
  */
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -407,6 +407,28 @@ CREATE TABLE IF NOT EXISTS app_colours (
   device_id   TEXT NOT NULL,
   app_key     TEXT NOT NULL,
   colour      TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (device_id, app_key)
+);
+
+-- ---------------------------------------------------------------------------
+-- Apps hidden from By App, and apps merged into another (schema 7,
+-- 2026-11-03, from the sibling). Keyed like app_renames. Hiding is a view
+-- choice (By App only); merging is read everywhere, one level deep: into_key
+-- is never itself merged. See lib/app-prefs.ts. Readers tolerate both being
+-- absent, as with renames.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_hidden (
+  device_id   TEXT NOT NULL,
+  app_key     TEXT NOT NULL,
+  hidden_at   TEXT NOT NULL,
+  PRIMARY KEY (device_id, app_key)
+);
+
+CREATE TABLE IF NOT EXISTS app_merges (
+  device_id   TEXT NOT NULL,
+  app_key     TEXT NOT NULL,
+  into_key    TEXT NOT NULL,
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (device_id, app_key)
 );

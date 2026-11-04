@@ -292,7 +292,13 @@ function HourlyBars({
  * recorded" and the text summary can still count those days apart from a
  * genuinely quiet one.
  */
-export function TrendChart({ data }: { data: TrendPoint[] }) {
+export function TrendChart({
+  data, spikeOver = null,
+}: {
+  data: TrendPoint[];
+  /** Days above this many ms get a point of their own (lib/trend.ts, spikeThreshold). */
+  spikeOver?: number | null;
+}) {
   const axis = niceHourAxis(data.reduce((m, d) => Math.max(m, d.ms ?? 0), 0));
   const summary = dailySummary(
     'Time per day',
@@ -352,7 +358,20 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
             fill="url(#trendFill)"
             animationDuration={900}
             animationEasing="ease-out"
-            dot={false}
+            // A day well above trend gets a point in the line's own colour, so
+            // it can be found without hovering every day.
+            dot={(props: { cx?: number; cy?: number; index?: number; payload?: TrendPoint }) => {
+              const p = props.payload;
+              const spike = spikeOver !== null && p?.ms != null && p.ms > spikeOver;
+              return spike && props.cx != null && props.cy != null ? (
+                <circle
+                  key={`spike-${props.index}`} cx={props.cx} cy={props.cy} r={4}
+                  fill="var(--accent)" stroke="var(--bg-panel)" strokeWidth={1.5}
+                />
+              ) : (
+                <g key={`dot-${props.index}`} />
+              );
+            }}
             activeDot={{ r: 5, fill: 'var(--accent-bright)', stroke: 'var(--bg)', strokeWidth: 2 }}
           />
         </AreaChart>

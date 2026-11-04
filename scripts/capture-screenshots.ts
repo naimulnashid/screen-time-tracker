@@ -73,10 +73,15 @@ const PHONE = '/android/my-phone';
  */
 const THEMES = [['dark', ''], ['light', '-light']] as const;
 
-/** [file, path, full page?] -- the full-page tour, then the README's one-screen opener. */
-const SHOTS: [string, string, boolean][] = [
+/**
+ * [file, path, full page?, By App view] -- the full-page tour, then the
+ * README's one-screen opener. The view is By App's Table / Grid choice
+ * (`st-apps-view` in components/AppsViews.tsx); every other shot is Table.
+ */
+const SHOTS: [string, string, boolean, ('table' | 'grid')?][] = [
   ['tour/laptop-1-overview.png', LAPTOP, true],
   ['tour/laptop-2-by-app.png', `${LAPTOP}/apps`, true],
+  ['tour/laptop-2-by-app-grid.png', `${LAPTOP}/apps`, true, 'grid'],
   ['tour/laptop-3-app-detail.png', `${LAPTOP}/apps/exe%3Acode`, true],
   ['tour/laptop-4-activity.png', `${LAPTOP}/activity`, true],
   ['tour/laptop-5-sync.png', `${LAPTOP}/sync`, true],
@@ -219,7 +224,7 @@ async function main() {
     }
     await evaluate(`localStorage.setItem('st-theme', ${JSON.stringify(theme)})`);
 
-    for (const [name, path, full] of SHOTS) {
+    for (const [name, path, full, view = 'table'] of SHOTS) {
       const file = name.replace(/\.png$/, `${suffix}.png`);
       if (path.endsWith('/sync')) {
         writeFileSync(join(demo, 'sampler', 'sampler-status.json'), JSON.stringify({
@@ -228,6 +233,7 @@ async function main() {
           in_flight: { kind: 'app', app: 'C:\\Users\\demo\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe', ms: 754_000 },
         }));
       }
+      await evaluate(`localStorage.setItem('st-apps-view', ${JSON.stringify(view)})`);
       await size(HERO_HEIGHT);
       await send('Page.navigate', { url: BASE + path });
       // Wait for THIS document, not the last one: the URL, then readyState.

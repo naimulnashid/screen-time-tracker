@@ -1,0 +1,219 @@
+---
+import Icon from './Icon.astro';
+import { LINKS } from '../lib/site';
+
+/*
+  The hero's figure is how much history each source keeps, not screenshots:
+  the screenshot tour has been hidden since 2026-10-15, pending the owner's
+  review, and the hero would have brought it back by another door.
+  Positions are on a 12-month track ending today.
+*/
+const rows = [
+  { label: 'Windows (SRUM)', note: '7 days, and process presence, not focus', fill: { left: 98, width: 2 }, device: 'windows' },
+  { label: 'Android', note: 'about 10 days of usage events', fill: { left: 97.3, width: 2.7 }, device: 'android' },
+  { label: 'After a Windows reset', note: 'everything on C: is gone', fill: null, device: 'windows' },
+  { label: 'Screen Time Tracker', note: 'everything since it started recording', fill: { left: 0, width: 100 }, device: 'windows', strong: true },
+];
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="container">
+    <div class="hero-copy rise">
+      <p class="eyebrow">Open source · Windows and Android · Local-only</p>
+      <h1 id="hero-title"><span class="line">Your screen time, per app,</span> <span class="line accent">kept for good.</span></h1>
+      <p class="hero-lead">
+        Windows keeps no real record of which app had focus, and Android keeps ten days. This keeps every day, on a drive that survives a reset.
+      </p>
+      <div class="buttons">
+        <a class="button button-primary" href={LINKS.setup}>
+          <Icon name="download" />
+          Set it up
+        </a>
+        <a class="button button-secondary" href={LINKS.repo}>
+          <Icon name="github" />
+          View on GitHub
+        </a>
+      </div>
+      <ul class="hero-facts" aria-label="At a glance">
+        <li><Icon name="check" /> Free, MIT license</li>
+        <li><Icon name="check" /> No account, no telemetry</li>
+        <li><Icon name="check" /> Windows 10/11 · Android 8.1+</li>
+      </ul>
+    </div>
+
+    <figure class="card retention rise" style="animation-delay: 80ms" aria-labelledby="retention-title">
+      <div class="ret-head">
+        <span id="retention-title" class="ret-title">How much history survives</span>
+        <span class="ret-scale"><span>12 months ago</span><span>today</span></span>
+      </div>
+      {
+        rows.map((r) => (
+          <div class={`ret-row${r.strong ? ' strong' : ''}`} data-device={r.device}>
+            <div class="ret-label">
+              {r.label}
+              <small>{r.note}</small>
+            </div>
+            <div class="ret-track">
+              {r.fill ? (
+                <span class="ret-fill" style={`left:${r.fill.left}%;width:${r.fill.width}%`} />
+              ) : (
+                <span class="ret-empty">nothing</span>
+              )}
+            </div>
+          </div>
+        ))
+      }
+      <figcaption class="muted">Each bar is the stretch of days a source can still show you, on the last year.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-top: clamp(48px, 8vw, 96px);
+    padding-bottom: clamp(56px, 8vw, 104px);
+    background:
+      radial-gradient(900px 560px at 4% -12%, var(--laptop-glow), transparent 70%),
+      radial-gradient(760px 560px at 100% 52%, var(--phone-glow), transparent 70%);
+  }
+
+  /* Two lines on wide screens, one phrase each; phones wrap within them. */
+  h1 {
+    font-size: clamp(2.3rem, 5.6vw, 4.4rem);
+    font-weight: 680;
+    letter-spacing: -0.045em;
+    line-height: 1.04;
+  }
+
+  h1 .line {
+    display: block;
+  }
+
+  h1 .accent {
+    color: var(--accent-bright);
+  }
+
+  .hero-lead {
+    margin-top: 22px;
+    max-width: 62ch;
+    color: var(--text-dim);
+    font-size: clamp(1.125rem, 1.6vw, 1.25rem);
+    line-height: 1.5;
+  }
+
+  .buttons {
+    margin-top: 30px;
+  }
+
+  .hero-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .hero-facts li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hero-facts :global(svg) {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-bright);
+  }
+
+  .retention {
+    display: grid;
+    gap: 14px;
+    margin: clamp(48px, 7vw, 76px) 0 0;
+    padding: 24px 26px;
+  }
+
+  .ret-head,
+  .ret-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+  }
+
+  .ret-title {
+    font-weight: 600;
+  }
+
+  .ret-scale {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-faint);
+    font: 12px var(--font-mono);
+  }
+
+  .ret-label {
+    display: grid;
+    font-weight: 500;
+  }
+
+  .ret-label small {
+    color: var(--text-faint);
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  .strong .ret-label {
+    color: var(--accent-bright);
+    font-weight: 650;
+  }
+
+  .ret-track {
+    position: relative;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--surface-inset);
+  }
+
+  .ret-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    transform-origin: right;
+    animation: ret-grow 900ms var(--ease) both;
+  }
+
+  .ret-empty {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    font: 11px var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  @keyframes ret-grow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  .retention figcaption {
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: 640px) {
+    .ret-head,
+    .ret-row {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+</style>

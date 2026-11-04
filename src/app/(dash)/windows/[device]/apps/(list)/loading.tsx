@@ -1,4 +1,4 @@
-import { SkPageHead, SkCard, SkRanked, SkDataTable } from '@/components/Skeleton';
+import { SkPageHead, SkCard, SkRanked, SkDataTable, SkViewToggle } from '@/components/Skeleton';
 import { listRule } from '@/lib/app-list';
 
 /**
@@ -20,19 +20,20 @@ export default function Loading() {
         <SkRanked />
       </SkCard>
       <SkCard
-        title="Apps · 12 of 24"
+        title="Apps"
+        aside={<SkViewToggle />}
         sub={
           `${listRule()} ` +
-          'On Windows every row together DOES sum to the active total: the ' +
-          'sampler records exactly one foreground app at a time, so the rows ' +
+          'On Windows every app together DOES sum to the active total: the ' +
+          'sampler records exactly one foreground app at a time, so the apps ' +
           'partition the time rather than overlapping it.'
         }
       >
         <SkDataTable
           icon
-          head={['App', 'Time', 'Share', 'Opens', 'Days']}
+          head={['App', 'Time', 'Opens', 'Days']}
           rows={10}
-          cells={['Code Editor', '57h 43m', '34.9%', '122', '20']}
+          cells={['Code Editor', '57h 43m', '122', '20']}
         />
       </SkCard>
     </>

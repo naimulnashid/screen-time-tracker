@@ -72,6 +72,13 @@ export interface SpanRow {
   /** screen_on | unlocked, for screen spans only. */
   kind?: string;
   inFlight?: boolean;
+  /**
+   * The phone's UTC offset at this span's start, sent only where it differs
+   * from the payload's (Reporter 1.3.3+). One upload-time offset for every
+   * span put a read across a DST change or a trip an hour, or a zone, out on
+   * the far side of it.
+   */
+  tzOffsetMinutes?: number;
 }
 
 export interface AndroidPayload {
@@ -230,9 +237,7 @@ export function payloadProblem(p: unknown): PayloadProblem | null {
   }
   // Real offsets run from -12h to +14h. Anything outside is a clock bug, and
   // would file every span under the wrong day.
-  if (!Number.isFinite(payload.tzOffsetMinutes) || Math.abs(payload.tzOffsetMinutes!) > 15 * 60) {
-    return bad('tzOffsetMinutes is required');
-  }
+  if (!isOffset(payload.tzOffsetMinutes)) return bad('tzOffsetMinutes is required');
   for (const key of ['sessions', 'screen', 'apps'] as const) {
     const v = payload[key];
     if (v === undefined) continue;
@@ -242,6 +247,25 @@ export function payloadProblem(p: unknown): PayloadProblem | null {
     }
   }
   return null;
+}
+
+/** A UTC offset in minutes; real ones run from -12:00 to +14:00. */
+function isOffset(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 15 * 60;
+}
+
+/**
+ * The offset a span is bucketed by: its own where it carries one, else the
+ * payload's. Null for an own offset that is out of range, which rejects the
+ * row rather than filing it under a wrong day.
+ *
+ * A span already stored keeps its local date and hour on a re-send (the
+ * upsert never rewrites them), so after travel a re-read does not move old
+ * history into the new zone.
+ */
+function spanOffset(s: SpanRow, fallback: number): number | null {
+  if (s.tzOffsetMinutes === undefined) return fallback;
+  return isOffset(s.tzOffsetMinutes) ? s.tzOffsetMinutes : null;
 }
 
 /** A package name the database will accept: present, a string, not absurd. */
@@ -360,10 +384,11 @@ export function ingestAndroid(db: DatabaseSync, payload: AndroidPayload): Ingest
 
   let sessionSegments = 0;
   for (const s of payload.sessions ?? []) {
-    if (!validSpan(s) || !validPackage(s.packageName)) { rejected++; continue; }
+    const off = spanOffset(s, tzOffsetMinutes);
+    if (!validSpan(s) || !validPackage(s.packageName) || off === null) { rejected++; continue; }
     const sessionStart = new Date(s.start).toISOString();
-    for (const piece of splitIntoLocalHours(s.start, s.end, tzOffsetMinutes)) {
-      const { date, hour } = localBuckets(piece.start, tzOffsetMinutes);
+    for (const piece of splitIntoLocalHours(s.start, s.end, off)) {
+      const { date, hour } = localBuckets(piece.start, off);
       seg.run(
         device.deviceId, sessionStart,
         new Date(piece.start).toISOString(), new Date(piece.end).toISOString(),
@@ -391,10 +416,11 @@ export function ingestAndroid(db: DatabaseSync, payload: AndroidPayload): Ingest
   let screenSegments = 0;
   for (const s of payload.screen ?? []) {
     const kind = s.kind === 'unlocked' ? 'unlocked' : 'screen_on';
-    if (!validSpan(s)) { rejected++; continue; }
+    const off = spanOffset(s, tzOffsetMinutes);
+    if (!validSpan(s) || off === null) { rejected++; continue; }
     const sessionStart = new Date(s.start).toISOString();
-    for (const piece of splitIntoLocalHours(s.start, s.end, tzOffsetMinutes)) {
-      const { date, hour } = localBuckets(piece.start, tzOffsetMinutes);
+    for (const piece of splitIntoLocalHours(s.start, s.end, off)) {
+      const { date, hour } = localBuckets(piece.start, off);
       scr.run(
         device.deviceId, sessionStart,
         new Date(piece.start).toISOString(), new Date(piece.end).toISOString(),

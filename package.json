@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "next dev -p 7844",
     "build": "next build",
-    "start": "next start -p 7844",
+    "start": "node scripts/run-next-start.mjs",
     "atp": "tsx scripts/research/phase1-analyze-atp.ts",
     "android:capture": "tsx scripts/research/phase1-android-capture.ts",
     "android:analyze": "tsx scripts/research/phase1-android-analyze.ts",
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "geist": "^1.7.2",
-    "next": "^16.3.8",
+    "next": "^16.4.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "recharts": "^3.10.1",

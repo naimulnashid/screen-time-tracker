@@ -1,0 +1,107 @@
+---
+/**
+ * Every chart in the dashboard, drawn live by scripts/charts.js from a fixed
+ * seed: the same on every load, and nobody's usage. The ids are where the
+ * script draws; each card names the pages the chart is on.
+ */
+import '../styles/charts.css';
+import Icon from './Icon.astro';
+
+const ranges = [
+  ['7', '7d'],
+  ['30', '30d'],
+  ['90', '90d'],
+  ['all', 'All'],
+];
+---
+
+<section class="section" id="charts" data-device="windows" aria-labelledby="charts-title">
+  <div class="container">
+    <div class="charts-head section-head">
+      <div>
+        <p class="eyebrow"><Icon name="chart" /> Live charts</p>
+        <h2 id="charts-title">Every chart in the dashboard, live.</h2>
+        <p class="lead"><Icon name="pointer" class="inline-icon" /> Hover, switch measure and device. Every number is invented.</p>
+      </div>
+      <div class="seg" id="device-seg" role="radiogroup" aria-label="Device">
+        <button role="radio" aria-checked="true" data-device="windows"><Icon name="laptop" />Laptop</button>
+        <button role="radio" aria-checked="false" data-device="android"><Icon name="smartphone" />Phone</button>
+      </div>
+    </div>
+
+    <div class="gallery" id="gallery" data-device="windows">
+      <article class="viz">
+        <header><h3>Headline figures</h3><span class="where">Overview</span></header>
+        <p id="v-stats-note"></p>
+        <div class="stats" id="v-stats"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Daily trend</h3><span class="where">Overview</span></header>
+        <p>One unbroken line: a day nothing was recorded dips to zero, and its tooltip says "Not recorded". A point marks each day more than 1.5 times the average.</p>
+        <div class="chart" id="v-trend"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Activity heat map</h3><span class="where">Overview · Activity page</span></header>
+        <p>Shades are even steps, since a day cannot pass 24 hours. Outlined cells were never recorded. <b>Expand</b> opens every day from the first one recorded, six months to a row.</p>
+        <div class="chart" id="v-heat"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3 id="v-stack-title">Top apps by day</h3><span class="where">Overview</span></header>
+        <p>Each range ranks its own top eight, the rest as Other. <span id="v-stack-note"></span></p>
+        <div class="viz-tools">
+          <div class="mini-seg" role="radiogroup" aria-label="Measure" data-for="stack"></div>
+          <label class="range"><Icon name="clock" /><span class="visually-hidden">Range</span>
+            <select id="r-stack">{ranges.map(([v, l]) => <option value={v} selected={v === '30'}>{l}</option>)}</select>
+          </label>
+        </div>
+        <div class="chart" id="v-stack"></div>
+        <div class="legend" id="v-stack-legend"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3 id="v-hour-title">Shape of the day</h3><span class="where">Overview · App detail</span></header>
+        <p>Local time, summed over all history. The busiest hour is drawn brighter.</p>
+        <div class="mini-seg" role="radiogroup" aria-label="Measure" data-for="hour"></div>
+        <div class="chart" id="v-hour"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3 id="v-where-title">Where the time went</h3><span class="where">Overview</span></header>
+        <p id="v-where-note"></p>
+        <div id="v-where"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3 id="v-top-title">Top apps</h3><span class="where">By App</span></header>
+        <p>Grouped by resolved app, not by executable path, in each app's brand colour, held inside a lightness band so pale brands stay visible in both themes.</p>
+        <div class="mini-seg" role="radiogroup" aria-label="Measure" data-for="top"></div>
+        <div class="chart" id="v-top"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3 id="v-app-title">One app, day by day</h3><span class="where">App detail</span></header>
+        <p>The typical session is the median, not the mean, so one long sitting cannot inflate it. The range's heaviest day sits in the corner.</p>
+        <div class="stats" id="v-app-stats"></div>
+        <div class="viz-tools">
+          <div class="mini-seg" role="radiogroup" aria-label="Measure" data-for="app"></div>
+          <label class="range"><Icon name="clock" /><span class="visually-hidden">Range</span>
+            <select id="r-app">{ranges.map(([v, l]) => <option value={v} selected={v === '30'}>{l}</option>)}</select>
+          </label>
+        </div>
+        <div class="chart" id="v-app"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Apps</h3><span class="where">By App</span></header>
+        <p>As a table or a grid of cards. Apps with 10 minutes or more, or 30 opens across 5 days, are listed; the rest fold behind a button that says what it folded.</p>
+        <div id="v-table"></div>
+      </article>
+    </div>
+  </div>
+  <div class="tip" id="tip" role="status" aria-live="polite" hidden></div>
+</section>
+
+<script src="../scripts/charts.js"></script>

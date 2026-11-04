@@ -439,7 +439,7 @@ class MainActivity : Activity() {
             .setTitle("Re-send everything?")
             .setMessage("Everything Android still holds, about ten days.")
             .setPositiveButton("Re-send") { _, _ ->
-                prefs.syncedThrough = 0
+                prefs.clearSyncedThrough()
                 syncNow()
             }
             .setNegativeButton("Cancel", null)

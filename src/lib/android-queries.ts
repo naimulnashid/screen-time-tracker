@@ -39,6 +39,7 @@ import {
 import type { StackInput } from './stack';
 import { readRenames, type AppNames } from './app-renames';
 import { readColourOverrides } from './app-colour-overrides';
+import { readMerges, readHidden } from './app-prefs';
 import {
   headlineSource, unionByHour, type HeadlineSource, type HourBucket,
 } from './android-source';
@@ -345,6 +346,9 @@ export function getAndroidOverview(deviceId: string, scope: AndroidScope): Andro
  * between two screens of the same app". See visits.ts, rule 1.
  */
 function allSessions(db: DatabaseSync, deviceId: string, from: string, to: string): RawSession[] {
+  // Merged packages are read as their target (lib/app-prefs.ts), so a merged
+  // app's opens stitch with its target's rather than splitting off.
+  const merges = readMerges(db, deviceId);
   const rows = db
     .prepare(
       `SELECT package_name AS app, session_start_utc AS s, MAX(end_utc) AS e
@@ -354,7 +358,7 @@ function allSessions(db: DatabaseSync, deviceId: string, from: string, to: strin
     )
     .all(deviceId, from, to) as { app: string; s: string; e: string }[];
   return rows.map((r) => ({
-    app: r.app,
+    app: merges.get(r.app) ?? r.app,
     start: Date.parse(r.s),
     end: Date.parse(r.e),
   }));
@@ -371,6 +375,8 @@ export interface AndroidAppRow {
   opens: number;
   days: number;
   share: number;
+  /** Hidden from By App by the user (lib/app-prefs.ts). Still counted everywhere. */
+  hidden: boolean;
 }
 
 export function getAndroidApps(deviceId: string, scope: AndroidScope): AndroidAppRow[] {
@@ -403,16 +409,35 @@ export function getAndroidApps(deviceId: string, scope: AndroidScope): AndroidAp
 
     const total = rows.reduce((a, r) => a + r.ms, 0);
     const renames = readRenames(db, deviceId);
-    return rows.map((r) => ({
-      packageName: r.pkg,
-      label: renames.get(r.pkg) ?? r.label,
-      baseLabel: r.label,
-      system: r.sys === 1,
-      ms: r.ms,
-      opens: opens.get(r.pkg) ?? 0,
-      days: r.days,
-      share: total > 0 ? (r.ms / total) * 100 : 0,
-    }));
+    const hidden = readHidden(db, deviceId);
+    const merges = readMerges(db, deviceId);
+    const meta = new Map(rows.map((r) => [r.pkg, r]));
+    // A merged package is folded into its target's row; the target keeps its
+    // own label and system flag. Distinct days cannot be summed across
+    // packages without double counting, so the max is the honest lower bound.
+    const out = new Map<string, AndroidAppRow>();
+    for (const r of rows) {
+      const into = merges.get(r.pkg);
+      const pkg = into !== undefined && meta.has(into) ? into : r.pkg;
+      const head = meta.get(pkg)!;
+      const e = out.get(pkg) ?? {
+        packageName: pkg,
+        label: renames.get(pkg) ?? head.label,
+        baseLabel: head.label,
+        system: head.sys === 1,
+        ms: 0,
+        opens: opens.get(pkg) ?? 0,
+        days: 0,
+        share: 0,
+        hidden: hidden.has(pkg),
+      };
+      e.ms += r.ms;
+      e.days = Math.max(e.days, r.days);
+      out.set(pkg, e);
+    }
+    return [...out.values()]
+      .map((e) => ({ ...e, share: total > 0 ? (e.ms / total) * 100 : 0 }))
+      .sort((a, b) => b.ms - a.ms);
   });
 }
 
@@ -536,10 +561,15 @@ export function getAndroidDailyByApp(deviceId: string, scope: AndroidScope): And
       )
       .all(deviceId, from, latest) as { d: string; pkg: string; label: string; ms: number }[];
 
+    // A merged package is drawn as part of its target's band.
+    const merges = readMerges(db, deviceId);
+    const baseOf = new Map(rows.map((r) => [r.pkg, r.label]));
     const time: StackInput[] = [];
     for (const r of rows) {
-      labels.set(r.pkg, { name: renames.get(r.pkg) ?? r.label, base: r.label });
-      time.push({ date: r.d, id: r.pkg, value: r.ms });
+      const id = merges.get(r.pkg) ?? r.pkg;
+      const base = baseOf.get(id) ?? r.label;
+      labels.set(id, { name: renames.get(id) ?? base, base });
+      time.push({ date: r.d, id, value: r.ms });
     }
 
     // Phone-local dates, read back off the row as the detail page does.
@@ -632,6 +662,10 @@ export interface AndroidAppDetail {
    */
   dailyOpens: { date: string; opens: number }[];
   hourlyOpens: { hour: number; opens: number }[];
+  /** Apps the user merged into this one (lib/app-prefs.ts), with their time. */
+  members: { key: string; name: string; ms: number }[];
+  /** The phone's newest day with data, which anchors the charts' ranges. */
+  latestDate: string;
 }
 
 /**
@@ -655,15 +689,19 @@ export function getAndroidAppDetail(
     if (!latest) return null;
     const from = rangeStart(latest, scope.days);
 
+    // This package and every one merged into it (lib/app-prefs.ts).
+    const merges = readMerges(db, deviceId);
+    const memberPkgs = [...merges.entries()].filter(([, t]) => t === packageName).map(([k]) => k);
+    const pkgs = [packageName, ...memberPkgs];
     const rows = db
       .prepare(
-        `SELECT session_start_utc, start_utc, local_date, local_hour, duration_ms
+        `SELECT package_name, session_start_utc, start_utc, local_date, local_hour, duration_ms
            FROM android_segments
-          WHERE device_id = ? AND package_name = ?
+          WHERE device_id = ? AND package_name IN (${pkgs.map(() => '?').join(', ')})
             AND local_date >= ? AND local_date <= ?`,
       )
-      .all(deviceId, packageName, from, latest) as {
-      session_start_utc: string; start_utc: string; local_date: string;
+      .all(deviceId, ...pkgs, from, latest) as {
+      package_name: string; session_start_utc: string; start_utc: string; local_date: string;
       local_hour: number; duration_ms: number;
     }[];
 
@@ -694,8 +732,12 @@ export function getAndroidAppDetail(
     // machine does not necessarily share.
     const sessionBucket = new Map<number, SessionBucket>();
 
+    const memberMs = new Map<string, number>();
     for (const r of rows) {
       ms += r.duration_ms;
+      if (r.package_name !== packageName) {
+        memberMs.set(r.package_name, (memberMs.get(r.package_name) ?? 0) + r.duration_ms);
+      }
       byDate.set(r.local_date, (byDate.get(r.local_date) ?? 0) + r.duration_ms);
       byHour.set(r.local_hour, (byHour.get(r.local_hour) ?? 0) + r.duration_ms);
       if (r.start_utc === r.session_start_utc) {
@@ -717,9 +759,16 @@ export function getAndroidAppDetail(
     const opens = openBuckets(visits, packageName, sessionBucket);
 
     const baseLabel = meta?.label ?? packageName;
+    const renames = readRenames(db, deviceId);
+    const labelOf = (pkg: string) => {
+      const r = db
+        .prepare('SELECT label FROM android_apps WHERE device_id = ? AND package_name = ?')
+        .get(deviceId, pkg) as { label: string } | undefined;
+      return renames.get(pkg) ?? r?.label ?? pkg;
+    };
     return {
       packageName,
-      label: readRenames(db, deviceId).get(packageName) ?? baseLabel,
+      label: renames.get(packageName) ?? baseLabel,
       baseLabel,
       system: meta?.sys === 1,
       ms,
@@ -741,6 +790,10 @@ export function getAndroidAppDetail(
       hourlyOpens: Array.from({ length: 24 }, (_, h) => ({
         hour: h, opens: opens.byHour.get(h) ?? 0,
       })),
+      members: [...memberMs.entries()]
+        .map(([k, v]) => ({ key: k, name: labelOf(k), ms: v }))
+        .sort((a, b) => b.ms - a.ms),
+      latestDate: latest,
     };
   });
 }
@@ -791,11 +844,37 @@ export function getAndroidAppNames(deviceId: string): AppNames {
       )
       .all(deviceId, deviceId) as { pkg: string; label: string }[];
     const renames = readRenames(db, deviceId);
+    // A merged package is not an app of its own any more: it shows as its
+    // target, so it is neither a name to clash with nor one to rename.
+    const merges = readMerges(db, deviceId);
     for (const r of rows) {
+      if (merges.has(String(r.pkg))) continue;
       out.set(String(r.pkg), { name: renames.get(r.pkg) ?? String(r.label), base: String(r.label) });
     }
     return out;
   });
+}
+
+/**
+ * Every package this phone has recorded time for, BEFORE merges: what a hide
+ * or a merge may name. `getAndroidAppNames()` folds merged apps away.
+ */
+export function getAndroidAppKeys(deviceId: string): Set<string> {
+  if (!databaseExists()) return new Set();
+  return withDb((db) => new Set(
+    (db.prepare('SELECT DISTINCT package_name AS p FROM android_segments WHERE device_id = ?')
+      .all(deviceId) as { p: string }[]).map((r) => String(r.p)),
+  ));
+}
+
+/** The package this one was merged into, or null. Its URL redirects there. */
+export function androidMergedInto(deviceId: string, packageName: string): string | null {
+  if (!databaseExists()) return null;
+  try {
+    return withDb((db) => readMerges(db, deviceId).get(packageName) ?? null);
+  } catch {
+    return null;
+  }
 }
 
 export function androidAppExists(deviceId: string, packageName: string): boolean {

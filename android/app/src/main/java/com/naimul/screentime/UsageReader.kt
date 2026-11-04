@@ -95,6 +95,11 @@ class UsageReader(private val context: Context) {
         val apps: List<AppInfo>,
         /** Oldest event the API would return, or null when it returned none. */
         val eventReachMs: Long?,
+        /**
+         * Start of the earliest session or screen span still open at read
+         * time, or null. The next sync reads back to it; see Prefs.openSince.
+         */
+        val openSince: Long?,
     )
 
     class UsageAccessDenied : Exception("Usage access has not been granted")
@@ -103,11 +108,18 @@ class UsageReader(private val context: Context) {
 
     fun read(from: Long, now: Long = System.currentTimeMillis()): Reading {
         val events = collectEvents(from, now)
+        val sessions = buildSessions(events, now)
+        val screen = buildScreenSpans(events, now)
+        // An open session is the one clipped to `now`: a closed one ends at
+        // its own event, which is always earlier.
+        val open = sessions.filter { it.end == now }.map { it.start } +
+            screen.filter { it.inFlight }.map { it.start }
         return Reading(
-            sessions = buildSessions(events, now),
-            screen = buildScreenSpans(events, now),
+            sessions = sessions,
+            screen = screen,
             apps = apps(),
             eventReachMs = measureEventReach(now),
+            openSince = open.minOrNull(),
         )
     }
 

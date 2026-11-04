@@ -1,11 +1,9 @@
 'use client';
 
-import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { deviceOf } from '@/lib/accent';
 import { Sidebar, type SidebarPhone } from './Sidebar';
 import { Nav } from './Nav';
-import { ScopeBar } from './ScopeBar';
 import { SignOutButton } from './SignOutButton';
 import { ThemeToggle } from './ThemeToggle';
 import { SyncNowButton } from './SyncNowButton';
@@ -54,17 +52,9 @@ export function Shell({
         <header className="topbar">
           <Nav />
           <div className="topbar-right">
-            {/* Before the range chips. It shares their `chip` styling, so it
-                reads as one of them if it sits between the group and Sign out;
-                on the left it is the first thing in the group and its label and
-                icon set it apart. */}
+            {/* The range chips that sat beside it are gone (2026-11-03): pages
+                cover all history, and the daily charts carry their own range. */}
             {(device !== 'android' || phoneSync) && <SyncNowButton />}
-            {/* ScopeBar reads useSearchParams, which opts any page containing
-                it out of static prerendering. Without this boundary the
-                built-in /_not-found page fails to prerender. */}
-            <Suspense fallback={null}>
-              <ScopeBar />
-            </Suspense>
             <ThemeToggle />
             <SignOutButton />
           </div>

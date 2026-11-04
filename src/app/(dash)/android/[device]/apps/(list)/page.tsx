@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { TopAppsChart, MostOpenedChart } from '@/components/Charts';
-import { AppListTable } from '@/components/AppListTable';
+import { AppsBrowser, AppCard } from '@/components/AppsViews';
+import { AppMenu } from '@/components/AppMenu';
 import {
   getAndroidDeviceBySlug, getAndroidApps, getAndroidOverview,
   androidEarnsDetailPage, getAndroidColourOverrides,
@@ -12,15 +13,14 @@ import { AppIcon } from '@/components/AppIcon';
 import { brandColour, colourFor } from '@/lib/app-colour';
 import { ACCENTS } from '@/lib/accent';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
-import { RenameApp } from '@/components/RenameApp';
-import { splitForList, listRule } from '@/lib/app-list';
+import { isListed, splitForList, listRule } from '@/lib/app-list';
 import { isHomeSurface } from '@/lib/home-surface';
-import { parseDays } from '@/lib/scope';
+import { ALL_HISTORY } from '@/lib/scope';
 import { formatCount, formatDuration, formatPercent } from '@/lib/format';
 import type { Metadata } from 'next';
 import { androidTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -32,18 +32,20 @@ export async function generateMetadata({
 export const dynamic = 'force-dynamic';
 
 export default async function AndroidAppsPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug } = await params;
   const device = getAndroidDeviceBySlug(slug);
   if (!device) notFound();
 
-  const sp = await searchParams;
-  const scope = { days: parseDays(sp.days) };
-  const apps = getAndroidApps(device.deviceId, scope).filter((a) => a.ms > 0);
+  // All history: pages are not scoped (lib/scope.ts).
+  const scope = ALL_HISTORY;
+  const everyApp = getAndroidApps(device.deviceId, scope).filter((a) => a.ms > 0);
+  // Hidden apps leave the rankings and wait behind "Show hidden" in the list;
+  // every other page, and every total, still counts them (lib/app-prefs.ts).
+  const apps = everyApp.filter((a) => !a.hidden);
   const overview = getAndroidOverview(device.deviceId, scope);
 
   // Resolved here rather than in the chart: `androidEarnsDetailPage` comes from
@@ -92,32 +94,32 @@ export default async function AndroidAppsPage({
     .slice(0, 8)
     .map(datum);
 
-  // The charts rank every app; only the TABLE folds its tail away.
-  const { shown, rest } = splitForList(apps);
+  // The charts rank every unhidden app; only the LIST folds its tail away.
+  const { rest } = splitForList(apps);
   const restMs = rest.reduce((n, a) => n + a.ms, 0);
+  const candidates = everyApp.map((a) => ({ key: a.packageName, name: a.label }));
+  const href = (a: (typeof apps)[number]) =>
+    androidEarnsDetailPage(a.ms) ? `/android/${slug}/apps/${encodeURIComponent(a.packageName)}` : undefined;
+  const menu = (a: (typeof apps)[number]) => (
+    <AppMenu
+      platform="android" device={slug} appKey={a.packageName} name={a.label}
+      hidden={a.hidden} candidates={candidates} baseName={a.baseLabel}
+      colour={pickerColour(a)} customColour={picked.has(a.packageName)}
+    />
+  );
+  const nameLink = (a: (typeof apps)[number]) => {
+    const to = href(a);
+    return to ? <Link href={to} className="app-link">{a.label}</Link> : <span className="app-name">{a.label}</span>;
+  };
 
   const row = (a: (typeof apps)[number]) => (
-    <tr key={a.packageName}>
+    <tr key={a.packageName} className={a.hidden ? 'row--hidden' : undefined}>
       <td>
         <span className="app-cell">
           <AppIcon name={a.label} src={logoUrl(look(a), slug)} plate={needsLightPlate(look(a), slug)} />
-          <RenameApp
-            variant="row" platform="android" device={slug}
-            appKey={a.packageName} name={a.label} baseName={a.baseLabel}
-            colour={pickerColour(a)} customColour={picked.has(a.packageName)}
-          >
-            {androidEarnsDetailPage(a.ms) ? (
-              <Link
-                href={`/android/${slug}/apps/${encodeURIComponent(a.packageName)}`}
-                className="app-link"
-              >
-                {a.label}
-              </Link>
-            ) : (
-              <span className="app-name">{a.label}</span>
-            )}
-            {a.system && <span className="app-kind">system</span>}
-          </RenameApp>
+          {nameLink(a)}
+          {a.system && <span className="app-kind">system</span>}
+          {menu(a)}
         </span>
         {/* The package name is the only stable identifier, and
             two apps can share a label. Kept visible, quietly. */}
@@ -129,10 +131,25 @@ export default async function AndroidAppsPage({
         </div>
       </td>
       <td className="num mono">{formatDuration(a.ms)}</td>
-      <td className="num mono">{formatPercent(a.share, 1)}</td>
       <td className="num mono">{a.opens}</td>
       <td className="num mono">{a.days}</td>
     </tr>
+  );
+
+  const card = (a: (typeof apps)[number], i: number) => (
+    <AppCard
+      key={a.packageName}
+      href={href(a)}
+      icon={<AppIcon name={a.label} src={logoUrl(look(a), slug)} plate={needsLightPlate(look(a), slug)} size={52} />}
+      title={nameLink(a)}
+      badges={a.system ? <span className="app-kind">system</span> : undefined}
+      actions={menu(a)}
+      ms={a.ms}
+      opens={a.opens}
+      days={a.days}
+      hidden={a.hidden}
+      index={i}
+    />
   );
 
   return (
@@ -143,7 +160,7 @@ export default async function AndroidAppsPage({
             accent says it again in colour; a third copy on every subtitle is
             chrome repeating itself. Same wording as the laptop's By App. */}
         <p>
-          {apps.length} app{apps.length === 1 ? '' : 's'} across{' '}
+          {everyApp.length} app{everyApp.length === 1 ? '' : 's'} across{' '}
           {overview.daysWithData} day{overview.daysWithData === 1 ? '' : 's'}
         </p>
       </div>
@@ -155,7 +172,7 @@ export default async function AndroidAppsPage({
           Top apps
         </CardTitle>
         {top.length === 0 ? (
-          <p className="prose-note">No app activity recorded in this range.</p>
+          <p className="prose-note">No app activity recorded yet.</p>
         ) : (
           <TopAppsChart data={top} />
         )}
@@ -172,7 +189,7 @@ export default async function AndroidAppsPage({
           Most opened
         </CardTitle>
         {mostOpened.length === 0 ? (
-          <p className="prose-note">No app activity recorded in this range.</p>
+          <p className="prose-note">No app activity recorded yet.</p>
         ) : (
           <MostOpenedChart data={mostOpened} />
         )}
@@ -185,39 +202,36 @@ export default async function AndroidAppsPage({
         )}
       </Card>
 
-      <Card delay={120}>
-        <CardTitle
+      {everyApp.length === 0 ? (
+        <Card delay={120}>
+          <CardTitle>Apps</CardTitle>
+          <p className="prose-note">No app sessions recorded yet.</p>
+        </Card>
+      ) : (
+        <AppsBrowser
+          title="Apps"
           sub={
             `${rest.length > 0 ? `${listRule()} ` : ''}` +
-            'These rows do NOT sum to screen-on time, unlike the Windows side. ' +
+            'These apps do NOT sum to screen-on time, unlike the Windows side. ' +
             'A phone session leaves gaps no app claims; the laptop sampler ' +
             'partitions its time exclusively.'
           }
-        >
-          {rest.length > 0 ? `Apps · ${shown.length} of ${apps.length}` : 'All apps'}
-        </CardTitle>
-        {apps.length === 0 ? (
-          <p className="prose-note">No app sessions recorded in this range.</p>
-        ) : (
-          <AppListTable
-            head={
-              <thead>
-                <tr>
-                  <th>App</th>
-                  <th style={{ textAlign: 'right' }}>Time</th>
-                  <th style={{ textAlign: 'right' }}>Share</th>
-                  <th style={{ textAlign: 'right' }}>Opens</th>
-                  <th style={{ textAlign: 'right' }}>Days</th>
-                </tr>
-              </thead>
-            }
-            shown={shown.map(row)}
-            rest={rest.map(row)}
-            restSummary={rest.length > 0 ? `${rest.length} more, ${formatDuration(restMs)} between them` : ''}
-            total={apps.length}
-          />
-        )}
-      </Card>
+          head={
+            <thead>
+              <tr>
+                <th>App</th>
+                <th style={{ textAlign: 'right' }}>Time</th>
+                <th style={{ textAlign: 'right' }}>Opens</th>
+                <th style={{ textAlign: 'right' }}>Days</th>
+              </tr>
+            </thead>
+          }
+          items={everyApp.map((a, i) => ({
+            key: a.packageName, hidden: a.hidden, listed: isListed(a), row: row(a), card: card(a, i),
+          }))}
+          restSummary={rest.length > 0 ? `${rest.length} more, ${formatDuration(restMs)} between them` : ''}
+        />
+      )}
     </>
   );
 }

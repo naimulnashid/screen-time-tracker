@@ -24,7 +24,8 @@
  * Telemetry is NOT configured here -- there is no config key for it. It is a
  * property of the `next` CLI, off with `NEXT_TELEMETRY_DISABLED=1` or
  * `npx next telemetry disable`, and it concerns the build tooling, not the
- * running dashboard, which makes no outbound requests.
+ * running dashboard, whose pages fetch nothing off this origin (the one
+ * outbound connection is the optional cloud inbox drain, server-side).
  */
 
 const isDev = process.env.NODE_ENV === 'development';

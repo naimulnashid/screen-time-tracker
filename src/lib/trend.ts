@@ -53,3 +53,24 @@ export function heaviestDay(points: { date: string; ms: number | null }[]): { da
   }
   return best;
 }
+
+/**
+ * How far above the mean a day must be to count as "well above trend": 1.5x
+ * the mean of the RECORDED days (an unrecorded day is no evidence of a quiet
+ * one).
+ *
+ * The sibling Data Usage Tracker marks 2.5x, but bytes have no ceiling and a
+ * day of screen time cannot pass 24 hours. Measured 2026-11-03 on this
+ * installation: no day on the laptop or the main phone reached 1.6x its
+ * mean, so 2.5x would never mark one; at 1.5x about one day in twenty-five
+ * is marked, which is rare enough to mean something.
+ */
+export const SPIKE_FACTOR = 1.5;
+
+/** The value above which a day is marked, or null with nothing to compare. */
+export function spikeThreshold(points: { ms: number | null }[]): number | null {
+  const recorded = points.filter((p): p is { ms: number } => p.ms !== null);
+  if (recorded.length < 3) return null;
+  const mean = recorded.reduce((n, p) => n + p.ms, 0) / recorded.length;
+  return mean > 0 ? mean * SPIKE_FACTOR : null;
+}

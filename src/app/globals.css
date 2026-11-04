@@ -388,6 +388,14 @@ a:hover { color: var(--accent-bright); }
 
 .page-head { margin-bottom: 2.2rem; }
 .page-head p { margin: 0.4rem 0 0; color: var(--text-dim); font-size: var(--fs-small); }
+/* Freshness on the left, the span of history held on the right; they wrap
+   onto two lines rather than squeeze. */
+.page-head-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+}
 
 /* ---------------------------------------------------------------- cards */
 
@@ -939,6 +947,9 @@ select.chip {
   margin-bottom: 1.15rem;
   flex-wrap: wrap;
 }
+/* The heading and its sub shrink before the right slot wraps under them: a
+   long sub otherwise dropped By App's Table / Grid switch onto its own line. */
+.card-title > div:first-child { flex: 1 1 20rem; }
 
 /* A figure that describes the whole panel, sat in the title's right slot. */
 .callout {
@@ -1150,9 +1161,10 @@ select.chip {
   min-width: 0;
 }
 
-/* The pencil beside an app's name. Quiet until wanted: in a table it shows on
-   row hover or keyboard focus only, so a hundred rows are not a column of
-   pencils -- but a touch screen has no hover, so there it always shows. */
+/* The round icon button beside an app's name: the detail page's pencil, and
+   By App's "..." menu. Quiet until wanted: in a table or grid it shows on
+   hover or keyboard focus only, so a hundred rows are not a column of
+   buttons -- but a touch screen has no hover, so there it always shows. */
 .rename-btn {
   flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1163,15 +1175,13 @@ select.chip {
   transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
 .rename-btn:hover, .rename-btn:focus-visible { color: var(--text); border-color: var(--border-strong); }
-.app-table .rename-btn { opacity: 0; }
-.app-table tr:hover .rename-btn, .app-table .rename-btn:focus-visible { opacity: 1; }
-@media (hover: none) { .app-table .rename-btn { opacity: 1; } }
+.app-table .rename-btn, .app-card .rename-btn { opacity: 0; }
+.app-table tr:hover .rename-btn, .app-table .rename-btn:focus-visible,
+.app-card:hover .rename-btn, .app-card:focus-within .rename-btn,
+.rename-btn[aria-expanded='true'] { opacity: 1; }
+@media (hover: none) { .app-table .rename-btn, .app-card .rename-btn { opacity: 1; } }
 .app-title .rename-btn { width: 32px; height: 32px; }
 
-.rename-form {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: 0.4rem; flex: 1; min-width: 0;
-}
 .rename-input {
   flex: 1 1 10rem; min-width: 0; max-width: 26rem;
   font: inherit; font-size: var(--fs-small); color: var(--text);
@@ -1179,7 +1189,6 @@ select.chip {
   border-radius: 8px; padding: 0.35rem 0.6rem;
 }
 .rename-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-.app-title .rename-input { font-size: 1.5rem; font-weight: 600; padding: 0.3rem 0.7rem; }
 .chip--small { padding: 0.28rem 0.7rem; font-size: 0.8125rem; }
 .rename-error { flex-basis: 100%; color: var(--danger); font-size: 0.8125rem; }
 
@@ -1199,8 +1208,32 @@ select.chip {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.8125rem;
 }
-.app-title .rename-input.colour-hex-input { font-size: 0.95rem; font-weight: 500; }
 .rename-input[aria-invalid='true'] { border-color: var(--danger); }
+
+/* The rename-and-recolour dialog (components/RenameApp.tsx), a native
+   <dialog> opened modal, so the page behind it keeps its shape. */
+.modal {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 0;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  animation: fadeUp 160ms var(--ease) both;
+}
+.modal::backdrop { background: rgba(0, 0, 0, 0.55); }
+:root[data-theme='light'] .modal::backdrop { background: rgba(16, 24, 40, 0.32); }
+.modal-body { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1.35rem 1.15rem; }
+.modal-title { margin: 0; font-size: 1.1rem; font-weight: 650; }
+.modal-field { display: flex; flex-direction: column; gap: 0.4rem; }
+.modal-label { font-size: 0.8125rem; color: var(--text-dim); font-weight: 500; }
+.modal-hint { font-size: 0.8125rem; color: var(--text-faint); }
+/* flex: none, or the field's 10rem basis becomes its HEIGHT in this column. */
+.modal .rename-input { flex: none; max-width: none; font-size: 0.95rem; padding: 0.5rem 0.7rem; }
+.modal .colour-swatch-input { width: 44px; height: 38px; }
+.modal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+.modal-actions-gap { flex: 1; }
 
 /* ------------------------------------------------------------------ pager */
 
@@ -1296,3 +1329,135 @@ select.chip {
 /* The plate's padding goes with its background: without a plate, a padded
    logo would only look smaller than its neighbours. */
 :root[data-theme='light'] .app-icon--plate { padding: 0; }
+
+/* ----------------------------------------------- a chart's range menu */
+
+/* A pill with a calendar mark in a card head's right slot, opening a list
+   (components/RangeMenu.tsx). Ported from the sibling, 2026-11-03. */
+.range-menu-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.range-menu {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.38rem 0.75rem 0.38rem 0.7rem;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  background: none; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-small); font-weight: 500;
+  cursor: pointer; outline: none;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.range-menu:hover, .range-menu[aria-expanded='true'] { color: var(--text); border-color: var(--text-faint); box-shadow: var(--shadow-control-hover); }
+.range-menu:focus-visible { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.range-menu-caret {
+  width: 5px; height: 5px; margin: 0 0.1rem 0 0.2rem;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+/* The "..." menu's panel and items (.app-menu), dropped from the pill rather
+   than fixed to the viewport: nothing around it clips. */
+.range-menu-wrap .range-menu-list {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  min-width: 10rem;
+}
+.range-menu-wrap .app-menu-item[aria-selected='true'] { color: var(--accent-bright); font-weight: 600; }
+
+/* A menu panel: By App's "..." menu (fixed to its button, in a portal) and
+   the range menu's list. */
+.app-menu {
+  position: fixed; z-index: 80;
+  display: flex; flex-direction: column;
+  min-width: 13rem; max-width: 20rem;
+  padding: 0.3rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
+  animation: fadeUp 160ms var(--ease) both;
+}
+.app-menu-item {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  border: 0; border-radius: 7px;
+  background: none; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-small); text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.app-menu-item:hover:not(:disabled), .app-menu-item:focus-visible { background: var(--row-hover); color: var(--text); outline: none; }
+.app-menu-item:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------------------------------------------- By App views (2026-11-03) */
+
+/* Table / Grid: two icon chips joined into one control. */
+.view-toggle {
+  display: inline-flex; flex-shrink: 0;
+  padding: 3px; gap: 2px;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+}
+.view-toggle button {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border: 0; border-radius: 999px; background: transparent;
+  color: var(--text-dim); font: inherit; font-size: var(--fs-small); font-weight: 500;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.view-toggle button:hover { color: var(--text); }
+.view-toggle button[data-active='true'] { color: var(--on-accent); background: var(--accent-fill); }
+
+/* Each app a card: the logo large, the figures under it. Fluid columns, so
+   the grid fills whatever width the page has. */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: 0.95rem;
+}
+.app-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: 0;
+  padding: 1.1rem 1.15rem 1rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.app-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+  background: var(--bg-panel);
+}
+.app-card--link { cursor: pointer; }
+.app-card--link:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
+.app-card--hidden { opacity: 0.55; }
+.app-card--hidden:hover { opacity: 1; }
+.app-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem; }
+.app-card-actions { display: inline-flex; align-items: center; gap: 0.15rem; }
+.app-card-name { display: flex; align-items: center; gap: 0.35rem; min-width: 0; font-weight: 600; font-size: 1.02rem; overflow-wrap: anywhere; }
+.app-card-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
+.app-card-total { margin-top: 0.7rem; font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.app-card-io { margin-top: 0.15rem; color: var(--text-dim); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.app-card-days { margin-top: 0.15rem; color: var(--text-faint); font-size: 0.8125rem; }
+
+/* A hidden app, listed again with "Show hidden". */
+.row--hidden td { opacity: 0.55; }
+.row--hidden:hover td { opacity: 1; }
+
+/* The "..." menu's merge step. */
+.app-menu-merge { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.5rem; }
+.app-menu-merge select.chip { max-width: none; width: 100%; }
+.app-menu-label { font-size: 0.8125rem; color: var(--text-dim); }
+.app-menu-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+.app-menu .rename-error { padding: 0 0.5rem 0.4rem; }
+
+/* Separate: undoing a merge, one icon button at a Merged apps row's end. */
+.member-table { table-layout: fixed; width: 100%; }
+.member-table th:nth-child(1), .member-table td:nth-child(1) { width: 60%; }
+.member-table th.undo-col, .member-table td.undo-col { width: 3.2rem; padding-left: 0; }
+.unmerge { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.unmerge-btn { color: var(--text-dim); border-color: var(--border-strong); }
+/* Always shown: the row's one action, not a hover extra like By App's menu. */
+.member-table .unmerge-btn { opacity: 1; }
+.unmerge-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.unmerge .rename-error { white-space: nowrap; }

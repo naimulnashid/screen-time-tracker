@@ -87,12 +87,32 @@ class Prefs(context: Context) {
     val safeThrough: Long
         get() = maxOf(sp.getLong(KEY_SAFE_THROUGH, 0L), syncedThrough)
 
+    /**
+     * Start of the earliest session or screen span that was still OPEN when
+     * the server last confirmed a sync, or 0 when nothing was.
+     *
+     * The next read reaches back to it. The fixed one-hour overlap alone lost
+     * the end of anything longer: a session open at 08:00, sent clipped at
+     * 10:00 and closed at 11:00 was re-read from 09:00, where its close has
+     * no matching open and is discarded, so the 10:00-11:00 hour was never
+     * sent. Saved with the watermark, so it moves only when the server
+     * confirmed what was read.
+     */
+    val openSince: Long
+        get() = sp.getLong(KEY_OPEN_SINCE, 0L)
+
     /** Advance both watermarks; see [syncedThrough] and [safeThrough]. */
-    fun markSyncedThrough(t: Long) {
+    fun markSyncedThrough(t: Long, openSince: Long? = null) {
         sp.edit()
             .putLong(KEY_THROUGH, t)
             .putLong(KEY_SAFE_THROUGH, maxOf(t, sp.getLong(KEY_SAFE_THROUGH, 0L)))
+            .putLong(KEY_OPEN_SINCE, openSince ?: 0L)
             .apply()
+    }
+
+    /** Full resync: re-read everything Android still holds. */
+    fun clearSyncedThrough() {
+        sp.edit().putLong(KEY_THROUGH, 0L).putLong(KEY_OPEN_SINCE, 0L).apply()
     }
 
     /**
@@ -164,6 +184,7 @@ class Prefs(context: Context) {
         private const val KEY_INBOX_KEY = "inbox_key"
         const val KEY_THROUGH = "synced_through"
         const val KEY_SAFE_THROUGH = "safe_through"
+        private const val KEY_OPEN_SINCE = "open_since"
         const val KEY_REACH = "event_reach_span_ms"
         const val KEY_RESULT = "last_result"
         const val KEY_RESULT_AT = "last_result_at"

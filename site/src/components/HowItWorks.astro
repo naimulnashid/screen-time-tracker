@@ -1,0 +1,178 @@
+---
+import Icon from './Icon.astro';
+
+const traps = [
+  {
+    key: 'windows',
+    name: 'Windows',
+    items: [
+      'SRUM measures which processes ran, not which had focus: a sampler asks for the foreground window instead.',
+      'Nothing is in front while the screen is locked and off: lock state comes from Windows\' session API.',
+      'A sleeping laptop is a gap, never usage: the trend does not draw it.',
+      'A logoff kills the sampler: the next start writes the lost span and a gap.',
+      'Times are UTC: every span is split at local hour edges at ingest.',
+      'Time with no foreground window is kept as its own kind, not guessed.',
+    ],
+  },
+  {
+    key: 'android',
+    name: 'Android',
+    items: [
+      'Apps cover only about 0.76 of screen-on time: the headline comes from screen events.',
+      'The session open at sync time is real: it is counted, clipped to now.',
+      'A session longer than the sync overlap: the next read reaches back to its start.',
+      'Foreground-service time is not screen time: only foreground use counts.',
+      'Below Android 9 there are no screen events: those phones show time in apps.',
+    ],
+  },
+];
+---
+
+<section class="section" id="how" aria-labelledby="how-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">From the focused window to chart, on your PC.</h2>
+      <p class="lead">Recorded as it happens, with every trap below handled. Left alone, each one would skew the totals.</p>
+    </div>
+
+    <ol class="flow" aria-label="The data path">
+      <li class="glow node" data-device="windows">
+        <span class="node-title"><Icon name="laptop" /> Sample</span>
+        <span class="muted">An unelevated sampler notes the focused window every 2 seconds, and whether the session is locked.</span>
+      </li>
+      <li class="glow node">
+        <span class="node-title"><Icon name="fileText" /> Log</span>
+        <span class="muted">Each span goes to a daily file, so a crash or a logoff loses nothing already recorded.</span>
+      </li>
+      <li class="glow node">
+        <span class="node-title"><Icon name="database" /> SQLite</span>
+        <span class="muted">Hourly, or on <b>Sync now</b>: new spans only, on a second drive, with a backup beside it.</span>
+      </li>
+      <li class="glow node app">
+        <span class="node-title"><Icon name="monitor" /> The dashboard</span>
+        <span class="muted">Next.js on port 7844, password-gated. Phones post here too.</span>
+      </li>
+    </ol>
+
+    <div class="traps">
+      {
+        traps.map((t) => (
+          <article class="card trap" data-device={t.key}>
+            <h3>{t.name}: the {t.items.length} traps it handles</h3>
+            <ul>{t.items.map((item) => <li><Icon name="check" />{item}</li>)}</ul>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .flow {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .node {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 18px 20px;
+    font-size: 0.9375rem;
+  }
+
+  .node-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .node-title :global(svg) {
+    width: 20px;
+    height: 20px;
+    color: var(--accent-bright);
+  }
+
+  .app {
+    border-color: var(--accent);
+  }
+
+  /* The arrow to the next step: down on phones, right on wide screens. */
+  .node:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -12px;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--text-faint);
+    border-bottom: 2px solid var(--text-faint);
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  @media (min-width: 900px) {
+    .flow {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 28px;
+    }
+
+    .node:not(:last-child)::after {
+      left: auto;
+      right: -20px;
+      top: 50%;
+      bottom: auto;
+      transform: translateY(-50%) rotate(-45deg);
+    }
+  }
+
+  .traps {
+    display: grid;
+    gap: var(--gap-grid);
+    margin-top: 28px;
+  }
+
+  @media (min-width: 900px) {
+    .traps {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+  }
+
+  .trap {
+    border-top: 3px solid var(--accent);
+  }
+
+  .trap h3 {
+    margin-bottom: 14px;
+  }
+
+  .trap ul {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+  }
+
+  .trap li {
+    display: flex;
+    gap: 10px;
+  }
+
+  .trap li :global(svg) {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    margin-top: 3px;
+    color: var(--accent-bright);
+  }
+</style>

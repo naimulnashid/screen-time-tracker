@@ -1,5 +1,5 @@
 import {
-  SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkPlot, SkDataTable, SkMask,
+  SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkRangeMenu, SkPlot, SkDataTable, SkMask,
 } from '@/components/Skeleton';
 
 /**
@@ -10,17 +10,17 @@ import {
 export default function Loading() {
   return (
     <>
-      <SkPageHead back="All apps" appIcon title="Code Editor" sub="34.9% of active time in this range" />
+      <SkPageHead back="All apps" appIcon title="Code Editor" sub="34.9% of all active time" />
       <SkStats columns={4}>
         <SkStat label="Total" value="57h 43m" sub="across 20 days" />
         <SkStat label="Opens" value="122" sub="times brought to the foreground" />
         <SkStat label="Typical session" value="25m 53s" sub="median, not mean" />
         <SkStat label="Longest" value="1h 38m" sub="single unbroken session" />
       </SkStats>
-      <SkCard title="Daily trend" sub="Time in Code Editor per day." aside={<SkCallout label="Heaviest day" detail="Sep 24" value="5h 30m" />}>
+      <SkCard title="Daily trend" sub="Time in Code Editor per day. Heaviest day Sep 24, 5h 30m." aside={<SkRangeMenu />}>
         <SkPlot height={260} />
       </SkCard>
-      <SkCard title="Opens per day" sub="How many times Code Editor was opened each day." aside={<SkCallout label="Most opens" detail="Sep 16" value="11 opens" />}>
+      <SkCard title="Opens per day" sub="How many times Code Editor was opened each day. Most Sep 16, 11 opens." aside={<SkRangeMenu />}>
         <SkPlot height={260} />
       </SkCard>
       <SkCard title="Shape of the day" sub="When this app is usually open." aside={<SkCallout label="Busiest hour" detail="2 PM" value="9h 12m" />}>

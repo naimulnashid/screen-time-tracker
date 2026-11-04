@@ -28,6 +28,7 @@ import { dbPath, databaseExists } from './config';
 import { resolveApp, type ResolvedApp } from './app-name';
 import { readRenames, type AppNames } from './app-renames';
 import { readColourOverrides } from './app-colour-overrides';
+import { readMerges, readHidden } from './app-prefs';
 import {
   stitchVisits, visitStats, visitCounts, openBuckets, opensByDay,
   type RawSession, type SessionBucket,
@@ -76,22 +77,49 @@ function withDb<T>(fn: (db: DatabaseSync) => T): T {
 }
 
 /** True when there is a database with at least one recorded segment. */
-/** A resolved app, with the user's rename applied and the name it had before. */
-type Named = ResolvedApp & { base: string };
+/**
+ * A resolved app, with the user's rename and merges applied, and the name it
+ * had before the rename. `own` is the app the path resolves to BEFORE any
+ * merge: the same as the rest unless the user merged it into another.
+ */
+type Named = ResolvedApp & { base: string; own: { key: string; name: string } };
 
 /**
- * `resolveApp`, with the user's renames (lib/app-renames.ts) applied. Every
- * query below that shows an app name goes through this, so a rename reaches
- * tables, charts, legends, callouts and the page title from one place.
- * `base` is kept because the logo, plate and colour stay keyed by it unless
- * a logo matches the new name -- see `lookName()`.
+ * `resolveApp`, with the user's renames (lib/app-renames.ts) and merges
+ * (lib/app-prefs.ts) applied. Every query below that groups or names apps
+ * goes through this, so a rename or a merge reaches tables, charts, legends,
+ * opens and the page title from one place -- a direct `resolveApp` call left
+ * in one query is how a merged app's opens would split from its time.
+ * `base` is kept because the logo, plate and colour stay keyed by it unless a
+ * logo matches the new name -- see `lookName()`.
  */
 function resolver(db: DatabaseSync): (path: string) => Named {
   const renames = readRenames(db, WINDOWS_DEVICE_ID);
+  const merges = readMerges(db, WINDOWS_DEVICE_ID);
+  // A merge target as resolveApp gives it, found from any path it recorded.
+  const targets = new Map<string, ResolvedApp>();
+  if (merges.size > 0) {
+    const wanted = new Set(merges.values());
+    for (const path of distinctPaths(db)) {
+      const r = resolveApp(path);
+      if (wanted.has(r.key) && !targets.has(r.key)) targets.set(r.key, r);
+    }
+  }
   return (path) => {
     const r = resolveApp(path);
-    return { ...r, base: r.name, name: renames.get(r.key) ?? r.name };
+    const own = { key: r.key, name: renames.get(r.key) ?? r.name };
+    const into = merges.get(r.key);
+    const t = into !== undefined ? targets.get(into) : undefined;
+    if (!t) return { ...r, base: r.name, name: own.name, own };
+    return { ...t, base: t.name, name: renames.get(t.key) ?? t.name, own };
   };
+}
+
+/** Every app path the laptop has recorded. */
+function distinctPaths(db: DatabaseSync): string[] {
+  return (db
+    .prepare(`SELECT DISTINCT app_path FROM windows_segments WHERE device_id = ? AND kind = 'app'`)
+    .all(WINDOWS_DEVICE_ID) as { app_path: string }[]).map((r) => r.app_path);
 }
 
 export function hasWindowsData(): boolean {
@@ -235,7 +263,9 @@ export function getOverview(scope: Scope): Overview {
  * app's rows alone cannot distinguish "came back after using something else"
  * from "the sampler split one stretch on a focus blip". See visits.ts, rule 1.
  */
-function allSessions(db: DatabaseSync, from: string, to: string): RawSession[] {
+function allSessions(
+  db: DatabaseSync, from: string, to: string, resolve: (path: string) => Named,
+): RawSession[] {
   const rows = db
     .prepare(
       `SELECT app_path, session_start_utc AS s, MAX(end_utc) AS e
@@ -246,7 +276,7 @@ function allSessions(db: DatabaseSync, from: string, to: string): RawSession[] {
     )
     .all(WINDOWS_DEVICE_ID, from, to) as { app_path: string; s: string; e: string }[];
   return rows.map((r) => ({
-    app: resolveApp(r.app_path).key,
+    app: resolve(r.app_path).key,
     start: Date.parse(r.s),
     end: Date.parse(r.e),
   }));
@@ -262,6 +292,8 @@ export interface AppRow {
   sessions: number;
   days: number;
   share: number;
+  /** Hidden from By App by the user (lib/app-prefs.ts). Still counted everywhere. */
+  hidden: boolean;
 }
 
 /**
@@ -293,15 +325,16 @@ export function getApps(scope: Scope): AppRow[] {
 
     // "Opens" counts VISITS, not raw spans: the sampler ends a span on every
     // focus change, so alt-tabbing away and back is three spans of one app.
-    const opens = visitCounts(stitchVisits(allSessions(db, from, latest)));
+    const resolve = resolver(db);
+    const opens = visitCounts(stitchVisits(allSessions(db, from, latest, resolve)));
+    const hidden = readHidden(db, WINDOWS_DEVICE_ID);
 
     const merged = new Map<string, AppRow>();
-    const resolve = resolver(db);
     for (const r of rows) {
       const app = resolve(r.app_path);
       const e = merged.get(app.key) ?? {
         key: app.key, name: app.name, baseName: app.base, system: app.system,
-        ms: 0, sessions: 0, days: 0, share: 0,
+        ms: 0, sessions: 0, days: 0, share: 0, hidden: hidden.has(app.key),
       };
       e.ms += r.ms;
       // Distinct days cannot be summed across paths without double counting;
@@ -452,7 +485,7 @@ export function getDailyByApp(scope: Scope): DailyByApp {
     const bucketOf = new Map<number, SessionBucket>(
       starts.map((r) => [Date.parse(r.s), { date: r.d, hour: 0 }]),
     );
-    const opens = opensByDay(stitchVisits(allSessions(db, from, latest)), bucketOf);
+    const opens = opensByDay(stitchVisits(allSessions(db, from, latest, resolve)), bucketOf);
     return { time, opens, names };
   });
 }
@@ -656,6 +689,10 @@ export interface AppDetail {
    * it -- otherwise the day a merge is wrong there is nothing to notice.
    */
   identities: AppIdentity[];
+  /** Apps the user merged into this one (lib/app-prefs.ts), with their time. */
+  members: { key: string; name: string; ms: number }[];
+  /** The laptop's newest day with data, which anchors the charts' ranges. */
+  latestDate: string;
 }
 
 /**
@@ -699,6 +736,7 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
     const byDate = new Map<string, number>();
     const byHour = new Map<number, number>();
     const byIdentity = new Map<string, number>();
+    const byMember = new Map<string, { name: string; ms: number }>();
     const dates = new Set<string>();
 
     // Where each SESSION started, in machine-local terms. A span that crosses
@@ -722,6 +760,11 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
       byDate.set(r.local_date, (byDate.get(r.local_date) ?? 0) + r.duration_ms);
       byHour.set(r.local_hour, (byHour.get(r.local_hour) ?? 0) + r.duration_ms);
       byIdentity.set(r.app_path, (byIdentity.get(r.app_path) ?? 0) + r.duration_ms);
+      if (app.own.key !== key) {
+        const m = byMember.get(app.own.key) ?? { name: app.own.name, ms: 0 };
+        m.ms += r.duration_ms;
+        byMember.set(app.own.key, m);
+      }
       if (r.start_utc === r.session_start_utc) {
         sessionBucket.set(Date.parse(r.session_start_utc), {
           date: r.local_date, hour: r.local_hour,
@@ -732,7 +775,7 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
     if (!name) return null;
 
     // Visits, not raw spans. See visits.ts.
-    const visits = stitchVisits(allSessions(db, from, latest));
+    const visits = stitchVisits(allSessions(db, from, latest, resolve));
     const stats = visitStats(visits, key);
     const total = rows.reduce((a, r) => a + r.duration_ms, 0);
 
@@ -768,13 +811,37 @@ export function getAppDetail(scope: Scope, key: string): AppDetail | null {
       identities: [...byIdentity.entries()]
         .map(([path, v]) => ({ path, ms: v }))
         .sort((a, b) => b.ms - a.ms),
+      members: [...byMember.entries()]
+        .map(([k, m]) => ({ key: k, name: m.name, ms: m.ms }))
+        .sort((a, b) => b.ms - a.ms),
+      latestDate: latest,
     };
   });
 }
 
-/** Does this app exist at all, ignoring the current range? */
+/** Has this app been recorded at all? A merged app counts: its URL redirects. */
 export function appExists(key: string): boolean {
-  return appNameForKey(key) !== null;
+  return appNameForKey(key) !== null || mergedInto(key) !== null;
+}
+
+/** The app this one was merged into, or null. Its URL redirects there. */
+export function mergedInto(key: string): string | null {
+  if (!databaseExists()) return null;
+  try {
+    return withDb((db) => readMerges(db, WINDOWS_DEVICE_ID).get(key) ?? null);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every resolved key the laptop has recorded, BEFORE merges: what a hide or a
+ * merge may name. `getWindowsAppNames()` folds merged apps away, so it cannot
+ * validate an unmerge.
+ */
+export function getWindowsAppKeys(): Set<string> {
+  if (!databaseExists()) return new Set();
+  return withDb((db) => new Set(distinctPaths(db).map((p) => resolveApp(p).key)));
 }
 
 /**

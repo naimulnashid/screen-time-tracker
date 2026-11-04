@@ -5,13 +5,17 @@ import { getAndroidDeviceBySlug, androidAppLabel } from './android-queries';
 import { decodeSegment } from './slug';
 
 /**
- * Page titles, as `<page> · <device>`, which the root layout suffixes with
- * `· Screen Time`.
+ * Page titles, as `<page> · <device>`.
  *
  * WCAG 2.4.2: every page used to be titled just "Screen Time", so a tab strip
  * or a screen reader's window list could not tell Overview from Sync Status,
  * or one phone from another. The page comes first because that is the part a
  * narrow tab has room for.
+ *
+ * There is no `· Screen Time` suffix any more. The installed app's window
+ * prefixes the title with the app's name itself, so the suffix made it
+ * "Screen Time Dashboard - By App · <device> · Screen Time"; the favicon
+ * names the app in a browser tab.
  *
  * A slug that names no device gets the bare default; the page itself 404s.
  */

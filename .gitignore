@@ -111,6 +111,8 @@ config/app-colours.json
 public/apps_logo/*
 !public/apps_logo/README.md
 
-# The project site build (site/build.mjs)
+# The project site build (site/, Astro)
 site/dist/
+site/node_modules/
+site/.astro/
 .vercel/

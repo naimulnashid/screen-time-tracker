@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { SamplerEmpty } from '@/components/EmptyState';
 import { TopAppsChart, MostOpenedChart } from '@/components/Charts';
-import { AppListTable } from '@/components/AppListTable';
+import { AppsBrowser } from '@/components/AppsViews';
+import { AppCard } from '@/components/AppsViews';
+import { AppMenu } from '@/components/AppMenu';
 import {
   getApps, getOverview, hasWindowsData, earnsDetailPage, windowsLogoScope, getWindowsColourOverrides,
 } from '@/lib/queries';
@@ -11,15 +13,14 @@ import { AppIcon } from '@/components/AppIcon';
 import { brandColour, colourFor } from '@/lib/app-colour';
 import { ACCENTS } from '@/lib/accent';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
-import { RenameApp } from '@/components/RenameApp';
-import { splitForList, listRule } from '@/lib/app-list';
+import { isListed, splitForList, listRule } from '@/lib/app-list';
 import { windowsSlug } from '@/lib/config';
-import { parseDays } from '@/lib/scope';
-import { formatDuration, formatPercent } from '@/lib/format';
+import { ALL_HISTORY } from '@/lib/scope';
+import { formatDuration } from '@/lib/format';
 import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -31,27 +32,30 @@ export async function generateMetadata({
 export const dynamic = 'force-dynamic';
 
 /**
- * Every app the sampler has seen in the current range: the ones that clear
- * `isListed()` up front, the rest behind "Show all apps".
+ * Every app the sampler has seen: the ones that clear `isListed()` up front,
+ * the rest behind "Show all apps", and the ones the user hid behind "Show
+ * hidden". Hiding leaves an app out of this page's list and rankings only.
  *
  * System components are listed rather than hidden, but marked. Hiding them
  * would make the numbers stop adding up against the Overview total, and
  * `explorer.exe` genuinely IS foreground time -- you were looking at a folder.
  */
 export default async function AppsPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug } = await params;
   if (slug !== windowsSlug()) notFound();
 
   if (!hasWindowsData()) return <SamplerEmpty />;
 
-  const sp = await searchParams;
-  const scope = { days: parseDays(sp.days) };
-  const apps = getApps(scope).filter((a) => a.ms > 0);
+  // All history: pages are not scoped (lib/scope.ts).
+  const scope = ALL_HISTORY;
+  const everyApp = getApps(scope).filter((a) => a.ms > 0);
+  // Hidden apps leave the rankings and wait behind "Show hidden" in the list;
+  // every other page, and every total, still counts them (lib/app-prefs.ts).
+  const apps = everyApp.filter((a) => !a.hidden);
   const overview = getOverview(scope);
   const laptop = windowsLogoScope();
 
@@ -90,36 +94,56 @@ export default async function AppsPage({
     .slice(0, 8)
     .map(datum);
 
-  // The charts rank every app; only the TABLE folds its tail away.
-  const { shown, rest } = splitForList(apps.map((a) => ({ ...a, opens: a.sessions })));
+  // The charts rank every unhidden app; only the LIST folds its tail away.
+  const { rest } = splitForList(apps.map((a) => ({ ...a, opens: a.sessions })));
   const restMs = rest.reduce((n, a) => n + a.ms, 0);
+  const listed = (a: (typeof apps)[number]) => isListed({ ...a, opens: a.sessions });
+  // What an app may be merged into: every other app, as shown.
+  const candidates = everyApp.map((a) => ({ key: a.key, name: a.name }));
+  const href = (a: (typeof apps)[number]) =>
+    earnsDetailPage(a.ms) ? `/windows/${slug}/apps/${encodeURIComponent(a.key)}` : undefined;
+  const menu = (a: (typeof apps)[number]) => (
+    <AppMenu
+      platform="windows" device={slug} appKey={a.key} name={a.name}
+      hidden={a.hidden} candidates={candidates} baseName={a.baseName}
+      colour={pickerColour(a)} customColour={picked.has(a.key)}
+    />
+  );
+  const nameLink = (a: (typeof apps)[number]) => {
+    const to = href(a);
+    return to ? <Link href={to} className="app-link">{a.name}</Link> : <span className="app-name">{a.name}</span>;
+  };
 
   const row = (a: (typeof apps)[number]) => (
-    <tr key={a.key}>
+    <tr key={a.key} className={a.hidden ? 'row--hidden' : undefined}>
       <td>
         <span className="app-cell">
           <AppIcon name={a.name} src={logoUrl(look(a), laptop)} plate={needsLightPlate(look(a), laptop)} />
-          <RenameApp
-            variant="row" platform="windows" device={slug}
-            appKey={a.key} name={a.name} baseName={a.baseName}
-            colour={pickerColour(a)} customColour={picked.has(a.key)}
-          >
-            {earnsDetailPage(a.ms) ? (
-              <Link href={`/windows/${slug}/apps/${encodeURIComponent(a.key)}`} className="app-link">
-                {a.name}
-              </Link>
-            ) : (
-              <span className="app-name">{a.name}</span>
-            )}
-            {a.system && <span className="app-kind">system</span>}
-          </RenameApp>
+          {nameLink(a)}
+          {a.system && <span className="app-kind">system</span>}
+          {menu(a)}
         </span>
       </td>
       <td className="num mono">{formatDuration(a.ms)}</td>
-      <td className="num mono">{formatPercent(a.share, 1)}</td>
       <td className="num mono">{a.sessions}</td>
       <td className="num mono">{a.days}</td>
     </tr>
+  );
+
+  const card = (a: (typeof apps)[number], i: number) => (
+    <AppCard
+      key={a.key}
+      href={href(a)}
+      icon={<AppIcon name={a.name} src={logoUrl(look(a), laptop)} plate={needsLightPlate(look(a), laptop)} size={52} />}
+      title={nameLink(a)}
+      badges={a.system ? <span className="app-kind">system</span> : undefined}
+      actions={menu(a)}
+      ms={a.ms}
+      opens={a.sessions}
+      days={a.days}
+      hidden={a.hidden}
+      index={i}
+    />
   );
 
   return (
@@ -130,7 +154,7 @@ export default async function AppsPage({
             the Overview, where it sits beside the freshness line that gives it
             meaning; repeated here it was a second date with no context. */}
         <p>
-          {apps.length} app{apps.length === 1 ? '' : 's'} across{' '}
+          {everyApp.length} app{everyApp.length === 1 ? '' : 's'} across{' '}
           {overview.daysWithData} day{overview.daysWithData === 1 ? '' : 's'}
         </p>
       </div>
@@ -144,7 +168,7 @@ export default async function AppsPage({
           Top apps
         </CardTitle>
         {top.length === 0 ? (
-          <p className="prose-note">No foreground activity recorded in this range.</p>
+          <p className="prose-note">No foreground activity recorded yet.</p>
         ) : (
           <TopAppsChart data={top} />
         )}
@@ -161,45 +185,42 @@ export default async function AppsPage({
           Most opened
         </CardTitle>
         {mostOpened.length === 0 ? (
-          <p className="prose-note">No foreground activity recorded in this range.</p>
+          <p className="prose-note">No foreground activity recorded yet.</p>
         ) : (
           <MostOpenedChart data={mostOpened} />
         )}
       </Card>
 
-      <Card delay={120}>
-        <CardTitle
+      {everyApp.length === 0 ? (
+        <Card delay={120}>
+          <CardTitle>Apps</CardTitle>
+          <p className="prose-note">No foreground activity recorded yet.</p>
+        </Card>
+      ) : (
+        <AppsBrowser
+          title="Apps"
           sub={
             `${rest.length > 0 ? `${listRule()} ` : ''}` +
-            'On Windows every row together DOES sum to the active total: the ' +
-            'sampler records exactly one foreground app at a time, so the rows ' +
+            'On Windows every app together DOES sum to the active total: the ' +
+            'sampler records exactly one foreground app at a time, so the apps ' +
             'partition the time rather than overlapping it.'
           }
-        >
-          {rest.length > 0 ? `Apps · ${shown.length} of ${apps.length}` : 'All apps'}
-        </CardTitle>
-        {apps.length === 0 ? (
-          <p className="prose-note">No foreground activity recorded in this range.</p>
-        ) : (
-          <AppListTable
-            head={
-              <thead>
-                <tr>
-                  <th>App</th>
-                  <th style={{ textAlign: 'right' }}>Time</th>
-                  <th style={{ textAlign: 'right' }}>Share</th>
-                  <th style={{ textAlign: 'right' }}>Opens</th>
-                  <th style={{ textAlign: 'right' }}>Days</th>
-                </tr>
-              </thead>
-            }
-            shown={shown.map(row)}
-            rest={rest.map(row)}
-            restSummary={rest.length > 0 ? `${rest.length} more, ${formatDuration(restMs)} between them` : ''}
-            total={apps.length}
-          />
-        )}
-      </Card>
+          head={
+            <thead>
+              <tr>
+                <th>App</th>
+                <th style={{ textAlign: 'right' }}>Time</th>
+                <th style={{ textAlign: 'right' }}>Opens</th>
+                <th style={{ textAlign: 'right' }}>Days</th>
+              </tr>
+            </thead>
+          }
+          items={everyApp.map((a, i) => ({
+            key: a.key, hidden: a.hidden, listed: listed(a), row: row(a), card: card(a, i),
+          }))}
+          restSummary={rest.length > 0 ? `${rest.length} more, ${formatDuration(restMs)} between them` : ''}
+        />
+      )}
     </>
   );
 }

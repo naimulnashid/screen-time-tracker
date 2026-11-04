@@ -90,17 +90,23 @@ export function planRename(
   const app = apps.get(key);
   if (!app) return { ok: false, error: 'unknown-app' };
 
-  if (typeof raw === 'string' && raw.trim() === '') return { ok: true, name: app.base, clear: true };
-  const name = cleanName(raw);
+  const reset = typeof raw === 'string' && raw.trim() === '';
+  const name = reset ? app.base : cleanName(raw);
   if (name === null) return { ok: false, error: 'bad-name' };
-  if (name === app.base) return { ok: true, name, clear: true };
+  const clear = name === app.base;
 
+  // Clearing is checked for collisions too. Rename A away from "Alpha",
+  // rename B to "Alpha", then reset A, and two apps read "Alpha". A clash with
+  // an app that is NOT renamed is let through: it was there before any
+  // rename, and refusing would leave the rename impossible to undo.
   const lower = name.toLowerCase();
-  if (RESERVED.has(lower)) return { ok: false, error: 'reserved' };
+  if (!clear && RESERVED.has(lower)) return { ok: false, error: 'reserved' };
   for (const [k, shown] of apps) {
-    if (k !== key && shown.name.toLowerCase() === lower) return { ok: false, error: 'taken' };
+    if (k === key || shown.name.toLowerCase() !== lower) continue;
+    if (clear && shown.name === shown.base) continue;
+    return { ok: false, error: 'taken' };
   }
-  return { ok: true, name, clear: false };
+  return { ok: true, name, clear };
 }
 
 /**

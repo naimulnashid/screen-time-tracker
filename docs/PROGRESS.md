@@ -830,6 +830,147 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       a scratch server: the button on a phone page in both themes, and one
       press returned 200 "Up to date" with the inbox empty.
 
+### 2026-11-04 - the project site rebuilt on Astro and Onyx
+
+- [x] `site/` is the sibling's Astro 7 site, copied and rewritten for screen
+      time: violet and green accents, the hero's retention figure kept from
+      the old page, new Features / How it works / Privacy / Install / FAQ
+      copy, and `charts.js` made from the old `site.js` with per-range
+      stacks, spike points (1.5x), "All", the app list as table or grid.
+- [x] `npm run build` in `site/` passes, and `check-csp` allows its one
+      inline script. Looked at the whole page in headless Edge (dark) and in
+      the browser pane (light, both devices): laptop and phone stats (3 and
+      6), 7d range drew Oct 7 to Oct 13, table without Share, no console
+      errors.
+- [x] The screenshot tour stayed out (hidden since 2026-10-15, pending the
+      owner's review), so the hero has no screenshots either.
+- [ ] Not deployed: Vercel builds from the public repo, so it goes live with
+      the next export. The framework now comes from `vercel.json`
+      (`astro`); check the first deployment's log.
+
+### 2026-11-04 - the README reworked to the house structure
+
+- [x] Title with `src/app/icon.svg` (its own black tile, so it reads on both
+      GitHub themes), CI / release / license / Website badges, `<picture>`
+      screenshots in both themes, and the ten sections in order. Local links
+      and anchors all resolve; no export term appears.
+- [x] Run on 2026-11-04: `npm run typecheck`, `selftest`, `build`,
+      `ingest`, `drill`, `inbox -- key`, the token one-liner. The drill
+      failed on 10 uncommitted local logo files, not on the README.
+- [ ] Not run, deliberately: `npm ci` (it would replace `node_modules` under
+      the running dashboard), `install-sampler.ps1 -RunNow` (it would start
+      a second sampler beside Screen Time Native's), `autostart -RunNow`,
+      `restore`, `firewall` (Administrator), the inbox `keygen` / `sql` /
+      `deploy`, and `npm run demo` (the same server was run by hand on
+      127.0.0.1:7850 the same day). `./gradlew assembleDebug` was not run;
+      `assembleRelease` was, on 2026-11-03.
+
+### 2026-11-04 - By App grid, hide and merge, checked in a browser
+
+- [x] Schema 7 (`app_hidden`, `app_merges`), `lib/app-prefs.ts`,
+      `/api/apps/prefs`, `AppMenu`, `AppsViews` (Table / Grid), the rename
+      dialog, Backspace on detail and Activity pages; the drill expects both
+      tables in a schema-7 backup.
+- [x] Every page retaken in both themes with `npm run demo:shots`, which now
+      also takes By App as a grid. Looked at: laptop and phone Overview, By
+      App (table and grid), app detail.
+- [x] Driven on a scratch demo at 127.0.0.1:7850: Notepad merged into VS
+      Code (By App 58h 9m = 53h 43m + 4h 26m in the database; the Merged apps
+      card listed Notepad, 4h 25m; `/apps/exe%3Anotepad` redirected to VS
+      Code), separated again (53h 43m); VLC hidden (gone from list and
+      chart, back under "Show 1 hidden", dimmed), shown again; Word renamed
+      in the dialog; Top apps by day on 7d drew Oct 28 - Nov 3 with its own
+      top app.
+- [x] Three faults found and fixed: a long card sub pushed the Table / Grid
+      switch onto its own line (`.card-title`'s text now shrinks first); the
+      dialog's name field was 10rem TALL (its flex basis, in a column); the
+      Separate button was hidden until hover like a table row's menu.
+- [ ] The phone By App note claims the launcher stood "nearly three times
+      taller" than the next bar, a measured fact about real data that the
+      demo (111 against 501 opens) contradicts. Not changed here.
+
+### 2026-11-03 - pages cover all history; the by-day charts carry a range
+
+- [x] Range chips gone (`ScopeBar` deleted, `parseDays` removed). Every page
+      reads `ALL_HISTORY`.
+- [x] `RangeMenu` on Top apps by day and Most opened by day (each range its
+      own top eight, `rangedStacks()`), and on an app's Daily trend and Opens
+      per day (one shared range). Opens on 30d.
+- [x] Span of history on the right of each Overview's head line; third card
+      "All"; spike points on the trend (1.5x the recorded mean, chosen from
+      this installation's data: 2.5x would never fire).
+- [x] Skeletons follow (`SkRangeMenu`, `SkPageHead span`). Self-tests for
+      `rangeStarts()` and `spikeThreshold()`.
+- [x] Seen in a browser 2026-11-04, with the By App changes below.
+
+### 2026-11-03 - Next.js 16.4.3 for three advisories
+
+- [x] Dependabot (3 open alerts on the private repo) and `npm audit`,
+      checked 2026-11-03: `next` 16.0.0-16.4.0 is affected, fixed in 16.4.1.
+      Took 16.4.3 (2026-10-23) over 16.4.4, which was a day old. `npm
+      audit` now finds 0. Typecheck and build pass; the live dashboard was
+      stopped, rebuilt and restarted on it through the logon task: `/login`
+      200, a gated page rewritten with `cache-control: no-store`,
+      `/apps/100%` 400.
+
+### 2026-11-03 - npm start restarts on a new build
+
+- [x] `scripts/run-next-start.mjs` runs `next start -p 7844` and restarts it
+      once a new build has finished (BUILD_ID changed, `.next` quiet 15 s).
+      Scratch copy on port 7951: build 1 served `/login` 200; build 2 under
+      it; the wrapper logged the restart 15 s after it and `/login` plus its
+      CSS answered 200.
+- [ ] The live logon task picks it up at its next start.
+
+### 2026-11-03 - covering indexes measured, and not ported
+
+The sibling cut a page's query set from ~1.7 s to ~0.56 s with covering
+indexes. Measured here on a copy of the live database, best of five, "All"
+range:
+
+| Page's query set | Now | Covering indexes | Plus group-ordered ones |
+|---|---:|---:|---:|
+| Laptop overview | 424 ms | 386 ms | 389 ms |
+| Laptop By App | 158 ms | 153 ms | 151 ms |
+| Busiest phone's overview | 403 ms | 354 ms | 352 ms |
+
+About 10%, for 18% more file (and the Drive-synced
+backup with it). The plans were already mostly index searches; the time goes
+to `GROUP BY` temp B-trees in the visit-stitching queries and to the work in
+JavaScript after them, which no index removes. Not ported. Revisit with
+`EXPLAIN QUERY PLAN` if a page passes a second.
+
+### 2026-11-03 - Reporter 1.3.3
+
+- [x] The read reaches back to the earliest span still open at the last
+      confirmed sync (`Prefs.openSince`, saved with the watermark, capped at
+      24 h). Audit BUG-001.
+- [x] `onStopJob` cancels the sync (`Cancel.kt`): checked after the read,
+      and the upload's connection is disconnected.
+- [x] Spans carry `tzOffsetMinutes` where it differs from the payload's;
+      `android-ingest.ts` buckets by it and rejects an absurd one. Two
+      self-tests. Audit BUG-002.
+- [x] `assembleRelease` and `lintRelease` pass; certificate digest
+      `21ad608e...20ec96fcc9`, the release key's.
+- [ ] Not yet on a phone, and not released: the reach-back has no test
+      outside a device. Check on the Nothing that a session open across two
+      syncs arrives whole.
+
+### 2026-11-03 - fixes ported from the sibling's audit
+
+- [x] `restore.ps1` keeps a WAL-complete copy of the live database
+      (`scripts/db-copy.mjs`), checks the backup first, stages the copy,
+      and refuses while the database is open. Tested on a scratch database
+      on D: with one row only in the WAL: the kept copy held 3 rows where the
+      old script would have kept 2; `-Force` was needed (3 > 2); a second
+      process holding the file was refused with nothing changed.
+- [x] `planRename()` checks a reset for collisions too; two self-tests.
+- [x] Page titles drop the `· Screen Time` suffix.
+- [x] Footer, README, SECURITY.md and a `next.config.mjs` comment stop
+      claiming no outbound requests; SECURITY.md's PBKDF2 row corrected.
+- [ ] Not ported: the sibling's "back up after a drain", because
+      `drainInbox()` here already backs up once per drain that lands rows.
+
 ### 2026-11-03 - the listener is found by its shape, not its state
 
 `Get-NetTCPConnection -State Listen` found nothing on 7844 while the dashboard

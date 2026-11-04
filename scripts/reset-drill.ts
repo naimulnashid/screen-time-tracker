@@ -145,6 +145,7 @@ try {
           // open, like the version.
           ...(Number(version?.value) >= 5 ? ['app_renames'] : []),
           ...(Number(version?.value) >= 6 ? ['app_colours'] : []),
+          ...(Number(version?.value) >= 7 ? ['app_hidden', 'app_merges'] : []),
         ];
         const present = new Set(
           (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[])

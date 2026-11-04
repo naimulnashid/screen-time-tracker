@@ -1,30 +1,30 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
+import { HourlyChart, HourlyOpensChart } from '@/components/Charts';
+import { AppDailyCards } from '@/components/RangedCharts';
 import {
-  DailyTrendChart, HourlyChart, DailyOpensChart, HourlyOpensChart,
-} from '@/components/Charts';
-import {
-  getAndroidDeviceBySlug, getAndroidAppDetail, androidAppExists,
+  getAndroidDeviceBySlug, getAndroidAppDetail,
   androidEarnsDetailPage, getAndroidColourOverrides,
 } from '@/lib/android-queries';
 import { AppIcon } from '@/components/AppIcon';
 import { Callout } from '@/components/Callout';
-import { heaviestDay } from '@/lib/trend';
 import { peakOf } from '@/lib/stack';
 import { logoUrl, needsLightPlate, lookName } from '@/lib/app-logo';
 import { RenameApp } from '@/components/RenameApp';
+import { UnmergeButton } from '@/components/AppMenu';
+import { BackKey } from '@/components/BackKey';
 import { brandColour } from '@/lib/app-colour';
 import { ACCENTS } from '@/lib/accent';
-import { parseDays } from '@/lib/scope';
+import { ALL_HISTORY, rangeStarts } from '@/lib/scope';
 import { decodeSegment } from '@/lib/slug';
 import {
-  formatDuration, formatPercent, formatDayShort, formatHourOfDay, formatOpens,
+  formatDuration, formatPercent, formatHourOfDay, formatOpens,
 } from '@/lib/format';
 import type { Metadata } from 'next';
 import { androidAppTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -44,10 +44,9 @@ export const dynamic = 'force-dynamic';
  * merged, so there is nothing that could be merged wrongly.
  */
 export default async function AndroidAppDetailPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string; pkg: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug, pkg: rawPkg } = await params;
   const device = getAndroidDeviceBySlug(slug);
@@ -57,30 +56,11 @@ export default async function AndroidAppDetailPage({
   // narrows the type, since the page renders alongside the layout.
   const pkg = decodeSegment(rawPkg);
   if (pkg === null) notFound();
-  const sp = await searchParams;
-  const scope = { days: parseDays(sp.days) };
-
-  const detail = getAndroidAppDetail(device.deviceId, scope, pkg);
+  // All history; the two by-day charts carry their own range. No rows means
+  // no such app: there is no range left to be empty.
+  const detail = getAndroidAppDetail(device.deviceId, ALL_HISTORY, pkg);
   const backHref = `/android/${slug}/apps`;
-
-  // "Not found" and "nothing in this range" are different answers. An app with
-  // no rows in the current scope still exists.
-  if (!detail) {
-    if (androidAppExists(device.deviceId, pkg)) {
-      return (
-        <div className="empty">
-          <h1 style={{ marginBottom: '0.8rem' }}>Nothing in this range</h1>
-          <p style={{ maxWidth: 520, margin: '0 auto 1.4rem' }}>
-            This app has recorded time, but none inside the selected range.
-          </p>
-          <Link href={backHref} className="chip" style={{ display: 'inline-block' }}>
-            Back to all apps
-          </Link>
-        </div>
-      );
-    }
-    notFound();
-  }
+  if (!detail) notFound();
 
   // Re-checked here, not just on the table's link: a bookmarked URL for a
   // trivial app must not render a page of one bar.
@@ -99,12 +79,8 @@ export default async function AndroidAppDetailPage({
     );
   }
 
-  // Each chart's headline figure, for the top right of its card. A single
-  // day draws no chart, so it gets no callout either.
-  const heaviest = detail.daily.length > 1
-    ? heaviestDay(detail.daily.map((d) => ({ date: d.date, ms: d.active })))
-    : null;
-  const mostOpens = detail.dailyOpens.length > 1 ? peakOf(detail.dailyOpens, (d) => d.opens) : null;
+  // Each hourly chart's headline figure, for the top right of its card. The
+  // by-day charts put theirs in their subtitle, beside their range menu.
   const busiest = peakOf(detail.hourly, (h) => h.ms);
   const busiestOpens = peakOf(detail.hourlyOpens, (h) => h.opens);
   const look = lookName(detail.label, detail.baseLabel, slug);
@@ -112,10 +88,11 @@ export default async function AndroidAppDetailPage({
 
   return (
     <>
+      <BackKey href={backHref} />
       <div className="page-head">
         <Link href={backHref} className="back-link">&larr; All apps</Link>
         <RenameApp
-          variant="title" platform="android" device={slug}
+          platform="android" device={slug}
           appKey={detail.packageName} name={detail.label} baseName={detail.baseLabel}
           colour={ownColour ?? brandColour(look, slug) ?? ACCENTS.android.accent}
           customColour={ownColour !== undefined}
@@ -160,50 +137,18 @@ export default async function AndroidAppDetailPage({
         </Card>
       </div>
 
-      <Card delay={240}>
-        <CardTitle
-          sub={`Time in ${detail.label} per day.`}
-          aside={
-            heaviest && (
-              <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
-            )
-          }
-        >
-          Daily trend
-        </CardTitle>
-        {detail.daily.length > 1 ? (
-          <DailyTrendChart data={detail.daily} />
-        ) : (
-          <p className="prose-note">Only one day of data for this app so far.</p>
-        )}
-      </Card>
-
       {/*
-        The same two shapes, counted in opens rather than milliseconds. They
-        are the pair worth reading TOGETHER: a tall time bar over a short opens
-        bar is one long sitting, and a short time bar over a tall opens bar is
-        compulsive checking. Either one alone cannot tell those apart, which is
-        why these are separate cards rather than a second series squeezed onto
-        the same axis -- one chart with hours and counts on two scales invites
-        comparing bar heights that mean different things.
+        Time and opens per day, under one range: the pair worth reading
+        TOGETHER. A tall time bar over a short opens bar is one long sitting,
+        and a short time bar over a tall opens bar is compulsive checking.
       */}
-      <Card delay={300}>
-        <CardTitle
-          sub={`How many times ${detail.label} was opened each day.`}
-          aside={
-            mostOpens && (
-              <Callout label="Most opens" detail={formatDayShort(mostOpens.date)} value={formatOpens(mostOpens.opens)} />
-            )
-          }
-        >
-          Opens per day
-        </CardTitle>
-        {detail.dailyOpens.length > 1 ? (
-          <DailyOpensChart data={detail.dailyOpens} />
-        ) : (
-          <p className="prose-note">Only one day of data for this app so far.</p>
-        )}
-      </Card>
+      <AppDailyCards
+        daily={detail.daily}
+        opens={detail.dailyOpens}
+        starts={rangeStarts(detail.latestDate)}
+        name={detail.label}
+        delay={240}
+      />
 
       <Card delay={360}>
         <CardTitle
@@ -232,6 +177,35 @@ export default async function AndroidAppDetailPage({
         </CardTitle>
         <HourlyOpensChart data={detail.hourlyOpens} />
       </Card>
+      {detail.members.length > 0 && (
+        <Card delay={540}>
+          <CardTitle sub="Apps you merged into this one. Their time and opens are counted here, on every page.">
+            Merged apps
+          </CardTitle>
+          <div className="table-wrap">
+            <table className="app-table member-table">
+              <thead>
+                <tr>
+                  <th>App</th>
+                  <th style={{ textAlign: 'right' }}>Time</th>
+                  <th className="undo-col"><span className="sr-only">Separate</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.members.map((m) => (
+                  <tr key={m.key}>
+                    <td>{m.name}</td>
+                    <td className="num mono">{formatDuration(m.ms)}</td>
+                    <td className="num undo-col">
+                      <UnmergeButton platform="android" device={slug} appKey={m.key} name={m.name} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </>
   );
 }

@@ -1,8 +1,9 @@
-import { AttributedNote, HomeOpensNote } from '@/components/Notes';
+import { AttributedNote } from '@/components/Notes';
 import { notFound } from 'next/navigation';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
-import { TrendChart, HourlyChart, StackedDailyChart } from '@/components/Charts';
+import { TrendChart, HourlyChart } from '@/components/Charts';
+import { RangedStackCard } from '@/components/RangedCharts';
 import { Callout } from '@/components/Callout';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import {
@@ -10,20 +11,20 @@ import {
   getAndroidDailyByApp,
   getAndroidColourOverrides,
 } from '@/lib/android-queries';
-import { stackByApp, peakOf } from '@/lib/stack';
-import { stackSeries } from '@/lib/stack-series';
+import { peakOf } from '@/lib/stack';
+import { rangedStacks } from '@/lib/ranged-stack';
 import { isHomeSurface } from '@/lib/home-surface';
 import { collectedAgo } from '@/lib/queries';
-import { ALL_DAYS, parseDays, queryString } from '@/lib/scope';
-import { fillDays, heaviestDay } from '@/lib/trend';
+import { ALL_HISTORY } from '@/lib/scope';
+import { fillDays, heaviestDay, spikeThreshold } from '@/lib/trend';
 import {
   splitDuration, formatDuration, formatDayLong, formatDayShort, formatPercent,
-  formatHourOfDay, formatOpens, formatCount,
+  formatHourOfDay,
 } from '@/lib/format';
 import type { Metadata } from 'next';
 import { androidTitle } from '@/lib/page-title';
 
-/** `<page> · <device> · Screen Time` -- see lib/page-title.ts. */
+/** `<page> · <device>` -- see lib/page-title.ts. */
 export async function generateMetadata({
   params,
 }: {
@@ -87,24 +88,21 @@ function CountCard({
 }
 
 export default async function AndroidOverviewPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   const { device: slug } = await params;
   const device = getAndroidDeviceBySlug(slug);
   if (!device) notFound();
 
-  const sp = await searchParams;
-  const scope = { days: parseDays(sp.days) };
+  // All history, like the laptop's; the by-day charts carry their own range.
+  const scope = ALL_HISTORY;
 
   const data = getAndroidOverview(device.deviceId, scope);
   const daily = getAndroidDaily(device.deviceId, scope);
   const hourly = getAndroidHourly(device.deviceId, scope);
-  // Ignores the range selector, like the laptop's: see the note there.
-  const history = getAndroidDaily(device.deviceId, { days: ALL_DAYS })
-    .map((d) => ({ date: d.date, ms: d.screenOn }));
+  const history = daily.map((d) => ({ date: d.date, ms: d.screenOn }));
 
   if (!data.latestDate) {
     return (
@@ -124,29 +122,33 @@ export default async function AndroidOverviewPage({
 
   const trend = fillDays(daily.map((d) => ({ date: d.date, ms: d.screenOn })));
   const heaviest = heaviestDay(trend);
+  const spikeOver = spikeThreshold(trend);
+  const spikes = spikeOver === null ? 0 : trend.filter((d) => d.ms !== null && d.ms > spikeOver).length;
   const busiest = peakOf(hourly, (h) => h.ms);
+  const first = daily[0]?.date;
+  const span = first
+    ? `${formatDayShort(first)} – ${formatDayShort(data.latestDate)} · ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'}`
+    : null;
 
   // The two stacked charts, each ranked by its own measure. See the laptop's
   // Overview; the one difference is that app rows here do NOT add up to the
   // headline, which the last card explains.
   const byApp = getAndroidDailyByApp(device.deviceId, scope);
-  const recordedDays = daily.map((d) => d.date);
   const nameOf = (id: string) => byApp.labels.get(id) ?? { name: id, base: id };
-  const timeStack = stackByApp(byApp.time, recordedDays);
+  const stackOpts = {
+    recorded: daily.map((d) => d.date),
+    latest: data.latestDate,
+    nameOf,
+    device: slug,
+    picked: getAndroidColourOverrides(device.deviceId),
+  };
+  const timeRanges = rangedStacks({ rows: byApp.time, ...stackOpts });
   // The home screen leaves the OPENS stack only, as it leaves By App's Most
   // opened: it is passed through, not opened, and would be the tallest band
   // by far. It stays in the time stack, and the card names it -- see
   // home-surface.ts.
-  const home = new Map<string, number>();
-  for (const r of byApp.opens) {
-    if (isHomeSurface(r.id)) home.set(r.id, (home.get(r.id) ?? 0) + r.value);
-  }
-  const opensStack = stackByApp(byApp.opens.filter((r) => !home.has(r.id)), recordedDays);
-  const picked = getAndroidColourOverrides(device.deviceId);
-  const timeSeries = stackSeries(timeStack.series, nameOf, slug, picked);
-  const opensSeries = stackSeries(opensStack.series, nameOf, slug, picked);
-  const topByTime = timeSeries.find((s) => s.key !== 'other');
-  const topByOpens = opensSeries.find((s) => s.key !== 'other');
+  const opensRanges = rangedStacks({ rows: byApp.opens, ...stackOpts, exclude: isHomeSurface });
+  const homeIds = [...new Set(byApp.opens.map((r) => r.id).filter(isHomeSurface))];
 
   const attributedPct = data.rangeScreenOn > 0
     ? (data.rangeApps / data.rangeScreenOn) * 100
@@ -167,18 +169,21 @@ export default async function AndroidOverviewPage({
             same words, because they mean the same thing. The Android release
             moved to Sync Status: it is a property of the device, not of how
             current these numbers are. */}
-        <p>
-          Latest data {formatDayLong(data.latestDate)}
-          {collected ? ` · collected ${collected}` : ''}
+        <p className="page-head-line">
+          <span>
+            Latest data {formatDayLong(data.latestDate)}
+            {collected ? ` · collected ${collected}` : ''}
+          </span>
+          {span && <span>{span}</span>}
         </p>
       </div>
 
       {/*
         Two rows of three: screen time on top, unlocks beneath, each as the
-        latest day, the per-day average and the range total -- so the columns
+        latest day, the per-day average and all history -- so the columns
         read down as well as across. The totals live here because By App no
-        longer carries score cards; the laptop's Overview has its Range total
-        in the same place.
+        longer carries score cards; the laptop's Overview has its All card in
+        the same place.
 
         The unlock cards replaced one that reported unlocked TIME as a share of
         screen-on time -- a ratio that barely moves, because the phone is
@@ -225,7 +230,7 @@ export default async function AndroidOverviewPage({
         <CountCard
           label="Total unlocks"
           value={data.unlocksTotal}
-          sub="pick-ups in this range"
+          sub="pick-ups in all history"
           delay={300}
         />
       </div>
@@ -236,7 +241,7 @@ export default async function AndroidOverviewPage({
           and Most opened moved to By App, as they did on the laptop. */}
       <Card delay={360}>
         <CardTitle
-          sub={`${perDay} across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} of data.`}
+          sub={`${perDay} across ${data.daysWithData} day${data.daysWithData === 1 ? '' : 's'} of data${spikes ? ` · ${spikes} day${spikes === 1 ? '' : 's'} well above trend` : ''}.`}
           aside={
             heaviest && (
               <Callout label="Heaviest day" detail={formatDayShort(heaviest.date)} value={formatDuration(heaviest.ms)} />
@@ -246,69 +251,47 @@ export default async function AndroidOverviewPage({
           Daily trend
         </CardTitle>
         {daily.length > 1 ? (
-          <TrendChart data={trend} />
+          <TrendChart data={trend} spikeOver={spikeOver} />
         ) : (
           <p className="prose-note">One day of data so far.</p>
         )}
       </Card>
 
       <Card delay={420}>
-        <CardTitle sub={`${perDay}, whatever the range above. Outlined days were never recorded - before the phone first synced, or evicted before it did - which is not the same as a quiet day.`}>
+        <CardTitle sub={`${perDay}. Outlined days were never recorded - before the phone first synced, or evicted before it did - which is not the same as a quiet day.`}>
           Activity
         </CardTitle>
         <ActivityHeatmap
           daily={history}
           label={screen ? 'Daily screen-on time' : 'Daily time in apps'}
-          expandHref={`/android/${slug}/activity${queryString(sp)}`}
+          expandHref={`/android/${slug}/activity`}
         />
       </Card>
 
-      <Card delay={480}>
-        <CardTitle
-          sub={
-            screen
-              ? 'Time in apps per day, top 8 stacked; everything else grouped as Other. Apps never cover all of screen-on time: see the last card.'
-              : 'Time in apps per day, top 8 stacked; everything else grouped as Other.'
-          }
-          aside={
-            topByTime && (
-              <Callout label="Top app" detail={topByTime.name} value={formatDuration(topByTime.total)} />
-            )
-          }
-        >
-          Top apps by day
-        </CardTitle>
-        {timeStack.points.length > 1 ? (
-          <StackedDailyChart points={timeStack.points} series={timeSeries} measure="time" />
-        ) : (
-          <p className="prose-note">One day of data so far.</p>
-        )}
-      </Card>
+      <RangedStackCard
+        ranges={timeRanges}
+        measure="time"
+        title="Top apps by day"
+        sub={
+          screen
+            ? 'Time in apps per day, top 8 stacked; everything else grouped as Other. Apps never cover all of screen-on time: see the last card.'
+            : 'Time in apps per day, top 8 stacked; everything else grouped as Other.'
+        }
+        delay={480}
+      />
 
-      <Card delay={540}>
-        <CardTitle
-          sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
-          aside={
-            topByOpens && (
-              <Callout label="Most opened" detail={topByOpens.name} value={formatOpens(topByOpens.total)} />
-            )
-          }
-        >
-          Most opened by day
-        </CardTitle>
-        {opensStack.points.length > 1 ? (
-          <StackedDailyChart points={opensStack.points} series={opensSeries} measure="opens" />
-        ) : (
-          <p className="prose-note">One day of data so far.</p>
-        )}
-        {home.size > 0 && (
-          <HomeOpensNote
-            names={[...home.keys()].map((id) => nameOf(id).name).join(', ')}
-            verb={home.size === 1 ? 'is' : 'are'}
-            opens={formatCount([...home.values()].reduce((a, b) => a + b, 0))}
-          />
-        )}
-      </Card>
+      <RangedStackCard
+        ranges={opensRanges}
+        measure="opens"
+        title="Most opened by day"
+        sub="Opens per day, top 8 apps stacked; everything else grouped as Other."
+        delay={540}
+        excludedNames={
+          homeIds.length > 0
+            ? { names: homeIds.map((id) => nameOf(id).name).join(', '), count: homeIds.length }
+            : undefined
+        }
+      />
 
       <Card delay={600}>
         <CardTitle
