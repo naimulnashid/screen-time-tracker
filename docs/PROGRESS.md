@@ -873,6 +873,14 @@ Plus ~138 h. Released as the v1.4.0 asset; not yet installed on the phones.
       `deno check` on the function (not run locally, as there is no Deno
       here; it passed in CI on the first push).
       JUnit is the app's first dependency, test-only.
+- [x] SEC-001, the rest: `lib/read-capped.ts` is the one body reader (the
+      phone route's streaming cap, moved there), used by login (4 KiB) and
+      the rename, colour and prefs routes (4 KiB, bytes not characters).
+      Login charges the throttle before reading. Self-tested (chunked over
+      the cap stops after a few chunks, declared length, multi-byte text).
+      On a scratch build at 127.0.0.1: oversized declared and chunked login
+      413, broken JSON 400, six malformed logins from one client end in 429,
+      rename and colour oversize 413, the right password 200, a wrong one 401.
 
 ### 2026-11-04 - the project site rebuilt on Astro and Onyx
 

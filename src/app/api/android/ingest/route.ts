@@ -4,6 +4,7 @@ import { openDatabase, startSyncRun, finishSyncRun, checkpointWal, backupDatabas
 import { ingestAndroid, payloadProblem, type AndroidPayload } from '@/lib/android-ingest';
 import { safeEqual } from '@/lib/auth';
 import { loadConfig } from '@/lib/config';
+import { readCapped } from '@/lib/read-capped';
 import { inboxConfig, loadInboxKey, publicKeyB64, fingerprint } from '@/lib/inbox';
 
 export const runtime = 'nodejs';
@@ -44,25 +45,6 @@ const MAX_JSON_BYTES = 64 * 1024 * 1024;
 function configuredToken(): string | undefined {
   const t = process.env['ANDROID_INGEST_TOKEN'];
   return t && t.trim().length > 0 ? t : undefined;
-}
-
-/** The body, or null the moment it passes `max` bytes. */
-async function readCapped(request: Request, max: number): Promise<Buffer | null> {
-  if (!request.body) return Buffer.alloc(0);
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel().catch(() => {});
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks);
 }
 
 const tooLarge = () => NextResponse.json({ error: 'payload-too-large' }, { status: 413 });

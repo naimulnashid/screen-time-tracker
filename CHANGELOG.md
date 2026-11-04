@@ -8,6 +8,14 @@ each change -- what was measured, and what it overturned -- is in
 
 ## [Unreleased]
 
+### Fixed
+- **Every request body is capped as it arrives.** Sign-in parsed a body of
+  any size, and renaming, recolouring, hiding or merging read the whole body
+  before checking a limit counted in characters. All of them now stop reading
+  at a byte limit (4 KB), chunked uploads included, and answer 413. A
+  malformed sign-in now counts toward the sign-in throttle like a wrong
+  password.
+
 ## [1.7.0] - 2026-11-04
 
 The phone app for this release is **Screen Time Reporter 1.3.3**

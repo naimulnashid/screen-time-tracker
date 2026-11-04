@@ -23,8 +23,8 @@
  * signed-in device keeps its 30-day session and is not affected, and a locked
  * form is recoverable while a guessed password is not.
  *
- * An attempt is charged BEFORE the password is checked and refunded on
- * success. Charging after would let a burst of parallel requests all pass the
+ * An attempt is charged BEFORE the body is read (so a malformed one costs an
+ * attempt too) and refunded on success. Charging after would let a burst of parallel requests all pass the
  * check before any of them had been counted.
  *
  * Pure, with an injectable clock, so `npm run selftest` can drive it. State is

@@ -6,6 +6,7 @@ import {
   safeEqual,
 } from '@/lib/auth';
 import { LoginThrottle, clientKey } from '@/lib/login-throttle';
+import { readCappedJson } from '@/lib/read-capped';
 
 export const runtime = 'nodejs';
 
@@ -15,24 +16,18 @@ export const runtime = 'nodejs';
  */
 const throttle = new LoginThrottle();
 
+const MAX_LOGIN_BYTES = 4096;
+
 export async function POST(request: Request) {
   const expected = configuredPassword();
   if (!expected) {
     return NextResponse.json({ error: 'auth-not-configured' }, { status: 503 });
   }
 
-  let submitted: unknown;
-  try {
-    submitted = ((await request.json()) as { password?: unknown })?.password;
-  } catch {
-    return NextResponse.json({ error: 'bad-request' }, { status: 400 });
-  }
-  if (typeof submitted !== 'string') {
-    return NextResponse.json({ error: 'bad-request' }, { status: 400 });
-  }
-
-  // Charged BEFORE the comparison, so a burst of parallel guesses is counted
-  // as it arrives rather than after every one of them has been checked.
+  // Charged BEFORE the body is even read, so a burst of parallel requests is
+  // counted as it arrives, and a malformed or oversized body is a failed
+  // attempt like a wrong password (audit SEC-001): it used to be parsed in
+  // full and answered 400 without costing anything.
   const verdict = throttle.attempt(clientKey(request.headers));
   if (!verdict.allowed) {
     const seconds = Math.max(1, Math.ceil(verdict.retryAfterMs / 1000));
@@ -40,6 +35,19 @@ export async function POST(request: Request) {
       { error: 'too-many-attempts', retryAfterSeconds: seconds },
       { status: 429, headers: { 'Retry-After': String(seconds) } },
     );
+  }
+
+  // A password and its JSON wrapping; nothing near this size is a sign-in.
+  const body = await readCappedJson(request, MAX_LOGIN_BYTES);
+  if (!body.ok) {
+    return NextResponse.json(
+      { error: body.error === 'too-large' ? 'payload-too-large' : 'bad-request' },
+      { status: body.error === 'too-large' ? 413 : 400 },
+    );
+  }
+  const submitted = (body.value as { password?: unknown } | null)?.password;
+  if (typeof submitted !== 'string') {
+    return NextResponse.json({ error: 'bad-request' }, { status: 400 });
   }
 
   if (!(await safeEqual(submitted, expected))) {

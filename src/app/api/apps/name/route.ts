@@ -16,6 +16,7 @@
  */
 
 import { dbPath, windowsSlug } from '@/lib/config';
+import { readCapped } from '@/lib/read-capped';
 import { backupAfterEdit } from '@/lib/edit-backup';
 import { getWindowsAppNames, WINDOWS_DEVICE_ID } from '@/lib/queries';
 import { getAndroidAppNames, getAndroidDeviceBySlug } from '@/lib/android-queries';
@@ -38,8 +39,9 @@ function fail(status: number, error: string, message: string) {
 }
 
 export async function POST(request: Request) {
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return fail(413, 'too-large', 'Request too large.');
+  const raw = await readCapped(request, MAX_BODY_BYTES);
+  if (!raw) return fail(413, 'too-large', 'Request too large.');
+  const text = raw.toString('utf8');
   let body: Record<string, unknown>;
   try {
     body = JSON.parse(text) as Record<string, unknown>;

@@ -7,6 +7,17 @@ doc privately.
 
 ## After 1.0.0
 
+### One body reader, capped as it streams
+
+The phone's route already read its body with a byte ceiling enforced while
+streaming; sign-in and the app-edit routes did not. Sign-in parsed whatever
+arrived, and the edit routes read the whole body with `request.text()` and
+only then compared its length in characters, so a chunked upload with no
+Content-Length was buffered whole first. The phone route's reader is now
+`lib/read-capped.ts` and every route uses it. Sign-in also charges its
+throttle before reading the body, so a malformed request costs an attempt:
+it used to be refused with a 400 that cost nothing.
+
 ### Comparing databases by what they hold
 
 The drill's "backup is current" check and the restore guard both compared row

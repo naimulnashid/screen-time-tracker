@@ -64,6 +64,7 @@ import {
 } from '../src/lib/inbox';
 import { createPrivateKey } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
+import { readCapped, readCappedJson } from '../src/lib/read-capped';
 import { compare as compareHistory, info as historyInfo } from './db-digest.mjs';
 
 let passed = 0;
@@ -1888,6 +1889,38 @@ section('backup vs live, by content (audit DB-003)');
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+/* ------------------------------------------------------------------ */
+section('request bodies are capped while streaming (audit SEC-001)');
+await (async () => {
+  // A chunked body declares no length; count what the reader is handed.
+  let pulled = 0;
+  const chunked = (chunks: number, size: number) => new Request('http://x/', {
+    method: 'POST',
+    body: new ReadableStream({
+      pull(c) {
+        if (pulled >= chunks) { c.close(); return; }
+        pulled++;
+        c.enqueue(new Uint8Array(size));
+      },
+    }),
+    duplex: 'half',
+  } as RequestInit);
+  pulled = 0;
+  check('a chunked body over the cap is refused', await readCapped(chunked(1000, 1024), 4096), null);
+  check('...without reading the rest of it', pulled < 10, true);
+  pulled = 0;
+  check('a chunked body under the cap is read whole', (await readCapped(chunked(3, 1024), 4096))?.length, 3072);
+  const declared = new Request('http://x/', { method: 'POST', body: 'x', headers: { 'content-length': '999999' } });
+  check('a declared oversize body is refused unread', await readCapped(declared, 4096), null);
+  const multibyte = new Request('http://x/', { method: 'POST', body: JSON.stringify({ name: '\u{1F600}'.repeat(1500) }) });
+  check('the cap counts BYTES, not characters', await readCapped(multibyte, 4096), null);
+  check('JSON under the cap parses', await readCappedJson(new Request('http://x/', { method: 'POST', body: '{"password":"p"}' }), 4096),
+    { ok: true, value: { password: 'p' } });
+  check('broken JSON is bad-json', await readCappedJson(new Request('http://x/', { method: 'POST', body: '{' }), 4096),
+    { ok: false, error: 'bad-json' });
+  check('no body is empty, not an error', (await readCapped(new Request('http://x/', { method: 'POST' }), 10))?.length, 0);
+})();
 
 /* ------------------------------------------------------------------ */
 console.log('');
